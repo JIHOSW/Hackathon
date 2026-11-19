@@ -8,7 +8,7 @@ export function runTests(rules) {
     const pass = JSON.stringify(actual) === JSON.stringify(expected);
     results.push({ name, pass, actual, expected });
   };
-  const base = { age: 20, allowance: 'no', healthDependent: 'no', taxDependent: 'no', ytdIncome: { wage: 0, daily: 0, business: 0 }, parentBracket: 'unknown', otherSupports: [] };
+  const base = { age: 20, allowance: 'no', healthDependent: 'no', taxDependent: 'no', ytdIncome: { wage: 0, daily: 0, business: 0 }, otherSupports: [] };
   const card = (r, id) => r.cards.find((c) => c.id === id);
 
   // 1. 한 달 급여
@@ -27,6 +27,12 @@ export function runTests(rules) {
   eq('사업소득: 월 수입', p.gross, 677820);
   eq('사업소득: 3.3% 원천징수', p.withholding, 22368);
   eq('사업소득: 주휴수당 없음', p.holidayPay, 0);
+
+  p = monthlyPay({ hourlyWage: 10320, weeklyHours: 16, incomeType: 'wage', holidayIncluded: true }, rules);
+  eq('주휴 포함 시급: 주휴수당을 더하지 않음', [p.holidayPay, p.gross], [0, 717446]);
+  eq('주휴 포함 시급: 4대보험은 공제', p.insurance, 69717);
+  p = monthlyPay({ hourlyWage: 10320, weeklyHours: 14, incomeType: 'wage', holidayIncluded: true }, rules);
+  eq('주 15시간 미만이면 주휴 포함 여부와 무관', [p.holidayPay, p.holidayIncluded], [0, false]);
 
   // 2. 구직촉진수당
   eq('수당 기준선', allowanceLine(rules), 1538543);
@@ -71,7 +77,7 @@ export function runTests(rules) {
 
   // 4. 부모 공제: 시급 10,320원 주 14시간, 1월 시작
   const jobD = { hourlyWage: 10320, weeklyHours: 14, startMonth: 1, months: 12, incomeType: 'wage' };
-  r = evaluate(jobD, { ...base, taxDependent: 'yes', parentBracket: 'b2' }, rules);
+  r = evaluate(jobD, { ...base, taxDependent: 'yes' }, rules);
   let d = card(r, 'dependentDeduction');
   eq('부모 공제: 넘음', d.crossed, true);
   eq('부모 공제: 8월에 넘음', d.crossMonth, 8);
@@ -107,11 +113,16 @@ export function runTests(rules) {
   eq('비교: 월 예상 추가수입', cmp.rows.map((x) => x.net), [810863, 655452]);
   eq('비교: 시간당 예상 추가수입', cmp.rows.map((x) => x.netPerHour), [7776, 12571]);
   eq('비교: 일하는 기간 전체', cmp.rows.map((x) => x.periodNet), [9730356, 6554520]);
-  eq('비교: 월 금액은 카페, 시간당은 학원이 앞섬', [cmp.highlights.net, cmp.highlights.netPerHour], [0, 1]);
+  eq('비교: 카페가 가능한 시간을 넘으면 표시는 학원에만', [cmp.highlights.net, cmp.highlights.netPerHour], [1, 1]);
+  const cmp40 = compareOffers([{ name: '카페', job: jobA, meta: {} }, { name: '학원', job: jobB, meta: {} }], profA, rules, { maxHours: 40 });
+  eq('비교: 둘 다 가능하면 월 금액은 카페, 시간당은 학원', [cmp40.highlights.net, cmp40.highlights.netPerHour], [0, 1]);
+  const cmp5 = compareOffers([{ name: '카페', job: jobA, meta: {} }], profA, rules, { maxHours: 5 });
+  eq('비교: 가능한 제안이 없으면 표시 없음', cmp5.highlights.net, -1);
   eq('비교: 확인 안 된 항목이 적은 쪽은 학원', cmp.highlights.fewestUnsure, 1);
   eq('비교: 카페는 가능한 시간(20시간)을 넘음', cmp.rows.map((x) => x.withinHours), [false, true]);
   eq('비교: 학원은 수당이 줄지 않음', cmp.rows[1].allowanceLoss, 0);
   eq('고용주 질문: 카페 3개', cmp.rows[0].questions.length, 3);
+  eq('고용주 질문: 주휴수당 지급 방식이 확정이면 묻지 않음', employerQuestions(jobA, { holidayIncluded: '확정' }, rules), []);
   eq('고용주 질문: 학원은 계약 형태와 근무시간', cmp.rows[1].questions, ['근로계약서를 쓰나요, 용역(프리랜서) 계약인가요?', '주당 근무시간과 휴게시간이 정확히 어떻게 되나요?']);
   eq('고용주 질문: 소득 종류를 모르면 지급 방식부터', employerQuestions({ incomeType: 'unknown', weeklyHours: 10 }, {}, rules), ['급여에서 4대보험을 떼나요, 3.3%를 떼나요?']);
 
