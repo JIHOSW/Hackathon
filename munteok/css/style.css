@@ -63,6 +63,11 @@ p { margin: 0 0 10px; }
 .tag.e-check { background: var(--warn-soft); color: var(--warn); }
 .tag.e-report { background: #e6ecf7; color: #1d3f8a; }
 .tag.e-keep { background: #ecebe6; color: var(--sub); }
+/* 확인 전인 규칙으로 판정하지 못한 항목. 확정된 변화와 구분하려고 점선 테두리를 쓴다. */
+.tag.e-pending { background: #fff; color: var(--sub); border: 1px dashed var(--sub); }
+.tag.e-note { background: #e6ecf7; color: #1d3f8a; }
+.card.pending { border: 1px dashed var(--sub); background: #fff; }
+.v-big { font-size: 30px; font-weight: 800; margin: 2px 0 10px; }
 
 .btn { display: block; width: 100%; font: inherit; font-weight: 700; border-radius: 12px; padding: 14px 16px; cursor: pointer; border: 1px solid var(--ink); background: var(--ink); color: #fff; text-align: center; }
 .btn.ghost { background: #fff; color: var(--ink); }

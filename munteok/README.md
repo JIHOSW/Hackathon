@@ -13,6 +13,8 @@ python3 -m http.server 8770 --directory munteok
 - 앱: http://localhost:8770/
 - 규칙 엔진 테스트: http://localhost:8770/tests/
 
+터미널 테스트: `node tests/run.mjs` (또는 `npm test`)
+
 `index.html`을 파일로 직접 열면 규칙표를 불러오지 못한다. 반드시 서버로 연다.
 
 ## 폴더 구조
@@ -63,9 +65,9 @@ python3 -m http.server 8770 --directory munteok
 
 | 값 | 뜻 | 화면 표시 |
 |---|---|---|
-| `official` | 정부·법령 원문을 직접 확인 | 확정 |
-| `secondary` | 2차 자료 또는 원문 수치로 계산한 값 | 추정 |
-| `unverified` | 원문을 확인하지 못함 | 확인 필요 |
+| `official` | 정부·법령 원문을 직접 확인 | 확정. 금액, 판정, 대안에 사용 |
+| `secondary` | 2차 자료 또는 원문 수치로 계산한 값 | 추정. 금액에 쓰되 큰 숫자에서 빼고 따로 표시 |
+| `unverified` | 원문을 확인하지 못함 | 확인 필요. 금액, 판정, 대안에 쓰지 않고 "추가 확인 항목"으로만 안내 |
 
 제출 전에 규칙 담당이 원문을 확인하고 값을 고쳐야 하는 항목:
 

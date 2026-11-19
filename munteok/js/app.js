@@ -243,7 +243,8 @@ function viewCompare() {
         <dt>조건</dt><dd>시급 ${won(r.job.hourlyWage)}, 주 ${r.job.weeklyHours}시간, ${r.workedMonths}개월</dd>
         <dt>급여 (월)</dt><dd>${won(r.gross)}</dd>
         ${hasAllowance ? `<dt>줄어드는 수당 (월)</dt><dd>${won(r.allowanceLoss)}</dd>` : ''}
-        <dt>예상 추가수입 (월)</dt><dd><b>${won(r.net)}</b>${mark(i, 'net', '가장 큼')}</dd>
+        <dt>예상 추가수입 (월, 추정 포함)</dt><dd><b>${won(r.net)}</b>${mark(i, 'net', '가장 큼')}</dd>
+        ${r.checkCount ? `<dt>추가 확인 항목</dt><dd>${r.checkCount}개</dd>` : ''}
         <dt>일한 시간당</dt><dd>${won(r.netPerHour)}${mark(i, 'netPerHour', '가장 큼')}</dd>
         <dt>올해 일하는 ${r.workedMonths}개월 합계</dt><dd>${won(r.periodNet)}</dd>
         ${r.uncountedMonths ? `<dt>계산에서 빠진 기간</dt><dd>해를 넘기는 ${r.uncountedMonths}개월</dd>` : ''}
@@ -340,26 +341,32 @@ function timelineHtml(r) {
 function viewResult() {
   const r = state.result;
   const s = r.summary;
-  const deduct = s.insurance + s.withholding;
-  const hasAllowance = r.cards.some((c) => c.id === 'jobSeekerAllowance');
   const types = new Set(r.cards.map((c) => c.effect.type));
   const chips = [
     types.has('gain') ? '<span class="tag e-gain">급여 증가</span>' : '',
     types.has('loss') ? '<span class="tag e-loss">수당 감소</span>' : '',
-    types.has('check') ? '<span class="tag e-check">자격 확인 필요</span>' : '',
-    s.reportNeeded ? '<span class="tag e-report">소득 신고 필요</span>' : '',
+    types.has('check') ? '<span class="tag e-check">자격 변동 확인</span>' : '',
+    types.has('pending') ? '<span class="tag e-pending">추가 확인 필요</span>' : '',
+    s.reportNeeded ? '<span class="tag e-report">신고 필요</span>' : '',
   ].filter(Boolean).join(' ');
   const multi = state.offers.length > 1;
   return `${multi ? `<p class="small"><button class="btn link" data-action="go" data-step="compare">← 제안 비교로</button></p>` : ''}<h1>${multi ? esc(state.offers[state.active].name) + ': ' : ''}이 일을 시작하면 달라지는 것</h1>
     <div class="card soft"><ul class="notes" style="margin:0">${r.notices.map((n) => `<li>${esc(n)}</li>`).join('')}</ul></div>
-    <div class="sum">
-      <div class="card"><div class="k">급여 (월)</div><div class="v mono">${won(s.addedIncome)}</div></div>
-      <div class="card"><div class="k">${r.pay.withholding ? '3.3% 원천징수' : '4대보험 공제'} (월)</div><div class="v mono">${won(deduct)}</div></div>
-      ${hasAllowance ? `<div class="card"><div class="k">줄어드는 수당 (월)</div><div class="v mono">${won(s.allowanceLoss)}</div></div>` : ''}
-      <div class="card ${hasAllowance ? '' : 'wide'}"><div class="k">계산 범위 내 예상 추가수입 (월)</div><div class="v mono">${won(s.net)}</div></div>
+    <div class="card">
+      <div class="k small">확인된 규칙으로 계산한 금액 (월)</div>
+      <div class="v-big mono">${won(s.confirmedNet)}</div>
+      <dl class="kv">
+        ${s.parts.map((x) => `<dt>${esc(x.label)}</dt><dd>${x.amount < 0 ? '−' : ''}${won(Math.abs(x.amount))} ${badge(x.status)}</dd>`).join('')}
+      </dl>
+      ${s.estimatedParts.length ? `<p style="margin:12px 0 0">추정 항목까지 반영하면 <b class="mono">${won(s.net)}</b></p>
+      <ul class="notes">${s.estimatedParts.map((x) => `<li>${esc(x.label)}: ${esc(x.reason)}</li>`).join('')}</ul>` : ''}
+      <p class="small" style="margin:10px 0 0"><b>넣지 않은 것</b> ${esc(s.excluded.join(', '))}</p>
     </div>
-    <p class="small" style="margin-top:8px"><b>계산에 넣은 것</b> ${esc(s.included.join(', '))}<br><b>넣지 않은 것</b> ${esc(s.excluded.join(', '))}</p>
-    ${r.pay.holidayPay ? `<p class="small">급여에는 주휴수당 ${won(r.pay.holidayPay)}이 포함되어 있습니다.</p>` : ''}
+    ${r.checks.length ? `<div class="card pending">
+      <h3>추가 확인 항목 ${r.checks.length}개</h3>
+      <p class="small">원문을 확인하지 못한 규칙이라 금액과 판정에 넣지 않았습니다. 시작 전에 확인하세요.</p>
+      <ul class="notes">${r.checks.map((c) => `<li>${esc(c.text)}</li>`).join('')}</ul>
+    </div>` : ''}
     ${r.warnings.map((w) => `<div class="card warn" role="alert"><p class="small" style="margin:0">${esc(w)}</p></div>`).join('')}
     <h2>제도별 변화</h2>
     ${chips ? `<p>${chips}</p>` : '<div class="card soft"><p style="margin:0"><b>현재 조건에서는 지원이나 자격에 달라지는 것이 없습니다.</b></p></div>'}
@@ -387,9 +394,9 @@ function viewAlts() {
   const a = state.alts;
   const hasAllowance = state.profile.allowance !== 'no';
   const offered = Math.round(state.offers[state.active].fields.weeklyHours.value);
-  const dip = a.dip ? `<div class="card warn">
-      <h3>더 일해도 예상 추가수입이 줄어드는 구간</h3>
-      <p style="margin:0">주 ${a.dip.from}~${a.dip.to}시간은 예상 추가수입이 주 ${a.dip.peakHours}시간 때(월 ${won(a.dip.peakNet)})보다 적습니다. 수당이 줄어드는 폭이 급여가 늘어나는 폭보다 크기 때문입니다.${a.dip.recoverHours ? ` 주 ${a.dip.recoverHours}시간부터 다시 커집니다.` : ''}</p>
+  const dip = a.dip ? `<div class="card soft">
+      <h3>알아 둘 구간: 더 일해도 예상 추가수입이 줄어듦</h3>
+      <p style="margin:0">주 ${a.dip.from}~${a.dip.to}시간은 예상 추가수입이 주 ${a.dip.peakHours}시간 때(월 ${won(a.dip.peakNet)})보다 적습니다. 수당이 줄어드는 폭이 급여가 늘어나는 폭보다 크기 때문입니다. 수당 계산식이 추정이라 이 구간도 추정입니다.${a.dip.recoverHours ? ` 주 ${a.dip.recoverHours}시간부터 다시 커집니다.` : ''}</p>
     </div>` : '';
   const cards = a.options.map((o) => `<div class="card">
       <div class="card-head"><h3>${esc(o.label)}</h3></div>
@@ -398,7 +405,8 @@ function viewAlts() {
         <dt>근무시간</dt><dd>주 ${o.weeklyHours}시간</dd>
         <dt>급여 (월)</dt><dd>${won(o.gross)}</dd>
         ${hasAllowance ? `<dt>줄어드는 수당 (월)</dt><dd>${won(o.allowanceLoss)}</dd>` : ''}
-        <dt>예상 추가수입 (월)</dt><dd><b>${won(o.net)}</b></dd>
+        <dt>예상 추가수입 (월, 추정 포함)</dt><dd><b>${won(o.net)}</b></dd>
+        ${o.checkCount ? `<dt>추가 확인 항목</dt><dd>${o.checkCount}개</dd>` : ''}
       </dl>
       <button class="btn ghost" data-action="pick" data-kind="${o.kind}" style="margin-top:10px">이 조건으로 문구 만들기</button>
     </div>`).join('');
@@ -433,6 +441,8 @@ function viewBasis() {
   return `<h1>근거와 시작 전 준비</h1>
     <p class="lead">규칙표 ${esc(rules.version)} 기준입니다. 확정은 정부·법령 원문을 확인한 규칙, 추정은 2차 자료나 계산값, 확인 필요는 원문을 확인하지 못한 규칙입니다.</p>
     ${cards}
+    ${r.checks.length ? `<div class="card pending"><h3>시작 전에 확인할 것</h3><ul class="notes">${r.checks.map((c) => `<li>${esc(c.text)}</li>`).join('')}</ul></div>` : ''}
+    ${r.summary.reports.length ? `<div class="card"><h3>신고할 것</h3><ul class="notes">${r.summary.reports.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}
     <div class="card warn">
       <h3>신고 의무</h3>
       <p class="small" style="margin:0">수당을 받는 중에 소득이 생기면 담당 기관에 신고해야 합니다. 이 서비스는 소득을 숨기거나 신고를 피하는 방법을 안내하지 않습니다.</p>
