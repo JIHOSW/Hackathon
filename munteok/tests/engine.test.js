@@ -1,6 +1,6 @@
 // 규칙 엔진 기대값 테스트
 // 기대값은 엔진과 별개로 손으로 계산한 값이다. 규칙표(data/rules.json)의 수치가 바뀌면 함께 고친다.
-import { monthlyPay, allowancePayment, allowanceLine, evaluate, searchAlternatives, compareOffers, employerQuestions, STATUS } from '../js/engine.js';
+import { monthlyPay, allowancePayment, allowanceLine, evaluate, searchAlternatives, compareOffers, employerQuestions, buildRequestMessage, forbiddenIn, REQUEST_ACTIONS, STATUS } from '../js/engine.js';
 
 export function runTests(rules) {
   const results = [];
@@ -51,29 +51,41 @@ export function runTests(rules) {
   eq('A: 줄어드는 수당', r.summary.allowanceLoss, 375385);
   eq('A: 수당 카드 등급', card(r, 'jobSeekerAllowance').status, STATUS.ESTIMATED);
   eq('A: 해당 없는 제도 2개', r.notApplicable.map((c) => c.id), ['dependentDeduction', 'healthDependent']);
-  const alt = searchAlternatives(jobA, profA, rules);
-  const opt = (k) => alt.options.find((o) => o.kind === k);
   eq('A: 주 15시간은 급여 증가로 구분', card(r, 'weekly15h').effect.type, 'gain');
   eq('A: 수당은 감소로 구분', card(r, 'jobSeekerAllowance').effect.type, 'loss');
   eq('A: 불리하거나 확인할 변화는 수당뿐', r.summary.adverseIds, ['jobSeekerAllowance']);
   eq('A: 소득 신고 필요', r.summary.reportNeeded, true);
-  eq('A 대안: 받은 제안', opt('original').weeklyHours, 24);
-  eq('A 대안: 지원이 그대로인 가장 긴 시간', opt('noChange').weeklyHours, 17);
-  eq('A 대안: 40시간까지 가능하면 가장 큰 조건은 40시간', opt('best').weeklyHours, 40);
-  eq('A 대안: 손해 구간 직전 최고는 주 18시간', alt.dip.peakHours, 18);
-  eq('A 대안: 손해 구간은 주 19~29시간', [alt.dip.from, alt.dip.to], [19, 29]);
-  eq('A 대안: 예상 추가수입이 다시 커지는 최소', opt('recover').weeklyHours, 30);
   // 주당 최대 20시간만 가능한 경우: 그 범위 안에서만 비교한다
+
+  // 3-1. 근무조건 비교: 받은 제안, 가능한 최대, 변화 지점
+  const alt = searchAlternatives(jobA, profA, rules, { maxHours: 28 });
+  eq('비교 기준: 받은 제안과 가능한 최대', alt.options.map((o) => o.kind + o.weeklyHours), ['original24', 'max28']);
+  eq('비교 기준: 계산 횟수', alt.trace.evaluated, 28);
+  eq('변화 지점: 주 15시간과 18시간', alt.changePoints.map((c) => c.weeklyHours), [15, 18]);
+  eq('변화 지점 15시간: 주휴수당', alt.changePoints[0].changes.map((c) => c.type), ['gain']);
+  eq('변화 지점 18시간: 수당이 줄기 시작', [alt.changePoints[1].changes[0].type, alt.changePoints[1].allowanceLoss], ['loss', 46903]);
+  eq('알아 둘 구간: 주 19~28시간', [alt.dip.peakHours, alt.dip.from, alt.dip.to, alt.dip.recoverHours], [18, 19, 28, null]);
+  const alt40 = searchAlternatives(jobA, profA, rules, { maxHours: 40 });
+  eq('40시간까지: 수당이 끊기는 지점과 자격 확인 지점 포함', alt40.changePoints.map((c) => c.weeklyHours), [15, 18, 29, 30]);
+  eq('40시간까지: 다시 커지는 시간', alt40.dip.recoverHours, 30);
   const alt20 = searchAlternatives(jobA, profA, rules, { maxHours: 20 });
-  const opt20 = (k) => alt20.options.find((o) => o.kind === k);
-  eq('최대 20시간: 계산 횟수', alt20.trace.evaluated, 20);
-  eq('최대 20시간: 받은 제안(24시간)은 범위 밖', [alt20.offeredOutOfRange, opt20('original')], [true, undefined]);
-  eq('최대 20시간: 가장 큰 조건은 주 18시간', [opt20('best').weeklyHours, opt20('best').net], [18, 842783]);
-  eq('최대 20시간: 지원이 그대로인 가장 긴 시간', opt20('noChange').weeklyHours, 17);
-  eq('최대 20시간: 다시 커지는 구간 없음', [alt20.dip.from, alt20.dip.to, alt20.dip.recoverHours, opt20('recover')], [19, 20, null, undefined]);
-  const altNone = searchAlternatives({ ...jobA, weeklyHours: 10 }, { ...base }, rules);
-  eq('수당이 없으면 손해 구간 없음', altNone.dip, null);
-  eq('A 대안: 계산 횟수', alt.trace.evaluated, 40);
+  eq('최대 20시간: 받은 제안(24시간)은 범위 밖', [alt20.offeredOutOfRange, alt20.options.map((o) => o.kind)], [true, ['max']]);
+  const altSame = searchAlternatives(jobA, profA, rules, { maxHours: 24 });
+  eq('받은 제안이 가능한 최대와 같으면 카드 하나', altSame.options.map((o) => o.kind), ['original']);
+  const altPlain = searchAlternatives({ ...jobA, weeklyHours: 10 }, { ...base }, rules, { maxHours: 20 });
+  eq('수당이 없으면 변화 지점은 주 15시간뿐, 줄어드는 구간 없음', [altPlain.changePoints.map((c) => c.weeklyHours), altPlain.dip], [[15], null]);
+
+  // 3-2. 요청 문구
+  const qs = ['주휴수당은 시급과 별도로 지급되나요?'];
+  let msg = buildRequestMessage('expand', { offeredHours: 24, targetHours: 28, questions: qs });
+  eq('문구: 근무 확대', msg.includes('주 28시간 정도로 늘릴 수 있을까요?'), true);
+  eq('문구: 확인 질문 포함', msg.includes('- 주휴수당은 시급과 별도로 지급되나요?'), true);
+  msg = buildRequestMessage('adjust', { offeredHours: 24, targetHours: 17, questions: [] });
+  eq('문구: 조정 요청은 지원 기준을 이유로 쓰지 않음', [msg.includes('제 사정상'), msg.includes('수당'), msg.includes('지원')], [true, false, false]);
+  eq('문구: 기간 질문이 이미 있으면 다시 묻지 않음', buildRequestMessage('terms', { offeredHours: 10, targetHours: 10, questions: ['근무는 언제부터 언제까지인가요?'] }).includes('근무 시작일과 기간도'), false);
+  const allMsgs = Object.keys(REQUEST_ACTIONS).map((k) => buildRequestMessage(k, { offeredHours: 24, targetHours: 28, questions: employerQuestions(jobA, {}, rules) }));
+  eq('문구: 네 가지 행동 모두 금지 표현 없음', allMsgs.map((m) => forbiddenIn(m).length), [0, 0, 0, 0]);
+  eq('금지 표현 검사가 실제로 잡아냄', forbiddenIn('현금으로 주시면 신고 안 해도 됩니다'), ['신고 안', '현금으로']);
 
   // 4. 부모 공제: 시급 10,320원 주 14시간, 1월 시작
   const jobD = { hourlyWage: 10320, weeklyHours: 14, startMonth: 1, months: 12, incomeType: 'wage' };
@@ -106,8 +118,6 @@ export function runTests(rules) {
   eq('B: 3.3%는 추정 항목으로 분리', [r.summary.confirmedNet, r.summary.estimatedParts.map((x) => x.amount)], [677820, [-22368]]);
   eq('B: 주 15시간 카드는 해당 없음', r.notApplicable.map((c) => c.id), ['jobSeekerAllowance', 'weekly15h']);
 
-  const altB = searchAlternatives(jobB, { ...base, taxDependent: 'yes', healthDependent: 'yes' }, rules);
-  eq('B 대안: 확인된 규칙(소득 합계 2,000만 원)으로만 그대로인 시간을 찾음', altB.options.map((o) => o.kind + o.weeklyHours), ['original12', 'best40', 'noChange35']);
 
   // 5-1. 제안 두 개 비교: 카페(A)와 학원 보조(B), 수당 수급자
   const cmp = compareOffers([

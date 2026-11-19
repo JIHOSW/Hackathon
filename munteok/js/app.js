@@ -1,7 +1,7 @@
 // 문턱 화면 흐름
 // 시작 → 올리기 → 추출 확인 → 추가 질문 → 내 상황 → 결과 → 대안 비교 → 근거와 다음 행동
 // 계산은 전부 engine.js가 한다. 이 파일은 입력을 모으고 결과를 그리기만 한다.
-import { evaluate, searchAlternatives, compareOffers, STATUS } from './engine.js';
+import { evaluate, searchAlternatives, compareOffers, buildRequestMessage, REQUEST_ACTIONS, STATUS } from './engine.js';
 import { SAMPLES, EMPTY_PROFILE, INCOME_TYPES } from './samples.js';
 import { API_BASE, AI_AVAILABLE } from './config.js';
 
@@ -19,8 +19,8 @@ const state = {
 const MAX_OFFERS = 3;
 
 const FIELD_LABELS = { hourlyWage: '시급 (원)', weeklyHours: '주당 근무시간', startMonth: '시작 월', months: '근무 개월 수', incomeType: '소득 종류', holidayIncluded: '주휴수당' };
-const STEP_GROUP = { upload: 0, confirm: 1, questions: 1, offers: 1, profile: 2, compare: 3, result: 3, alts: 3, basis: 3 };
-const STEP_NAMES = ['올리기', '확인', '내 상황', '결과'];
+const STEP_GROUP = { upload: 0, confirm: 1, questions: 1, offers: 1, profile: 2, compare: 3, result: 3, alts: 4, basis: 5 };
+const STEP_NAMES = ['공고 올리기', '조건 확인', '내 상황', '변화 확인', '근무조건 비교', '시작 전 준비'];
 
 function emptyFields() {
   const blank = (v) => ({ value: v, status: STATUS.CHECK, evidence: '' });
@@ -62,8 +62,8 @@ function choices(name, options, current, multi = false) {
 
 function viewStart() {
   return `
-    <h1>일을 더 해도 되는지,<br>넘게 되는 기준선과 손익을 계산해 드립니다</h1>
-    <p class="lead">알바 공고나 제안 메시지를 올리면 급여와 지원의 변화를 계산합니다. 제안이 여러 개면 같은 기준으로 나란히 비교합니다.</p>
+    <h1>새 일을 시작하기 전에,<br>소득과 지원이 어떻게 달라지는지 확인하세요</h1>
+    <p class="lead">알바 공고나 제안 메시지를 올리면 급여와 지원의 변화를 계산하고, 내가 가능한 근무조건을 비교하고, 시작 전에 확인하고 신고할 것을 정리해 드립니다. 제안이 여러 개면 같은 기준으로 나란히 비교합니다.</p>
     <div class="card">
       <h3>계산하는 제도</h3>
       <ul class="notes">
@@ -265,8 +265,16 @@ function viewProfile() {
   const p = state.profile;
   const yn = [['yes', '예'], ['no', '아니오'], ['unknown', '모름']];
   const others = Object.entries(state.rules.outOfScope).map(([k, v]) => [k, v.title]);
+  const longest = Math.max(0, ...state.offers.map((o) => Number(o.fields.weeklyHours.value) || 0));
+  const over = p.maxHours && longest > p.maxHours;
   return `<h1>내 상황</h1>
     <p class="lead">계산에 필요한 것만 묻습니다. 입력값은 이 브라우저 안에서만 쓰입니다.</p>
+    <div class="card ${state.profileError ? 'warn' : ''}">
+      <label class="f" for="p-max" style="margin-top:0">주당 최대 몇 시간까지 일할 수 있나요? (필수)</label>
+      <input id="p-max" type="number" inputmode="numeric" min="1" max="52" placeholder="예: 20" value="${p.maxHours ?? ''}" ${state.profileError ? 'aria-invalid="true" aria-describedby="p-max-err"' : ''}>
+      ${state.profileError ? `<p class="hint" id="p-max-err" role="alert">${esc(state.profileError)}</p>` : '<p class="hint">수업, 훈련, 다른 일정을 빼고 실제로 일할 수 있는 시간입니다. 근무조건 비교는 이 시간 안에서만 합니다.</p>'}
+      ${over ? `<p class="hint" role="status">받은 제안(주 ${longest}시간)이 가능한 시간을 넘습니다. 그 제안은 비교에서 "가능한 시간 초과"로 표시됩니다.</p>` : ''}
+    </div>
     <div class="card">
       <label class="f" for="p-age" style="margin-top:0">만 나이</label>
       <input id="p-age" type="number" inputmode="numeric" min="15" max="45" value="${p.age ?? ''}">
@@ -286,10 +294,7 @@ function viewProfile() {
       <label class="f" for="y-daily">일용근로소득 (원)</label><input id="y-daily" type="number" inputmode="numeric" min="0" value="${p.ytdIncome.daily}">
     </div>
     <div class="card">
-      <label class="f" for="p-max" style="margin-top:0">주당 최대 몇 시간까지 일할 수 있나요?</label>
-      <input id="p-max" type="number" inputmode="numeric" min="1" max="52" value="${p.maxHours ?? 40}">
-      <p class="hint">근무조건 비교는 이 시간 안에서만 합니다.</p>
-      <label class="f">그 밖에 받고 있는 지원 (여러 개 선택 가능)</label>
+      <label class="f" style="margin-top:0">그 밖에 받고 있는 지원 (여러 개 선택 가능)</label>
       ${choices('otherSupports', others, p.otherSupports, true)}
       <p class="hint">이 제도들은 이번 버전에서 계산하지 않고 문의처만 안내합니다.</p>
     </div>
@@ -375,61 +380,87 @@ function viewResult() {
     ${r.notApplicable.length ? `<div class="card"><h3>해당하지 않아 계산하지 않은 제도</h3><ul class="notes">${r.notApplicable.map((n) => `<li>${esc(n.title)}: ${esc(n.reason)}</li>`).join('')}</ul></div>` : ''}
     ${r.outOfScope.length ? `<div class="card warn"><h3>이번 버전에서 계산하지 않는 제도</h3><ul class="notes">${r.outOfScope.map((o) => `<li><b>${esc(o.title)}</b>: 확인 필요. 문의처 ${esc(o.contact)}</li>`).join('')}</ul></div>` : ''}
     <button class="btn" data-action="go" data-step="alts">근무조건 비교하기</button>
-    <div class="btn-row"><button class="btn ghost" data-action="go" data-step="basis">근거와 시작 전 준비</button><button class="btn ghost" data-action="go" data-step="profile">조건 바꿔 다시</button></div>`;
+    <div class="btn-row"><button class="btn ghost" data-action="go" data-step="basis">시작 전 준비</button><button class="btn ghost" data-action="go" data-step="profile">조건 바꿔 다시</button></div>`;
 }
 
-// 선택한 조건이 받은 제안보다 긴지 짧은지에 따라 요청 문구를 다르게 쓴다.
-function requestMessage(offered, option) {
-  const h = option.weeklyHours;
-  if (h > offered) {
-    return `안녕하세요. 근무시간과 관련해 여쭙고 싶습니다.\n제안해 주신 주 ${offered}시간보다 더 일할 수 있는데, 주 ${h}시간 정도로 늘릴 수 있을까요?\n가능한 요일과 시간대를 알려 주시면 맞추겠습니다. 감사합니다.`;
-  }
-  if (h < offered) {
-    return `안녕하세요. 근무시간과 관련해 여쭙고 싶습니다.\n제 사정상 주 ${offered}시간은 어려워서, 주 ${h}시간으로 조정할 수 있을까요?\n요일과 시간대는 최대한 맞추겠습니다. 감사합니다.`;
-  }
-  return `안녕하세요. 제안해 주신 주 ${offered}시간 조건으로 일하고 싶습니다.\n시작 전에 급여 지급 방식(4대보험 또는 3.3%)과 주휴수당 지급 여부를 확인하고 싶습니다. 감사합니다.`;
+// 문구에 쓸 시간과 행동. 사용자가 고른 값이 없으면 받은 제안을 기준으로 정한다.
+function requestState() {
+  const a = state.alts;
+  const offered = a.offered;
+  const target = state.chosenHours ?? (a.offeredOutOfRange ? a.trace.to : offered);
+  const available = Object.keys(REQUEST_ACTIONS).filter((k) => {
+    if (k === 'expand') return target > offered;
+    if (k === 'adjust') return target < offered;
+    if (k === 'accept') return target === offered && !a.offeredOutOfRange;
+    return true;
+  });
+  const fallback = target > offered ? 'expand' : target < offered ? 'adjust' : a.offeredOutOfRange ? 'terms' : 'accept';
+  const action = available.includes(state.requestAction) ? state.requestAction : fallback;
+  return { offered, target, available, action };
 }
 
 function viewAlts() {
   const a = state.alts;
   const hasAllowance = state.profile.allowance !== 'no';
-  const offered = Math.round(state.offers[state.active].fields.weeklyHours.value);
-  const dip = a.dip ? `<div class="card soft">
-      <h3>알아 둘 구간: 더 일해도 예상 추가수입이 줄어듦</h3>
-      <p style="margin:0">주 ${a.dip.from}~${a.dip.to}시간은 예상 추가수입이 주 ${a.dip.peakHours}시간 때(월 ${won(a.dip.peakNet)})보다 적습니다. 수당이 줄어드는 폭이 급여가 늘어나는 폭보다 크기 때문입니다. 수당 계산식이 추정이라 이 구간도 추정입니다.${a.dip.recoverHours ? ` 주 ${a.dip.recoverHours}시간부터 다시 커집니다.` : ''}</p>
-    </div>` : '';
-  const cards = a.options.map((o) => `<div class="card">
-      <div class="card-head"><h3>${esc(o.label)}</h3></div>
-      <p>${o.effects.filter((e) => e.type !== 'keep').map(effectTag).join(' ') || '<span class="tag e-keep">지원·자격 변화 없음</span>'}</p>
-      <dl class="kv">
-        <dt>근무시간</dt><dd>주 ${o.weeklyHours}시간</dd>
+  const offered = a.offered;
+  const row = (o) => `<dl class="kv">
         <dt>급여 (월)</dt><dd>${won(o.gross)}</dd>
         ${hasAllowance ? `<dt>줄어드는 수당 (월)</dt><dd>${won(o.allowanceLoss)}</dd>` : ''}
         <dt>예상 추가수입 (월, 추정 포함)</dt><dd><b>${won(o.net)}</b></dd>
         ${o.checkCount ? `<dt>추가 확인 항목</dt><dd>${o.checkCount}개</dd>` : ''}
-      </dl>
-      <button class="btn ghost" data-action="pick" data-kind="${o.kind}" style="margin-top:10px">이 조건으로 문구 만들기</button>
+      </dl>`;
+  const cards = a.options.map((o) => `<div class="card">
+      <div class="card-head"><h3>${esc(o.label)}: 주 ${o.weeklyHours}시간</h3></div>
+      <p>${o.effects.filter((e) => e.type !== 'keep').map(effectTag).join(' ') || '<span class="tag e-keep">지원·자격 변화 없음</span>'}</p>
+      ${row(o)}
+      <button class="btn ghost" data-action="pick" data-hours="${o.weeklyHours}" style="margin-top:10px">이 시간으로 문구 만들기</button>
     </div>`).join('');
-  const chosen = state.chosen && a.options.find((o) => o.kind === state.chosen);
-  const msg = chosen ? `<div class="card soft" id="msg-card">
-      <h3>고용주에게 보낼 문구</h3>
-      <pre class="msg" id="msg">${esc(requestMessage(offered, chosen))}</pre>
-      <button class="btn" data-action="copy">문구 복사</button>
-      <p class="hint">문구 예시입니다. 상황에 맞게 고쳐 쓰세요.</p>
+  const points = a.changePoints.length ? `<h2>그 사이에서 바뀌는 지점</h2>
+    <p class="small">1시간씩 늘려 가며 무언가 달라지는 근무시간만 모았습니다. 좋고 나쁨이 아니라 바뀌는 내용입니다.</p>
+    ${a.changePoints.map((c) => `<div class="card point">
+      <div class="card-head"><h3>주 ${c.weeklyHours}시간부터</h3><span class="small mono">월 ${won(c.beforeNet)} → ${won(c.net)}</span></div>
+      <ul class="changes">${c.changes.map((x) => `<li>${effectTag({ type: x.type, label: x.type === 'gain' ? '급여 증가' : x.type === 'loss' ? '수당 감소' : x.type === 'check' ? '자격 변동' : x.type === 'note' ? '알아 둘 것' : '추가 확인' })} ${esc(x.text)}</li>`).join('')}</ul>
+      <button class="btn link" data-action="pick" data-hours="${c.weeklyHours}">주 ${c.weeklyHours}시간으로 문구 만들기</button>
+      ${c.beforeHours !== offered ? `<button class="btn link" data-action="pick" data-hours="${c.beforeHours}">직전인 주 ${c.beforeHours}시간으로 문구 만들기</button>` : ''}
+    </div>`).join('')}` : '<div class="card soft"><p style="margin:0">가능한 범위 안에서 지원이나 자격이 달라지는 지점이 없습니다.</p></div>';
+  const dip = a.dip ? `<div class="card soft">
+      <h3>알아 둘 구간: 더 일해도 예상 추가수입이 줄어듦</h3>
+      <p style="margin:0">주 ${a.dip.from}~${a.dip.to}시간은 예상 추가수입이 주 ${a.dip.peakHours}시간 때(월 ${won(a.dip.peakNet)})보다 적습니다. 수당이 줄어드는 폭이 급여가 늘어나는 폭보다 크기 때문입니다. 수당 계산식이 추정이라 이 구간도 추정입니다.${a.dip.recoverHours ? ` 주 ${a.dip.recoverHours}시간부터 다시 커집니다.` : ''}</p>
     </div>` : '';
+  const rq = requestState();
+  const questions = state.comparison.rows[state.active].questions;
+  const text = buildRequestMessage(rq.action, { offeredHours: rq.offered, targetHours: rq.target, questions: rq.action === 'expand' || rq.action === 'adjust' ? questions.filter((q) => !q.includes('근무시간')) : questions });
+  const msg = `<div class="card soft" id="msg-card">
+      <h3>고용주에게 보낼 문구 (주 ${rq.target}시간 기준)</h3>
+      <p class="small" style="margin:0 0 8px">무엇을 요청할지 고르세요. 이 제안에서 확인할 질문이 함께 들어갑니다.</p>
+      <div class="choices" style="margin-bottom:10px">${rq.available.map((k) => `<button type="button" class="choice ${k === rq.action ? 'on' : ''}" data-action="reqAction" data-value="${k}" aria-pressed="${k === rq.action}">${esc(REQUEST_ACTIONS[k])}</button>`).join('')}</div>
+      <pre class="msg" id="msg">${esc(text)}</pre>
+      <button class="btn" data-action="copy">문구 복사</button>
+      <p class="hint">예시 문구입니다. 상황에 맞게 고쳐 쓰세요. 지원 기준은 이유로 적지 않았습니다.</p>
+    </div>`;
   return `<h1>근무조건 비교</h1>
-    <p class="lead">내가 가능한 주 ${a.trace.to}시간 안에서 ${esc(a.trace.variable)}을 바꿔 가며 ${a.trace.evaluated}번 계산했습니다. 시급과 기간은 그대로 두었습니다. 어떤 조건을 고를지는 직접 정하세요.</p>
+    <p class="lead">받은 제안(주 ${offered}시간)과 내가 가능한 최대(주 ${a.trace.to}시간)를 기준으로, ${esc(a.trace.variable)}을 1시간씩 바꿔 ${a.trace.evaluated}번 계산했습니다. 시급과 기간은 그대로 두었습니다. 어떤 조건을 고를지는 직접 정하세요.</p>
     ${a.offeredOutOfRange ? `<div class="card warn"><p class="small" style="margin:0">받은 제안(주 ${offered}시간)은 내가 가능한 시간을 넘어 비교에서 빠졌습니다.</p></div>` : ''}
-    ${dip}${cards}${msg}
-    <div class="btn-row"><button class="btn ghost" data-action="go" data-step="result">결과로</button><button class="btn ghost" data-action="go" data-step="basis">근거와 시작 전 준비</button></div>`;
+    ${cards}${points}${dip}${msg}
+    <div class="btn-row"><button class="btn ghost" data-action="go" data-step="result">변화 확인으로</button><button class="btn ghost" data-action="go" data-step="basis">시작 전 준비</button></div>`;
 }
 
 function viewBasis() {
   const r = state.result;
   const rules = state.rules;
-  const ruleOf = (id) => rules[id];
+  const questions = state.comparison.rows[state.active].questions;
+  const check = (text, i) => `<li><label class="check"><input type="checkbox" data-check="${i}"> <span>${esc(text)}</span></label></li>`;
+  let n = 0;
+  const sections = [
+    ['고용주에게 확인할 것', questions],
+    ['신고할 곳과 시점', r.summary.reports],
+    ['원문 확인이 필요한 것', r.checks.map((c) => c.text)],
+    ['이번 버전에서 계산하지 않은 지원', r.outOfScope.map((o) => `${o.title}: ${o.contact}에 확인`)],
+  ].filter(([, items]) => items.length);
+  const checklist = sections.length ? sections.map(([title, items]) => `<h3 style="margin-top:12px">${esc(title)}</h3><ul class="checklist">${items.map((t) => check(t, n++)).join('')}</ul>`).join('')
+    : '<p style="margin:0">따로 확인하거나 신고할 것이 없습니다.</p>';
   const cards = r.cards.map((c) => {
-    const rule = ruleOf(c.id);
+    const rule = rules[c.id];
     const checked = rule.checkedAt || (rule.current && rule.current.checkedAt) || '';
     return `<div class="card">
       <div class="card-head"><h3>${esc(c.title)}</h3>${badge(c.status)}</div>
@@ -438,17 +469,18 @@ function viewBasis() {
     </div>`;
   }).join('');
   const contacts = Object.values(rules.contacts).map((c) => `<li>${esc(c.name)} <a href="tel:${esc(c.phone)}">${esc(c.phone)}</a></li>`).join('');
-  return `<h1>근거와 시작 전 준비</h1>
-    <p class="lead">규칙표 ${esc(rules.version)} 기준입니다. 확정은 정부·법령 원문을 확인한 규칙, 추정은 2차 자료나 계산값, 확인 필요는 원문을 확인하지 못한 규칙입니다.</p>
-    ${cards}
-    ${r.checks.length ? `<div class="card pending"><h3>시작 전에 확인할 것</h3><ul class="notes">${r.checks.map((c) => `<li>${esc(c.text)}</li>`).join('')}</ul></div>` : ''}
-    ${r.summary.reports.length ? `<div class="card"><h3>신고할 것</h3><ul class="notes">${r.summary.reports.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}
+  return `<h1>시작 전 준비</h1>
+    <p class="lead">일을 시작하기 전에 확인하고 신고할 것을 모았습니다. 하나씩 체크해 보세요.</p>
+    <div class="card">${checklist}</div>
     <div class="card warn">
       <h3>신고 의무</h3>
       <p class="small" style="margin:0">수당을 받는 중에 소득이 생기면 담당 기관에 신고해야 합니다. 이 서비스는 소득을 숨기거나 신고를 피하는 방법을 안내하지 않습니다.</p>
     </div>
     <div class="card"><h3>공식 문의처</h3><ul class="notes">${contacts}</ul></div>
-    <div class="btn-row"><button class="btn ghost" data-action="go" data-step="result">결과로</button><button class="btn" data-action="restart">조건 바꿔 다시 계산</button></div>`;
+    <h2>계산 근거</h2>
+    <p class="small">규칙표 ${esc(rules.version)} 기준입니다. 확정은 정부·법령 원문을 확인한 규칙, 추정은 2차 자료나 계산값, 확인 필요는 원문을 확인하지 못한 규칙입니다.</p>
+    ${cards}
+    <div class="btn-row"><button class="btn ghost" data-action="go" data-step="alts">근무조건 비교로</button><button class="btn" data-action="restart">처음부터 다시</button></div>`;
 }
 
 // 새로고침해도 입력이 남도록 이 탭의 세션 저장소에 둔다. 탭을 닫으면 지워지고 서버로는 보내지 않는다.
@@ -490,7 +522,8 @@ function render() {
   if (state.step === 'questions' && missingFields().length === 0) saveDraft();
   app.innerHTML = VIEWS[state.step]();
   const group = STEP_GROUP[state.step];
-  stepsEl.innerHTML = group === undefined ? '' : STEP_NAMES.map((n, i) => `<li class="${i === group ? 'on' : i < group ? 'done' : ''}" ${i === group ? 'aria-current="step"' : ''}>${i + 1} ${n}</li>`).join('');
+  // 좁은 화면에서도 넘치지 않도록 지금 단계만 이름을 보이고, 나머지는 번호만 보인다.
+  stepsEl.innerHTML = group === undefined ? '' : STEP_NAMES.map((n, i) => `<li class="${i === group ? 'on' : i < group ? 'done' : ''}" ${i === group ? 'aria-current="step"' : ''} title="${n}"><span aria-hidden="true">${i + 1}</span><span class="${i === group ? '' : 'sr-only'}">${i === group ? ' ' : ''}${n}</span></li>`).join('');
   window.scrollTo(0, 0);
   persist();
 }
@@ -503,14 +536,16 @@ function openOffer(i) {
   state.active = i;
   state.result = state.comparison.rows[i].result;
   state.alts = searchAlternatives(job, state.profile, state.rules, { maxHours: state.profile.maxHours || 40 });
-  state.chosen = null;
+  state.chosenHours = null;
+  state.requestAction = null;
 }
 
 function saveProfileInputs() {
   const num = (id) => { const el = document.getElementById(id); return el && el.value !== '' ? Number(el.value) : null; };
   if (!document.getElementById('p-age')) return;
   state.profile.age = num('p-age');
-  state.profile.maxHours = Math.min(52, Math.max(1, num('p-max') || 40));
+  const max = num('p-max');
+  state.profile.maxHours = max ? Math.min(52, Math.max(1, Math.round(max))) : null;
   state.profile.ytdIncome = { wage: num('y-wage') || 0, business: num('y-business') || 0, daily: num('y-daily') || 0 };
 }
 
@@ -601,7 +636,12 @@ app.addEventListener('change', (e) => {
     return;
   }
   const key = e.target.dataset.field;
-  if (!key && state.step === 'profile') { saveProfileInputs(); persist(); return; }
+  if (!key && state.step === 'profile') {
+    saveProfileInputs();
+    if (e.target.id === 'p-max') { state.profileError = null; const y = window.scrollY; render(); window.scrollTo(0, y); return; }
+    persist();
+    return;
+  }
   if (!key || !state.fields) return;
   const raw = e.target.value;
   const value = key === 'incomeType' ? raw : key === 'holidayIncluded' ? raw === 'true' : raw === '' ? null : Number(raw);
@@ -679,13 +719,27 @@ document.addEventListener('click', (e) => {
     }
   } else if (action === 'calculate') {
     saveProfileInputs();
+    if (!state.profile.maxHours) {
+      state.profileError = '주당 최대 근무시간을 입력해 주세요. 비교는 이 시간 안에서만 합니다.';
+      render();
+      document.getElementById('p-max')?.focus();
+      return;
+    }
+    state.profileError = null;
     recalculate();
     openOffer(0);
     state.step = state.offers.length > 1 ? 'compare' : 'result';
   } else if (action === 'pick') {
-    state.chosen = el.dataset.kind;
+    state.chosenHours = Number(el.dataset.hours);
+    state.requestAction = null;
     render();
-    document.getElementById('msg-card')?.scrollIntoView({ block: 'center' });
+    document.getElementById('msg-card')?.scrollIntoView({ block: 'start' });
+    return;
+  } else if (action === 'reqAction') {
+    state.requestAction = el.dataset.value;
+    const y = window.scrollY;
+    render();
+    window.scrollTo(0, y);
     return;
   } else if (action === 'copy') {
     const text = document.getElementById('msg').textContent;

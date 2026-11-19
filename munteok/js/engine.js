@@ -381,7 +381,8 @@ export function evaluate(job, profile, rules) {
 }
 
 /**
- * 사용자가 가능한 범위 안에서 주당 근무시간을 바꿔 가며 계산해 비교할 조건을 찾는다.
+ * 사용자가 가능한 범위 안에서 주당 근무시간을 바꿔 가며 계산해, 비교할 기준을 만든다.
+ * 추천 순위가 아니라 비교 기준이다: 받은 제안, 내가 가능한 최대 시간, 그 사이에서 무언가 바뀌는 지점.
  * AI 에이전트가 이 함수를 도구로 호출한다. 계산 자체는 전부 evaluate가 한다.
  * maxHours는 사용자가 답한 "주당 가능한 최대 시간"이다.
  */
@@ -390,8 +391,11 @@ export function searchAlternatives(job, profile, rules, { minHours = 1, maxHours
   const table = [];
   for (let h = minHours; h <= top; h++) {
     const r = evaluate({ ...job, weeklyHours: h }, profile, rules);
+    const allowance = r.cards.find((c) => c.id === 'jobSeekerAllowance');
     table.push({
       weeklyHours: h, gross: r.pay.gross, takeHome: r.pay.takeHome, allowanceLoss: r.summary.allowanceLoss, net: r.summary.net,
+      confirmedNet: r.summary.confirmedNet, over15: r.pay.over15, holidayIncluded: r.pay.holidayIncluded,
+      allowancePaid: allowance ? allowance.paid : null,
       crossedIds: r.summary.crossedIds, adverseIds: r.summary.adverseIds, pendingIds: r.summary.pendingIds, checkCount: r.checks.length,
       effects: r.cards.map((c) => ({ id: c.id, type: c.effect.type, label: c.effect.label })),
     });
@@ -402,15 +406,29 @@ export function searchAlternatives(job, profile, rules, { minHours = 1, maxHours
   const push = (kind, label, row) => {
     if (row && !options.some((o) => o.weeklyHours === row.weeklyHours)) options.push({ kind, label, ...row });
   };
-
-  // 받은 제안. 가능한 범위를 넘으면 범위 밖이라 비교에서 빠진다.
+  // 받은 제안. 가능한 범위를 넘으면 비교에서 빠진다.
   push('original', '받은 제안 그대로', at(offered));
-  // 가능한 범위에서 예상 추가수입이 가장 큰 조건. 같으면 근무시간이 적은 쪽.
-  push('best', '가능한 범위에서 예상 추가수입이 가장 큰 조건', table.reduce((a, b) => (b.net > a.net ? b : a)));
-  // 지원이 줄거나 자격 확인이 필요한 변화가 없는 조건 중 가장 긴 근무시간.
-  // 주 4시간 미만이면 현실적인 제안이 아니어서 보여주지 않는다.
-  const noChange = [...table].reverse().find((t) => t.adverseIds.length === 0);
-  if (noChange && noChange.weeklyHours >= 4) push('noChange', '지원과 자격이 그대로인 가장 긴 근무시간', noChange);
+  push('max', '내가 가능한 최대 시간', at(top));
+
+  // 변화 지점: 한 시간 늘렸을 때 무언가 바뀌는 근무시간을 모두 찾는다.
+  const titleOf = (id) => rules[id].title;
+  const changePoints = [];
+  for (let i = 1; i < table.length; i++) {
+    const prev = table[i - 1];
+    const cur = table[i];
+    const changes = [];
+    if (!prev.over15 && cur.over15) changes.push({ type: cur.holidayIncluded ? 'note' : 'gain', text: cur.holidayIncluded ? '4대보험 가입 대상이 됨' : '주휴수당이 생기고 4대보험 가입 대상이 됨' });
+    if (prev.allowanceLoss === 0 && cur.allowanceLoss > 0) changes.push({ type: 'loss', text: '구직촉진수당이 줄기 시작함 (추정)' });
+    if (prev.allowancePaid > 0 && cur.allowancePaid === 0) changes.push({ type: 'loss', text: '구직촉진수당이 지급되지 않음 (추정)' });
+    for (const id of cur.adverseIds) {
+      if (id !== 'jobSeekerAllowance' && !prev.adverseIds.includes(id)) changes.push({ type: 'check', text: `${titleOf(id)}: 연간 기준에 닿음` });
+    }
+    for (const id of cur.pendingIds) {
+      if (!prev.pendingIds.includes(id)) changes.push({ type: 'pending', text: `${titleOf(id)}: 추가 확인이 필요해짐` });
+    }
+    if (cur.checkCount > prev.checkCount && !changes.some((c) => c.type === 'pending')) changes.push({ type: 'pending', text: '추가 확인 항목이 생김' });
+    if (changes.length) changePoints.push({ weeklyHours: cur.weeklyHours, beforeHours: prev.weeklyHours, beforeNet: prev.net, net: cur.net, gross: cur.gross, allowanceLoss: cur.allowanceLoss, changes });
+  }
 
   // 더 일해도 예상 추가수입이 직전 최고치보다 적은 구간을 찾는다.
   // peak: 구간 직전의 최고치, recover: 그 최고치를 다시 넘는 최소 근무시간
@@ -424,15 +442,48 @@ export function searchAlternatives(job, profile, rules, { minHours = 1, maxHours
       dip = { peakHours: peak.weeklyHours, peakNet: peak.net, from: t.weeklyHours, to: top, recoverHours: null };
     }
   }
-  if (dip && dip.recoverHours) push('recover', '수당이 줄어든 뒤 예상 추가수입이 다시 커지는 근무시간', at(dip.recoverHours));
 
   return {
     options,
+    changePoints,
     table,
     dip,
+    offered,
     offeredOutOfRange: !at(offered),
     trace: { variable: '주당 근무시간', from: minHours, to: top, evaluated: table.length },
   };
+}
+
+// ---------------- 고용주에게 보낼 문구 ----------------
+
+export const REQUEST_ACTIONS = {
+  expand: '근무 확대 요청',
+  adjust: '일정·시간 조정 요청',
+  terms: '급여 조건 확인',
+  accept: '그대로 수락하며 확인',
+};
+
+// 신고를 피하는 것으로 읽힐 수 있는 표현. 문구에 들어가면 안 된다.
+export const FORBIDDEN_PHRASES = ['신고 안', '신고하지 않', '현금으로', '계약서 없이', '몰래', '소득이 잡히지', '수당 때문', '지원금 때문', '수급 때문'];
+
+export function forbiddenIn(text) {
+  return FORBIDDEN_PHRASES.filter((p) => text.includes(p));
+}
+
+/**
+ * 사용자가 고른 행동에 맞춰 문구를 조합한다: [행동 문장] + [그 제안의 확인 질문] + [시작일·기간 확인].
+ * 지원 기준은 이유로 쓰지 않는다. 시간과 숫자는 받은 값 그대로 넣는다.
+ */
+export function buildRequestMessage(action, { offeredHours, targetHours, questions = [] }) {
+  const lines = ['안녕하세요.'];
+  if (action === 'expand') lines.push(`제안해 주신 주 ${offeredHours}시간보다 더 일할 수 있습니다. 주 ${targetHours}시간 정도로 늘릴 수 있을까요?`);
+  else if (action === 'adjust') lines.push(`제 사정상 주 ${offeredHours}시간은 어려워서, 주 ${targetHours}시간으로 조정할 수 있을까요?`);
+  else if (action === 'terms') lines.push('시작하기 전에 급여 조건을 확인하고 싶습니다.');
+  else lines.push(`제안해 주신 주 ${offeredHours}시간 조건으로 일하고 싶습니다. 시작 전에 몇 가지만 확인 부탁드립니다.`);
+  for (const q of questions) lines.push(`- ${q}`);
+  if (!questions.some((q) => q.includes('언제부터'))) lines.push('근무 시작일과 기간도 알려 주시면 감사하겠습니다.');
+  lines.push('감사합니다.');
+  return lines.join('\n');
 }
 
 /**

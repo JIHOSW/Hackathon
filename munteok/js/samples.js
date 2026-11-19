@@ -15,7 +15,7 @@ export const SAMPLES = [
       incomeType: { value: 'wage', status: '확정', evidence: '4대보험 가입, 주휴수당 별도 지급' },
       holidayIncluded: { value: false, status: '확정', evidence: '주휴수당 별도 지급' },
     },
-    profile: { age: 27, allowance: 'yes', healthDependent: 'no', taxDependent: 'no', ytdIncome: { wage: 0, daily: 0, business: 0 }, otherSupports: [] },
+    profile: { age: 27, maxHours: 28, allowance: 'yes', healthDependent: 'no', taxDependent: 'no', ytdIncome: { wage: 0, daily: 0, business: 0 }, otherSupports: [] },
   },
   {
     id: 'tutor',
@@ -29,7 +29,7 @@ export const SAMPLES = [
       months: { value: 10, status: '확정', evidence: '3월부터 12월까지' },
       incomeType: { value: 'business', status: '확정', evidence: '급여는 3.3% 떼고' },
     },
-    profile: { age: 20, allowance: 'no', healthDependent: 'yes', taxDependent: 'yes', ytdIncome: { wage: 0, daily: 0, business: 0 }, otherSupports: [] },
+    profile: { age: 20, maxHours: 16, allowance: 'no', healthDependent: 'yes', taxDependent: 'yes', ytdIncome: { wage: 0, daily: 0, business: 0 }, otherSupports: [] },
   },
   {
     id: 'store',
@@ -43,11 +43,11 @@ export const SAMPLES = [
       months: { value: null, status: '확인 필요', evidence: '장기 근무자 우대: 기간이 적혀 있지 않음' },
       incomeType: { value: 'unknown', status: '확인 필요', evidence: '급여 지급 방식이 적혀 있지 않음' },
     },
-    profile: { age: 23, allowance: 'no', healthDependent: 'yes', taxDependent: 'yes', ytdIncome: { wage: 0, daily: 0, business: 0 }, otherSupports: ['youthRent'] },
+    profile: { age: 23, maxHours: 20, allowance: 'no', healthDependent: 'yes', taxDependent: 'yes', ytdIncome: { wage: 0, daily: 0, business: 0 }, otherSupports: ['youthRent'] },
   },
 ];
 
-export const EMPTY_PROFILE = { age: null, allowance: 'no', healthDependent: 'unknown', taxDependent: 'unknown', ytdIncome: { wage: 0, daily: 0, business: 0 }, otherSupports: [] };
+export const EMPTY_PROFILE = { age: null, maxHours: null, allowance: 'no', healthDependent: 'unknown', taxDependent: 'unknown', ytdIncome: { wage: 0, daily: 0, business: 0 }, otherSupports: [] };
 
 export const INCOME_TYPES = {
   wage: '근로소득 (4대보험 공제)',
