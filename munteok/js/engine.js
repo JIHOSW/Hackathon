@@ -28,14 +28,16 @@ export function monthlyPay(job, rules) {
   const base = Math.round(job.hourlyWage * job.weeklyHours * WEEKS_PER_MONTH);
   const isWage = job.incomeType === 'wage';
   const over15 = isWage && job.weeklyHours >= r.thresholdHours;
-  const holidayHours = over15 ? (Math.min(job.weeklyHours, 40) / 40) * 8 : 0;
+  // 공고의 시급에 주휴수당이 이미 포함되어 있으면 따로 더하지 않는다.
+  const holidayIncluded = over15 && job.holidayIncluded === true;
+  const holidayHours = over15 && !holidayIncluded ? (Math.min(job.weeklyHours, 40) / 40) * 8 : 0;
   const holidayPay = Math.round(job.hourlyWage * holidayHours * WEEKS_PER_MONTH);
   const gross = base + holidayPay;
   const rates = r.employeeRates;
   const insuranceRate = rates.pension + rates.health + rates.longTermCare + rates.employment;
   const insurance = over15 ? Math.round(gross * insuranceRate) : 0;
   const withholding = job.incomeType === 'business' ? Math.round(gross * rules.businessWithholding.rate) : 0;
-  return { base, holidayPay, gross, insurance, withholding, takeHome: gross - insurance - withholding, over15 };
+  return { base, holidayPay, gross, insurance, withholding, takeHome: gross - insurance - withholding, over15, holidayIncluded };
 }
 
 /** 구직촉진수당의 감액 기준선(이 금액에서 소득을 뺀 만큼 지급). */
@@ -233,9 +235,12 @@ function weeklyCard(job, rules, pay) {
   card.limitText = `주 ${rule.thresholdHours}시간`;
   card.status = worstStatus(statusOf(rule.verification), statusOf(rule.ratesVerification));
   card.crossed = pay.over15;
+  card.holidayIncluded = pay.holidayIncluded;
   card.crossMonth = null;
   card.headline = pay.over15
-    ? `주 ${rule.thresholdHours}시간 이상: 주휴수당 월 ${won(pay.holidayPay)} 발생, 4대보험 월 ${won(pay.insurance)} 공제`
+    ? pay.holidayIncluded
+      ? `주 ${rule.thresholdHours}시간 이상: 주휴수당은 시급에 포함된 것으로 계산, 4대보험 월 ${won(pay.insurance)} 공제`
+      : `주 ${rule.thresholdHours}시간 이상: 주휴수당 월 ${won(pay.holidayPay)} 발생, 4대보험 월 ${won(pay.insurance)} 공제`
     : `주 ${rule.thresholdHours}시간 미만: 주휴수당과 4대보험 가입 대상이 아님`;
   card.notes.push(rule.note);
   return card;
@@ -251,7 +256,7 @@ function weeklyCard(job, rules, pay) {
  */
 export function effectOf(card) {
   if (card.id === 'weekly15h') {
-    if (card.crossed === true) return { type: 'gain', label: '급여 증가' };
+    if (card.crossed === true) return card.holidayIncluded ? { type: 'check', label: '4대보험 가입' } : { type: 'gain', label: '급여 증가' };
     if (card.crossed === null) return { type: 'check', label: '확인 필요' };
     return { type: 'keep', label: '변화 없음' };
   }
@@ -268,7 +273,7 @@ export function effectOf(card) {
  * 일자리 조건과 내 상황으로 전체 결과를 계산한다.
  * job: { hourlyWage, weeklyHours, startMonth, months, incomeType }
  * profile: { age, allowance: 'yes'|'no'|'applying', healthDependent, taxDependent: 'yes'|'no'|'unknown',
- *            ytdIncome: { wage, daily, business }, parentBracket: 'b1'..'b4'|'unknown', otherSupports: [] }
+ *            ytdIncome: { wage, daily, business }, maxHours, otherSupports: [] }
  */
 export function evaluate(job, profile, rules) {
   const pay = monthlyPay(job, rules);
@@ -391,7 +396,7 @@ export function employerQuestions(job, meta = {}, rules) {
   const q = [];
   const unsure = (key) => meta[key] && meta[key] !== STATUS.CONFIRMED;
   if (job.incomeType === 'unknown') q.push('급여에서 4대보험을 떼나요, 3.3%를 떼나요?');
-  if (job.incomeType === 'wage' && job.weeklyHours >= rules.weekly15h.thresholdHours) q.push('주휴수당은 시급과 별도로 지급되나요?');
+  if (job.incomeType === 'wage' && job.weeklyHours >= rules.weekly15h.thresholdHours && (!meta.holidayIncluded || unsure('holidayIncluded'))) q.push('주휴수당은 시급과 별도로 지급되나요?');
   if (job.incomeType === 'business') q.push('근로계약서를 쓰나요, 용역(프리랜서) 계약인가요?');
   if (unsure('hourlyWage')) q.push('시급이 정확히 얼마인가요?');
   if (unsure('weeklyHours')) q.push('주당 근무시간과 휴게시간이 정확히 어떻게 되나요?');
@@ -426,7 +431,11 @@ export function compareOffers(offers, profile, rules, { maxHours = 40 } = {}) {
       result: r,
     };
   });
-  const lead = (pick, better) => rows.reduce((best, row, i) => (best === -1 || better(pick(row), pick(rows[best])) ? i : best), -1);
+  // 내가 가능한 시간 안에 있는 제안 중에서만 앞서는 제안을 표시한다. 못 하는 조건을 추천처럼 보이게 하지 않기 위해서다.
+  const lead = (pick, better) => rows.reduce((best, row, i) => {
+    if (!row.withinHours) return best;
+    return best === -1 || better(pick(row), pick(rows[best])) ? i : best;
+  }, -1);
   return {
     rows,
     highlights: {

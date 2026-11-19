@@ -18,13 +18,19 @@ const state = {
 };
 const MAX_OFFERS = 3;
 
-const FIELD_LABELS = { hourlyWage: '시급 (원)', weeklyHours: '주당 근무시간', startMonth: '시작 월', months: '근무 개월 수', incomeType: '소득 종류' };
+const FIELD_LABELS = { hourlyWage: '시급 (원)', weeklyHours: '주당 근무시간', startMonth: '시작 월', months: '근무 개월 수', incomeType: '소득 종류', holidayIncluded: '주휴수당' };
 const STEP_GROUP = { upload: 0, confirm: 1, questions: 1, offers: 1, profile: 2, compare: 3, result: 3, alts: 3, basis: 3 };
 const STEP_NAMES = ['올리기', '확인', '내 상황', '결과'];
 
 function emptyFields() {
   const blank = (v) => ({ value: v, status: STATUS.CHECK, evidence: '' });
-  return { hourlyWage: blank(null), weeklyHours: blank(null), startMonth: blank(null), months: blank(null), incomeType: blank('unknown') };
+  return withDefaults({ hourlyWage: blank(null), weeklyHours: blank(null), startMonth: blank(null), months: blank(null), incomeType: blank('unknown') });
+}
+
+// 주휴수당 포함 여부는 공고에 잘 적히지 않는다. 값이 없으면 "시급과 별도"로 가정하고 추정으로 표시한다.
+function withDefaults(fields) {
+  if (!fields.holidayIncluded) fields.holidayIncluded = { value: false, status: STATUS.ESTIMATED, evidence: '적혀 있지 않아 시급과 별도로 지급된다고 가정' };
+  return fields;
 }
 
 function badge(status) {
@@ -113,6 +119,9 @@ function fieldInput(key, f) {
   if (key === 'incomeType') {
     return `<select data-field="incomeType">${Object.entries(INCOME_TYPES).map(([v, l]) => `<option value="${v}" ${f.value === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
   }
+  if (key === 'holidayIncluded') {
+    return `<select data-field="holidayIncluded"><option value="false" ${f.value ? '' : 'selected'}>시급과 별도로 받음</option><option value="true" ${f.value ? 'selected' : ''}>시급에 이미 포함됨</option></select>`;
+  }
   if (key === 'startMonth') {
     return `<select data-field="startMonth"><option value="">선택</option>${Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}" ${f.value === i + 1 ? 'selected' : ''}>${i + 1}월</option>`).join('')}</select>`;
   }
@@ -132,7 +141,7 @@ function missingFields() {
 function viewConfirm() {
   const f = state.fields;
   const ready = f.hourlyWage.value > 0 && f.weeklyHours.value > 0;
-  const rows = Object.keys(FIELD_LABELS).map((key) => `
+  const rows = Object.keys(FIELD_LABELS).filter((key) => key !== 'holidayIncluded' || f.incomeType.value === 'wage').map((key) => `
     <div class="field">
       <div class="field-head"><label for="fld-${key}"><b>${FIELD_LABELS[key]}</b></label>${badge(f[key].status)}</div>
       ${fieldInput(key, f[key]).replace('data-field', `id="fld-${key}" data-field`)}
@@ -187,11 +196,12 @@ function offerLine(f) {
 }
 
 function jobOf(f) {
-  return { hourlyWage: Number(f.hourlyWage.value), weeklyHours: Number(f.weeklyHours.value), startMonth: Number(f.startMonth.value), months: Number(f.months.value), incomeType: f.incomeType.value };
+  return { hourlyWage: Number(f.hourlyWage.value), weeklyHours: Number(f.weeklyHours.value), startMonth: Number(f.startMonth.value), months: Number(f.months.value), incomeType: f.incomeType.value, holidayIncluded: Boolean(f.holidayIncluded && f.holidayIncluded.value) };
 }
 
+// 주휴수당 항목은 근로소득일 때만 의미가 있어, 그 밖에는 확인 안 된 조건으로 세지 않는다.
 function metaOf(f) {
-  return Object.fromEntries(Object.entries(f).map(([k, v]) => [k, v.status]));
+  return Object.fromEntries(Object.entries(f).filter(([k]) => k !== 'holidayIncluded' || f.incomeType.value === 'wage').map(([k, v]) => [k, v.status]));
 }
 
 // 확인을 마친 제안을 목록에 넣는다. 수정 중이던 제안이면 그 자리에 덮어쓴다.
@@ -208,8 +218,9 @@ function saveDraft() {
 
 function viewOffers() {
   const cards = state.offers.map((o, i) => `<div class="card">
-      <div class="card-head"><h3>${esc(o.name)}</h3></div>
-      <p class="small" style="margin:0">${esc(offerLine(o.fields))}</p>
+      <label class="f" for="name-${i}" style="margin-top:0">제안 이름</label>
+      <input id="name-${i}" type="text" maxlength="20" data-offer-name="${i}" value="${esc(o.name)}">
+      <p class="small" style="margin:8px 0 0">${esc(offerLine(o.fields))}</p>
       <div class="btn-row"><button class="btn ghost" data-action="editOffer" data-i="${i}">수정</button><button class="btn ghost" data-action="removeOffer" data-i="${i}">삭제</button></div>
     </div>`).join('');
   const canAdd = state.offers.length < MAX_OFFERS;
@@ -222,6 +233,7 @@ function viewOffers() {
 
 function viewCompare() {
   const c = state.comparison;
+  const hasAllowance = state.profile.allowance !== 'no';
   const h = c.highlights;
   const mark = (i, key, text) => (c.rows.length > 1 && h[key] === i ? ` <span class="tag e-gain">${text}</span>` : '');
   const cards = c.rows.map((r, i) => `<div class="card" data-offer="${i}">
@@ -230,7 +242,7 @@ function viewCompare() {
       <dl class="kv">
         <dt>조건</dt><dd>시급 ${won(r.job.hourlyWage)}, 주 ${r.job.weeklyHours}시간, ${r.workedMonths}개월</dd>
         <dt>급여 (월)</dt><dd>${won(r.gross)}</dd>
-        <dt>줄어드는 수당 (월)</dt><dd>${won(r.allowanceLoss)}</dd>
+        ${hasAllowance ? `<dt>줄어드는 수당 (월)</dt><dd>${won(r.allowanceLoss)}</dd>` : ''}
         <dt>예상 추가수입 (월)</dt><dd><b>${won(r.net)}</b>${mark(i, 'net', '가장 큼')}</dd>
         <dt>일한 시간당</dt><dd>${won(r.netPerHour)}${mark(i, 'netPerHour', '가장 큼')}</dd>
         <dt>올해 일하는 ${r.workedMonths}개월 합계</dt><dd>${won(r.periodNet)}</dd>
@@ -243,7 +255,7 @@ function viewCompare() {
   return `<h1>제안 비교</h1>
     <p class="lead">제안 ${c.rows.length}개를 같은 규칙으로 계산했습니다. 기준마다 앞서는 제안을 표시할 뿐, 어느 쪽을 고를지는 직접 정하세요.</p>
     <p class="small">${state.rules.appliesToYear}년 규칙으로 한 해(1월~12월)를 계산한 값입니다. 해를 넘기는 기간은 넣지 않았습니다.</p>
-    <p class="small"><b>예상 추가수입</b>은 급여에서 4대보험이나 3.3%와 줄어드는 수당을 뺀 금액입니다. 소득세와 부모님 세금 변화는 넣지 않았습니다.</p>
+    <p class="small"><b>예상 추가수입</b>은 급여에서 4대보험이나 3.3%${hasAllowance ? ', 줄어드는 수당' : ''}을 뺀 금액입니다. 소득세와 부모님 세금 변화는 넣지 않았습니다.</p>
     ${cards}
     <div class="btn-row"><button class="btn ghost" data-action="go" data-step="offers">제안 수정·추가</button><button class="btn ghost" data-action="go" data-step="profile">내 상황 바꾸기</button></div>`;
 }
@@ -329,6 +341,7 @@ function viewResult() {
   const r = state.result;
   const s = r.summary;
   const deduct = s.insurance + s.withholding;
+  const hasAllowance = r.cards.some((c) => c.id === 'jobSeekerAllowance');
   const types = new Set(r.cards.map((c) => c.effect.type));
   const chips = [
     types.has('gain') ? '<span class="tag e-gain">급여 증가</span>' : '',
@@ -342,8 +355,8 @@ function viewResult() {
     <div class="sum">
       <div class="card"><div class="k">급여 (월)</div><div class="v mono">${won(s.addedIncome)}</div></div>
       <div class="card"><div class="k">${r.pay.withholding ? '3.3% 원천징수' : '4대보험 공제'} (월)</div><div class="v mono">${won(deduct)}</div></div>
-      <div class="card"><div class="k">줄어드는 수당 (월)</div><div class="v mono">${won(s.allowanceLoss)}</div></div>
-      <div class="card"><div class="k">계산 범위 내 예상 추가수입 (월)</div><div class="v mono">${won(s.net)}</div></div>
+      ${hasAllowance ? `<div class="card"><div class="k">줄어드는 수당 (월)</div><div class="v mono">${won(s.allowanceLoss)}</div></div>` : ''}
+      <div class="card ${hasAllowance ? '' : 'wide'}"><div class="k">계산 범위 내 예상 추가수입 (월)</div><div class="v mono">${won(s.net)}</div></div>
     </div>
     <p class="small" style="margin-top:8px"><b>계산에 넣은 것</b> ${esc(s.included.join(', '))}<br><b>넣지 않은 것</b> ${esc(s.excluded.join(', '))}</p>
     ${r.pay.holidayPay ? `<p class="small">급여에는 주휴수당 ${won(r.pay.holidayPay)}이 포함되어 있습니다.</p>` : ''}
@@ -372,6 +385,7 @@ function requestMessage(offered, option) {
 
 function viewAlts() {
   const a = state.alts;
+  const hasAllowance = state.profile.allowance !== 'no';
   const offered = Math.round(state.offers[state.active].fields.weeklyHours.value);
   const dip = a.dip ? `<div class="card warn">
       <h3>더 일해도 예상 추가수입이 줄어드는 구간</h3>
@@ -383,7 +397,7 @@ function viewAlts() {
       <dl class="kv">
         <dt>근무시간</dt><dd>주 ${o.weeklyHours}시간</dd>
         <dt>급여 (월)</dt><dd>${won(o.gross)}</dd>
-        <dt>줄어드는 수당 (월)</dt><dd>${won(o.allowanceLoss)}</dd>
+        ${hasAllowance ? `<dt>줄어드는 수당 (월)</dt><dd>${won(o.allowanceLoss)}</dd>` : ''}
         <dt>예상 추가수입 (월)</dt><dd><b>${won(o.net)}</b></dd>
       </dl>
       <button class="btn ghost" data-action="pick" data-kind="${o.kind}" style="margin-top:10px">이 조건으로 문구 만들기</button>
@@ -427,6 +441,39 @@ function viewBasis() {
     <div class="btn-row"><button class="btn ghost" data-action="go" data-step="result">결과로</button><button class="btn" data-action="restart">조건 바꿔 다시 계산</button></div>`;
 }
 
+// 새로고침해도 입력이 남도록 이 탭의 세션 저장소에 둔다. 탭을 닫으면 지워지고 서버로는 보내지 않는다.
+const STORE_KEY = 'munteok-state-v1';
+const SAVED_KEYS = ['step', 'mode', 'rawText', 'fields', 'profile', 'offers', 'editing', 'active', 'sample', 'extractedBy', 'manualType'];
+
+function persist() {
+  try {
+    sessionStorage.setItem(STORE_KEY, JSON.stringify(Object.fromEntries(SAVED_KEYS.map((k) => [k, state[k]]))));
+  } catch (e) { /* 저장소를 쓸 수 없으면 저장 없이 동작한다 */ }
+}
+
+function restore() {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(STORE_KEY) || 'null');
+    if (!saved || !VIEWS[saved.step]) return;
+    Object.assign(state, saved);
+    const needsResult = ['compare', 'result', 'alts', 'basis'].includes(state.step);
+    if (needsResult) {
+      if (!state.offers.length) { state.step = 'start'; return; }
+      recalculate();
+      openOffer(Math.min(state.active || 0, state.offers.length - 1));
+    }
+    if (['confirm', 'questions'].includes(state.step) && !state.fields) state.step = state.offers.length ? 'offers' : 'start';
+  } catch (e) {
+    sessionStorage.removeItem(STORE_KEY);
+    state.step = 'start';
+  }
+}
+
+function recalculate() {
+  const maxHours = state.profile.maxHours || 40;
+  state.comparison = compareOffers(state.offers.map((o) => ({ name: o.name, job: jobOf(o.fields), meta: metaOf(o.fields) })), state.profile, state.rules, { maxHours });
+}
+
 const VIEWS = { start: viewStart, upload: viewUpload, confirm: viewConfirm, questions: viewQuestions, offers: viewOffers, compare: viewCompare, profile: viewProfile, result: viewResult, alts: viewAlts, basis: viewBasis };
 
 function render() {
@@ -435,6 +482,7 @@ function render() {
   const group = STEP_GROUP[state.step];
   stepsEl.innerHTML = group === undefined ? '' : STEP_NAMES.map((n, i) => `<li class="${i === group ? 'on' : i < group ? 'done' : ''}" ${i === group ? 'aria-current="step"' : ''}>${i + 1} ${n}</li>`).join('');
   window.scrollTo(0, 0);
+  persist();
 }
 
 // ---------------- 동작 ----------------
@@ -506,7 +554,7 @@ async function tryExtract(button) {
     const res = await fetch(API_BASE + 'api/extract', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `AI 호출이 실패했습니다 (${res.status}).`);
-    state.fields = data.fields;
+    state.fields = withDefaults(data.fields);
     state.extractedBy = data.model || 'AI';
     state.sample = null;
     state.step = 'confirm';
@@ -528,6 +576,7 @@ app.addEventListener('submit', (e) => {
     months: set(Number(document.getElementById('m-months').value)),
     incomeType: type === 'unknown' ? { value: 'unknown', status: STATUS.CHECK, evidence: '' } : set(type),
   };
+  withDefaults(state.fields);
   state.rawText = '';
   state.sample = null;
   state.extractedBy = null;
@@ -536,10 +585,16 @@ app.addEventListener('submit', (e) => {
 });
 
 app.addEventListener('change', (e) => {
+  if (e.target.dataset.offerName !== undefined) {
+    const o = state.offers[Number(e.target.dataset.offerName)];
+    if (o) { o.name = e.target.value.trim() || o.name; persist(); }
+    return;
+  }
   const key = e.target.dataset.field;
+  if (!key && state.step === 'profile') { saveProfileInputs(); persist(); return; }
   if (!key || !state.fields) return;
   const raw = e.target.value;
-  const value = key === 'incomeType' ? raw : raw === '' ? null : Number(raw);
+  const value = key === 'incomeType' ? raw : key === 'holidayIncluded' ? raw === 'true' : raw === '' ? null : Number(raw);
   const known = key === 'incomeType' ? value !== 'unknown' : value !== null;
   state.fields[key] = { value, status: known ? STATUS.CONFIRMED : STATUS.CHECK, evidence: known ? '직접 수정' : '' };
   render();
@@ -556,9 +611,9 @@ document.addEventListener('click', (e) => {
     state.aiError = null;
   } else if (action === 'sample') {
     const s = SAMPLES.find((x) => x.id === el.dataset.id);
-    Object.assign(state, { sample: s.id, rawText: s.text, extractedBy: null, fields: clone(s.extraction), profile: clone(s.profile), result: null, alts: null, chosen: null, offers: [], editing: null, step: 'confirm' });
+    Object.assign(state, { sample: s.id, rawText: s.text, extractedBy: null, fields: withDefaults(clone(s.extraction)), profile: clone(s.profile), result: null, alts: null, chosen: null, offers: [], editing: null, step: 'confirm' });
   } else if (action === 'samplePair') {
-    const pick = (id) => { const x = SAMPLES.find((y) => y.id === id); return { name: x.title, fields: clone(x.extraction), rawText: x.text, extractedBy: null }; };
+    const pick = (id) => { const x = SAMPLES.find((y) => y.id === id); return { name: x.title, fields: withDefaults(clone(x.extraction)), rawText: x.text, extractedBy: null }; };
     Object.assign(state, { offers: [pick('cafe'), pick('tutor')], profile: clone(SAMPLES[0].profile), editing: null, fields: null, sample: null, step: 'offers' });
   } else if (action === 'addOffer') {
     Object.assign(state, { editing: null, fields: emptyFields(), rawText: '', sample: null, extractedBy: null, aiError: null, step: 'upload' });
@@ -614,8 +669,7 @@ document.addEventListener('click', (e) => {
     }
   } else if (action === 'calculate') {
     saveProfileInputs();
-    const maxHours = state.profile.maxHours || 40;
-    state.comparison = compareOffers(state.offers.map((o) => ({ name: o.name, job: jobOf(o.fields), meta: metaOf(o.fields) })), state.profile, state.rules, { maxHours });
+    recalculate();
     openOffer(0);
     state.step = state.offers.length > 1 ? 'compare' : 'result';
   } else if (action === 'pick') {
@@ -639,6 +693,7 @@ document.addEventListener('click', (e) => {
 fetch('data/rules.json').then((r) => r.json()).then((rules) => {
   state.rules = rules;
   window.__munteok = state; // 점검용
+  restore();
   render();
 }).catch(() => {
   app.innerHTML = '<div class="card warn" role="alert"><h3>규칙표를 불러오지 못했습니다</h3><p class="small">data/rules.json 파일을 확인하세요.</p></div>';
