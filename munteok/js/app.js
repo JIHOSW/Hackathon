@@ -233,7 +233,8 @@ function viewCompare() {
         <dt>줄어드는 수당 (월)</dt><dd>${won(r.allowanceLoss)}</dd>
         <dt>예상 추가수입 (월)</dt><dd><b>${won(r.net)}</b>${mark(i, 'net', '가장 큼')}</dd>
         <dt>일한 시간당</dt><dd>${won(r.netPerHour)}${mark(i, 'netPerHour', '가장 큼')}</dd>
-        <dt>일하는 기간 전체</dt><dd>${won(r.periodNet)}</dd>
+        <dt>올해 일하는 ${r.workedMonths}개월 합계</dt><dd>${won(r.periodNet)}</dd>
+        ${r.uncountedMonths ? `<dt>계산에서 빠진 기간</dt><dd>해를 넘기는 ${r.uncountedMonths}개월</dd>` : ''}
         <dt>확인 안 된 조건</dt><dd>${r.unsure}개${mark(i, 'fewestUnsure', '가장 적음')}</dd>
       </dl>
       ${r.questions.length ? `<p class="small" style="margin:10px 0 4px"><b>시작 전에 고용주에게 물어볼 것</b></p><ul class="notes">${r.questions.map((q) => `<li>${esc(q)}</li>`).join('')}</ul>` : ''}
@@ -241,6 +242,7 @@ function viewCompare() {
     </div>`).join('');
   return `<h1>제안 비교</h1>
     <p class="lead">제안 ${c.rows.length}개를 같은 규칙으로 계산했습니다. 기준마다 앞서는 제안을 표시할 뿐, 어느 쪽을 고를지는 직접 정하세요.</p>
+    <p class="small">${state.rules.appliesToYear}년 규칙으로 한 해(1월~12월)를 계산한 값입니다. 해를 넘기는 기간은 넣지 않았습니다.</p>
     <p class="small"><b>예상 추가수입</b>은 급여에서 4대보험이나 3.3%와 줄어드는 수당을 뺀 금액입니다. 소득세와 부모님 세금 변화는 넣지 않았습니다.</p>
     ${cards}
     <div class="btn-row"><button class="btn ghost" data-action="go" data-step="offers">제안 수정·추가</button><button class="btn ghost" data-action="go" data-step="profile">내 상황 바꾸기</button></div>`;
@@ -336,7 +338,7 @@ function viewResult() {
   ].filter(Boolean).join(' ');
   const multi = state.offers.length > 1;
   return `${multi ? `<p class="small"><button class="btn link" data-action="go" data-step="compare">← 제안 비교로</button></p>` : ''}<h1>${multi ? esc(state.offers[state.active].name) + ': ' : ''}이 일을 시작하면 달라지는 것</h1>
-    <p class="lead">${r.year}년 기준 규칙으로 계산했습니다. 연간 기준은 1월부터 12월까지 합산합니다.</p>
+    <div class="card soft"><ul class="notes" style="margin:0">${r.notices.map((n) => `<li>${esc(n)}</li>`).join('')}</ul></div>
     <div class="sum">
       <div class="card"><div class="k">급여 (월)</div><div class="v mono">${won(s.addedIncome)}</div></div>
       <div class="card"><div class="k">${r.pay.withholding ? '3.3% 원천징수' : '4대보험 공제'} (월)</div><div class="v mono">${won(deduct)}</div></div>
