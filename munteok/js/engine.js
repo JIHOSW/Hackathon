@@ -369,3 +369,57 @@ export function searchAlternatives(job, profile, rules, { minHours = 1, maxHours
     trace: { variable: '주당 근무시간', from: minHours, to: top, evaluated: table.length },
   };
 }
+
+/**
+ * 시작 전에 고용주에게 확인할 질문을 만든다.
+ * meta: 항목별 표시 등급 { hourlyWage: '확정' | '추정' | '확인 필요', weeklyHours, months, ... }
+ */
+export function employerQuestions(job, meta = {}, rules) {
+  const q = [];
+  const unsure = (key) => meta[key] && meta[key] !== STATUS.CONFIRMED;
+  if (job.incomeType === 'unknown') q.push('급여에서 4대보험을 떼나요, 3.3%를 떼나요?');
+  if (job.incomeType === 'wage' && job.weeklyHours >= rules.weekly15h.thresholdHours) q.push('주휴수당은 시급과 별도로 지급되나요?');
+  if (job.incomeType === 'business') q.push('근로계약서를 쓰나요, 용역(프리랜서) 계약인가요?');
+  if (unsure('hourlyWage')) q.push('시급이 정확히 얼마인가요?');
+  if (unsure('weeklyHours')) q.push('주당 근무시간과 휴게시간이 정확히 어떻게 되나요?');
+  if (unsure('months') || unsure('startMonth')) q.push('근무는 언제부터 언제까지인가요?');
+  return q;
+}
+
+/**
+ * 일자리 제안 여러 개를 같은 기준으로 계산해 나란히 비교한다.
+ * offers: [{ name, job, meta }]. 어느 제안이 나은지 결론을 내리지 않고, 기준별로 앞서는 제안만 표시한다.
+ */
+export function compareOffers(offers, profile, rules, { maxHours = 40 } = {}) {
+  const rows = offers.map((o) => {
+    const r = evaluate(o.job, profile, rules);
+    const workedMonths = r.timeline.end - r.timeline.start + 1;
+    const unsure = Object.values(o.meta || {}).filter((s) => s !== STATUS.CONFIRMED).length;
+    return {
+      name: o.name,
+      job: o.job,
+      gross: r.pay.gross,
+      allowanceLoss: r.summary.allowanceLoss,
+      net: r.summary.net,
+      netPerHour: Math.round(r.summary.net / (o.job.weeklyHours * WEEKS_PER_MONTH)),
+      workedMonths,
+      periodNet: r.summary.net * workedMonths,
+      effects: r.cards.map((c) => ({ id: c.id, type: c.effect.type, label: c.effect.label })),
+      adverseIds: r.summary.adverseIds,
+      unsure,
+      questions: employerQuestions(o.job, o.meta, rules),
+      withinHours: o.job.weeklyHours <= maxHours,
+      result: r,
+    };
+  });
+  const lead = (pick, better) => rows.reduce((best, row, i) => (best === -1 || better(pick(row), pick(rows[best])) ? i : best), -1);
+  return {
+    rows,
+    highlights: {
+      net: lead((r) => r.net, (a, b) => a > b),
+      netPerHour: lead((r) => r.netPerHour, (a, b) => a > b),
+      fewestUnsure: lead((r) => r.unsure, (a, b) => a < b),
+    },
+    maxHours,
+  };
+}

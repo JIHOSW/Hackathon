@@ -1,7 +1,7 @@
 // 문턱 화면 흐름
 // 시작 → 올리기 → 추출 확인 → 추가 질문 → 내 상황 → 결과 → 대안 비교 → 근거와 다음 행동
 // 계산은 전부 engine.js가 한다. 이 파일은 입력을 모으고 결과를 그리기만 한다.
-import { evaluate, searchAlternatives, STATUS } from './engine.js';
+import { evaluate, searchAlternatives, compareOffers, STATUS } from './engine.js';
 import { SAMPLES, EMPTY_PROFILE, INCOME_TYPES } from './samples.js';
 import { API_BASE, AI_AVAILABLE } from './config.js';
 
@@ -14,10 +14,12 @@ const won = (n) => Math.round(n).toLocaleString('ko-KR') + '원';
 const state = {
   step: 'start', rules: null, sample: null, mode: 'text', rawText: '', fileName: '',
   fields: null, profile: clone(EMPTY_PROFILE), result: null, alts: null, aiError: null, chosen: null,
+  offers: [], editing: null, active: 0, comparison: null,
 };
+const MAX_OFFERS = 3;
 
 const FIELD_LABELS = { hourlyWage: '시급 (원)', weeklyHours: '주당 근무시간', startMonth: '시작 월', months: '근무 개월 수', incomeType: '소득 종류' };
-const STEP_GROUP = { upload: 0, confirm: 1, questions: 1, profile: 2, result: 3, alts: 3, basis: 3 };
+const STEP_GROUP = { upload: 0, confirm: 1, questions: 1, offers: 1, profile: 2, compare: 3, result: 3, alts: 3, basis: 3 };
 const STEP_NAMES = ['올리기', '확인', '내 상황', '결과'];
 
 function emptyFields() {
@@ -55,7 +57,7 @@ function choices(name, options, current, multi = false) {
 function viewStart() {
   return `
     <h1>일을 더 해도 되는지,<br>넘게 되는 기준선과 손익을 계산해 드립니다</h1>
-    <p class="lead">알바 공고나 제안 메시지의 조건으로 수당, 부모님 세금, 건강보험이 어떻게 달라지는지 봅니다.</p>
+    <p class="lead">알바 공고나 제안 메시지를 올리면 급여와 지원의 변화를 계산합니다. 제안이 여러 개면 같은 기준으로 나란히 비교합니다.</p>
     <div class="card">
       <h3>계산하는 제도</h3>
       <ul class="notes">
@@ -66,6 +68,7 @@ function viewStart() {
     <button class="btn" data-action="go" data-step="upload">새 계산 시작</button>
     <h2>가상 샘플로 바로 체험하기</h2>
     ${SAMPLES.map((s) => `<button class="sample" data-action="sample" data-id="${s.id}"><b>${esc(s.title)}</b><span>${esc(s.scenario)}</span></button>`).join('')}
+    <button class="sample" data-action="samplePair"><b>두 제안 비교하기</b><span>카페 공고와 학원 보조 제안을 나란히 비교</span></button>
     <p class="small">샘플은 지어낸 공고와 인물입니다.</p>`;
 }
 
@@ -143,7 +146,7 @@ function viewConfirm() {
     <div class="card">${rows}</div>
     <div class="card soft"><p class="small" style="margin:0"><b>확정</b> 원문에 적힌 값 · <b>추정</b> 문맥으로 계산한 값 · <b>확인 필요</b> 원문에서 알 수 없는 값</p></div>
     ${ready ? '' : '<p class="hint" role="alert">시급과 주당 근무시간을 입력해야 다음으로 갈 수 있습니다.</p>'}
-    <button class="btn" data-action="afterConfirm" ${ready ? '' : 'disabled'}>${need ? `추가 질문 ${need}개에 답하기` : '내 상황 입력으로'}</button>`;
+    <button class="btn" data-action="afterConfirm" ${ready ? '' : 'disabled'}>${need ? `추가 질문 ${need}개에 답하기` : '이 제안 저장'}</button>`;
 }
 
 const QUESTIONS = {
@@ -179,9 +182,72 @@ function viewQuestions() {
     <button class="btn link" data-action="go" data-step="confirm">추출 결과로 돌아가기</button>`;
 }
 
+function offerLine(f) {
+  return `시급 ${won(f.hourlyWage.value)}, 주 ${f.weeklyHours.value}시간, ${f.startMonth.value}월부터 ${f.months.value}개월, ${INCOME_TYPES[f.incomeType.value]}`;
+}
+
+function jobOf(f) {
+  return { hourlyWage: Number(f.hourlyWage.value), weeklyHours: Number(f.weeklyHours.value), startMonth: Number(f.startMonth.value), months: Number(f.months.value), incomeType: f.incomeType.value };
+}
+
+function metaOf(f) {
+  return Object.fromEntries(Object.entries(f).map(([k, v]) => [k, v.status]));
+}
+
+// 확인을 마친 제안을 목록에 넣는다. 수정 중이던 제안이면 그 자리에 덮어쓴다.
+function saveDraft() {
+  const draft = { fields: state.fields, rawText: state.rawText, extractedBy: state.extractedBy || null };
+  if (state.editing !== null && state.offers[state.editing]) {
+    state.offers[state.editing] = { ...state.offers[state.editing], ...draft };
+  } else {
+    const sample = SAMPLES.find((x) => x.id === state.sample);
+    state.offers.push({ name: sample ? sample.title : `제안 ${state.offers.length + 1}`, ...draft });
+  }
+  Object.assign(state, { editing: null, fields: null, rawText: '', sample: null, extractedBy: null, step: 'offers' });
+}
+
+function viewOffers() {
+  const cards = state.offers.map((o, i) => `<div class="card">
+      <div class="card-head"><h3>${esc(o.name)}</h3></div>
+      <p class="small" style="margin:0">${esc(offerLine(o.fields))}</p>
+      <div class="btn-row"><button class="btn ghost" data-action="editOffer" data-i="${i}">수정</button><button class="btn ghost" data-action="removeOffer" data-i="${i}">삭제</button></div>
+    </div>`).join('');
+  const canAdd = state.offers.length < MAX_OFFERS;
+  return `<h1>저장한 제안</h1>
+    <p class="lead">제안을 ${MAX_OFFERS}개까지 넣어 같은 기준으로 비교할 수 있습니다. 하나만 넣어도 됩니다.</p>
+    ${cards || '<div class="card soft"><p style="margin:0">저장한 제안이 없습니다.</p></div>'}
+    ${canAdd ? '<button class="btn ghost" data-action="addOffer">비교할 제안 추가</button>' : ''}
+    <button class="btn" data-action="go" data-step="profile" style="margin-top:10px" ${state.offers.length ? '' : 'disabled'}>내 상황 입력으로</button>`;
+}
+
+function viewCompare() {
+  const c = state.comparison;
+  const h = c.highlights;
+  const mark = (i, key, text) => (c.rows.length > 1 && h[key] === i ? ` <span class="tag e-gain">${text}</span>` : '');
+  const cards = c.rows.map((r, i) => `<div class="card" data-offer="${i}">
+      <div class="card-head"><h3>${esc(r.name)}</h3></div>
+      <p>${r.effects.filter((e) => e.type !== 'keep').map(effectTag).join(' ') || '<span class="tag e-keep">지원·자격 변화 없음</span>'}${r.withinHours ? '' : ' <span class="tag e-check">가능한 시간 초과</span>'}</p>
+      <dl class="kv">
+        <dt>조건</dt><dd>시급 ${won(r.job.hourlyWage)}, 주 ${r.job.weeklyHours}시간, ${r.workedMonths}개월</dd>
+        <dt>급여 (월)</dt><dd>${won(r.gross)}</dd>
+        <dt>줄어드는 수당 (월)</dt><dd>${won(r.allowanceLoss)}</dd>
+        <dt>예상 추가수입 (월)</dt><dd><b>${won(r.net)}</b>${mark(i, 'net', '가장 큼')}</dd>
+        <dt>일한 시간당</dt><dd>${won(r.netPerHour)}${mark(i, 'netPerHour', '가장 큼')}</dd>
+        <dt>일하는 기간 전체</dt><dd>${won(r.periodNet)}</dd>
+        <dt>확인 안 된 조건</dt><dd>${r.unsure}개${mark(i, 'fewestUnsure', '가장 적음')}</dd>
+      </dl>
+      ${r.questions.length ? `<p class="small" style="margin:10px 0 4px"><b>시작 전에 고용주에게 물어볼 것</b></p><ul class="notes">${r.questions.map((q) => `<li>${esc(q)}</li>`).join('')}</ul>` : ''}
+      <button class="btn ghost" data-action="detail" data-i="${i}" style="margin-top:10px">이 제안 자세히 보기</button>
+    </div>`).join('');
+  return `<h1>제안 비교</h1>
+    <p class="lead">제안 ${c.rows.length}개를 같은 규칙으로 계산했습니다. 기준마다 앞서는 제안을 표시할 뿐, 어느 쪽을 고를지는 직접 정하세요.</p>
+    <p class="small"><b>예상 추가수입</b>은 급여에서 4대보험이나 3.3%와 줄어드는 수당을 뺀 금액입니다. 소득세와 부모님 세금 변화는 넣지 않았습니다.</p>
+    ${cards}
+    <div class="btn-row"><button class="btn ghost" data-action="go" data-step="offers">제안 수정·추가</button><button class="btn ghost" data-action="go" data-step="profile">내 상황 바꾸기</button></div>`;
+}
+
 function viewProfile() {
   const p = state.profile;
-  const f = state.fields;
   const yn = [['yes', '예'], ['no', '아니오'], ['unknown', '모름']];
   const others = Object.entries(state.rules.outOfScope).map(([k, v]) => [k, v.title]);
   return `<h1>내 상황</h1>
@@ -213,16 +279,11 @@ function viewProfile() {
       <p class="hint">이 제도들은 이번 버전에서 계산하지 않고 문의처만 안내합니다.</p>
     </div>
     <div class="card soft">
-      <h3>계산에 쓰는 일자리 조건</h3>
-      <dl class="kv">
-        <dt>시급</dt><dd>${won(f.hourlyWage.value)}</dd>
-        <dt>주당 근무시간</dt><dd>${esc(f.weeklyHours.value)}시간</dd>
-        <dt>기간</dt><dd>${esc(f.startMonth.value)}월부터 ${esc(f.months.value)}개월</dd>
-        <dt>소득 종류</dt><dd>${esc(INCOME_TYPES[f.incomeType.value])}</dd>
-      </dl>
-      <button class="btn link" data-action="go" data-step="confirm">조건 수정</button>
+      <h3>계산할 제안 ${state.offers.length}개</h3>
+      <ul class="notes">${state.offers.map((o) => `<li>${esc(o.name)}: ${esc(offerLine(o.fields))}</li>`).join('')}</ul>
+      <button class="btn link" data-action="go" data-step="offers">제안 수정·추가</button>
     </div>
-    <button class="btn" data-action="calculate">계산하기</button>`;
+    <button class="btn" data-action="calculate">${state.offers.length > 1 ? '비교하기' : '계산하기'}</button>`;
 }
 
 function cardHtml(c) {
@@ -273,7 +334,8 @@ function viewResult() {
     types.has('check') ? '<span class="tag e-check">자격 확인 필요</span>' : '',
     s.reportNeeded ? '<span class="tag e-report">소득 신고 필요</span>' : '',
   ].filter(Boolean).join(' ');
-  return `<h1>이 일을 시작하면 달라지는 것</h1>
+  const multi = state.offers.length > 1;
+  return `${multi ? `<p class="small"><button class="btn link" data-action="go" data-step="compare">← 제안 비교로</button></p>` : ''}<h1>${multi ? esc(state.offers[state.active].name) + ': ' : ''}이 일을 시작하면 달라지는 것</h1>
     <p class="lead">${r.year}년 기준 규칙으로 계산했습니다. 연간 기준은 1월부터 12월까지 합산합니다.</p>
     <div class="sum">
       <div class="card"><div class="k">급여 (월)</div><div class="v mono">${won(s.addedIncome)}</div></div>
@@ -308,7 +370,7 @@ function requestMessage(offered, option) {
 
 function viewAlts() {
   const a = state.alts;
-  const offered = Math.round(state.fields.weeklyHours.value);
+  const offered = Math.round(state.offers[state.active].fields.weeklyHours.value);
   const dip = a.dip ? `<div class="card warn">
       <h3>더 일해도 예상 추가수입이 줄어드는 구간</h3>
       <p style="margin:0">주 ${a.dip.from}~${a.dip.to}시간은 예상 추가수입이 주 ${a.dip.peakHours}시간 때(월 ${won(a.dip.peakNet)})보다 적습니다. 수당이 줄어드는 폭이 급여가 늘어나는 폭보다 크기 때문입니다.${a.dip.recoverHours ? ` 주 ${a.dip.recoverHours}시간부터 다시 커집니다.` : ''}</p>
@@ -363,10 +425,10 @@ function viewBasis() {
     <div class="btn-row"><button class="btn ghost" data-action="go" data-step="result">결과로</button><button class="btn" data-action="restart">조건 바꿔 다시 계산</button></div>`;
 }
 
-const VIEWS = { start: viewStart, upload: viewUpload, confirm: viewConfirm, questions: viewQuestions, profile: viewProfile, result: viewResult, alts: viewAlts, basis: viewBasis };
+const VIEWS = { start: viewStart, upload: viewUpload, confirm: viewConfirm, questions: viewQuestions, offers: viewOffers, compare: viewCompare, profile: viewProfile, result: viewResult, alts: viewAlts, basis: viewBasis };
 
 function render() {
-  if (state.step === 'questions' && missingFields().length === 0) state.step = 'profile';
+  if (state.step === 'questions' && missingFields().length === 0) saveDraft();
   app.innerHTML = VIEWS[state.step]();
   const group = STEP_GROUP[state.step];
   stepsEl.innerHTML = group === undefined ? '' : STEP_NAMES.map((n, i) => `<li class="${i === group ? 'on' : i < group ? 'done' : ''}" ${i === group ? 'aria-current="step"' : ''}>${i + 1} ${n}</li>`).join('');
@@ -375,17 +437,21 @@ function render() {
 
 // ---------------- 동작 ----------------
 
+// 제안 하나의 상세 결과와 근무조건 비교를 준비한다.
+function openOffer(i) {
+  const job = jobOf(state.offers[i].fields);
+  state.active = i;
+  state.result = state.comparison.rows[i].result;
+  state.alts = searchAlternatives(job, state.profile, state.rules, { maxHours: state.profile.maxHours || 40 });
+  state.chosen = null;
+}
+
 function saveProfileInputs() {
   const num = (id) => { const el = document.getElementById(id); return el && el.value !== '' ? Number(el.value) : null; };
   if (!document.getElementById('p-age')) return;
   state.profile.age = num('p-age');
   state.profile.maxHours = Math.min(52, Math.max(1, num('p-max') || 40));
   state.profile.ytdIncome = { wage: num('y-wage') || 0, business: num('y-business') || 0, daily: num('y-daily') || 0 };
-}
-
-function jobFromFields() {
-  const f = state.fields;
-  return { hourlyWage: Number(f.hourlyWage.value), weeklyHours: Number(f.weeklyHours.value), startMonth: Number(f.startMonth.value), months: Number(f.months.value), incomeType: f.incomeType.value };
 }
 
 // 사진을 긴 변 1600px 이하 JPEG로 줄여 base64로 바꾼다. 전송량과 비용을 줄이기 위해서다.
@@ -483,12 +549,25 @@ document.addEventListener('click', (e) => {
   const action = el.dataset.action;
   if (action === 'go') {
     saveProfileInputs();
-    if (el.dataset.step === 'upload' && !state.fields) state.fields = emptyFields();
+    if (el.dataset.step === 'upload' && state.step === 'start') Object.assign(state, { offers: [], editing: null, fields: emptyFields(), rawText: '', sample: null, extractedBy: null, profile: clone(EMPTY_PROFILE) });
     state.step = el.dataset.step;
     state.aiError = null;
   } else if (action === 'sample') {
     const s = SAMPLES.find((x) => x.id === el.dataset.id);
-    Object.assign(state, { sample: s.id, rawText: s.text, extractedBy: null, fields: clone(s.extraction), profile: clone(s.profile), result: null, alts: null, chosen: null, step: 'confirm' });
+    Object.assign(state, { sample: s.id, rawText: s.text, extractedBy: null, fields: clone(s.extraction), profile: clone(s.profile), result: null, alts: null, chosen: null, offers: [], editing: null, step: 'confirm' });
+  } else if (action === 'samplePair') {
+    const pick = (id) => { const x = SAMPLES.find((y) => y.id === id); return { name: x.title, fields: clone(x.extraction), rawText: x.text, extractedBy: null }; };
+    Object.assign(state, { offers: [pick('cafe'), pick('tutor')], profile: clone(SAMPLES[0].profile), editing: null, fields: null, sample: null, step: 'offers' });
+  } else if (action === 'addOffer') {
+    Object.assign(state, { editing: null, fields: emptyFields(), rawText: '', sample: null, extractedBy: null, aiError: null, step: 'upload' });
+  } else if (action === 'editOffer') {
+    const o = state.offers[Number(el.dataset.i)];
+    Object.assign(state, { editing: Number(el.dataset.i), fields: clone(o.fields), rawText: o.rawText, extractedBy: o.extractedBy, step: 'confirm' });
+  } else if (action === 'removeOffer') {
+    state.offers.splice(Number(el.dataset.i), 1);
+  } else if (action === 'detail') {
+    openOffer(Number(el.dataset.i));
+    state.step = 'result';
   } else if (action === 'mode') {
     const raw = document.getElementById('raw');
     if (raw) state.rawText = raw.value;
@@ -498,7 +577,7 @@ document.addEventListener('click', (e) => {
     tryExtract(el);
     return;
   } else if (action === 'afterConfirm') {
-    state.step = missingFields().length ? 'questions' : 'profile';
+    if (missingFields().length) state.step = 'questions'; else saveDraft();
   } else if (action === 'choose') {
     const name = el.dataset.name;
     const value = el.dataset.value;
@@ -533,11 +612,10 @@ document.addEventListener('click', (e) => {
     }
   } else if (action === 'calculate') {
     saveProfileInputs();
-    const job = jobFromFields();
-    state.result = evaluate(job, state.profile, state.rules);
-    state.alts = searchAlternatives(job, state.profile, state.rules, { maxHours: state.profile.maxHours || 40 });
-    state.chosen = null;
-    state.step = 'result';
+    const maxHours = state.profile.maxHours || 40;
+    state.comparison = compareOffers(state.offers.map((o) => ({ name: o.name, job: jobOf(o.fields), meta: metaOf(o.fields) })), state.profile, state.rules, { maxHours });
+    openOffer(0);
+    state.step = state.offers.length > 1 ? 'compare' : 'result';
   } else if (action === 'pick') {
     state.chosen = el.dataset.kind;
     render();
@@ -551,7 +629,7 @@ document.addEventListener('click', (e) => {
     );
     return;
   } else if (action === 'restart') {
-    Object.assign(state, { step: 'start', sample: null, rawText: '', fields: null, profile: clone(EMPTY_PROFILE), result: null, alts: null, chosen: null, aiError: null });
+    Object.assign(state, { step: 'start', sample: null, rawText: '', fields: null, profile: clone(EMPTY_PROFILE), result: null, alts: null, chosen: null, aiError: null, offers: [], editing: null, comparison: null });
   }
   render();
 });
