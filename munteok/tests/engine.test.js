@@ -94,16 +94,20 @@ export function runTests(rules) {
   const jobB = { hourlyWage: 13000, weeklyHours: 12, startMonth: 3, months: 10, incomeType: 'business' };
   r = evaluate(jobB, { ...base, taxDependent: 'yes', healthDependent: 'yes' }, rules);
   d = card(r, 'dependentDeduction');
-  eq('B 부모 공제: 넘을 수 있음', d.crossed, 'maybe');
-  eq('B 부모 공제: 4월', d.crossMonth, 4);
+  eq('B 부모 공제: 확인 전 규칙이라 판정하지 않음', [d.crossed, d.pending, d.effect.type], [null, true, 'pending']);
+  eq('B 부모 공제: 수입이 기준을 넘는 달은 확인 항목에 적음', d.checks[0].includes('4월'), true);
   eq('B 부모 공제: 확인 필요', d.status, STATUS.CHECK);
   const h = card(r, 'healthDependent');
-  eq('B 피부양자: 넘을 수 있음', h.crossed, 'maybe');
-  eq('B 피부양자: 10월', h.crossMonth, 10);
+  eq('B 피부양자: 확인 전 규칙이라 판정하지 않음', [h.crossed, h.pending, h.effect.type], [null, true, 'pending']);
+  eq('B 피부양자: 수입이 기준을 넘는 달은 확인 항목에 적음', h.checks[0].includes('10월'), true);
+  eq('B: 판정하지 못한 카드는 불리한 변화로 세지 않음', [r.summary.adverseIds, r.summary.pendingIds], [[], ['dependentDeduction', 'healthDependent']]);
+  eq('B: 추가 확인 항목 2개', r.checks.length, 2);
+  eq('B: 3.3% 소득은 5월 종합소득세 신고 안내', r.summary.reports, ['3.3% 소득: 다음 해 5월 종합소득세 신고']);
+  eq('B: 3.3%는 추정 항목으로 분리', [r.summary.confirmedNet, r.summary.estimatedParts.map((x) => x.amount)], [677820, [-22368]]);
   eq('B: 주 15시간 카드는 해당 없음', r.notApplicable.map((c) => c.id), ['jobSeekerAllowance', 'weekly15h']);
 
   const altB = searchAlternatives(jobB, { ...base, taxDependent: 'yes', healthDependent: 'yes' }, rules);
-  eq('B 대안: 주 4시간 미만인 조건은 제안하지 않음', altB.options.map((o) => o.kind), ['original', 'best']);
+  eq('B 대안: 확인된 규칙(소득 합계 2,000만 원)으로만 그대로인 시간을 찾음', altB.options.map((o) => o.kind + o.weeklyHours), ['original12', 'best40', 'noChange35']);
 
   // 5-1. 제안 두 개 비교: 카페(A)와 학원 보조(B), 수당 수급자
   const cmp = compareOffers([
@@ -128,7 +132,12 @@ export function runTests(rules) {
 
   // 6. 피부양자: 주 15시간 이상 근로소득
   r = evaluate({ hourlyWage: 10320, weeklyHours: 16, startMonth: 1, months: 12, incomeType: 'wage' }, { ...base, healthDependent: 'yes' }, rules);
-  eq('피부양자: 직장가입 전환 가능', card(r, 'healthDependent').crossed, 'maybe');
+  eq('피부양자: 직장가입 전환 규칙은 확인 전이라 판정에 쓰지 않음', [card(r, 'healthDependent').crossed, card(r, 'healthDependent').checks.length], [false, 1]);
+  eq('피부양자: 확인 전 규칙은 불리한 변화로 세지 않음', r.summary.adverseIds, []);
+  const verified = JSON.parse(JSON.stringify(rules));
+  verified.healthDependent.employeeConversion.verification = 'official';
+  r = evaluate({ hourlyWage: 10320, weeklyHours: 16, startMonth: 1, months: 12, incomeType: 'wage' }, { ...base, healthDependent: 'yes' }, verified);
+  eq('피부양자: 규칙을 확정으로 올리면 판정에 쓰임', [card(r, 'healthDependent').crossed, r.summary.adverseIds], [true, ['healthDependent']]);
   r = evaluate(jobD, { ...base, healthDependent: 'yes' }, rules);
   eq('피부양자: 주 14시간은 넘지 않음', card(r, 'healthDependent').crossed, false);
 
@@ -144,6 +153,26 @@ export function runTests(rules) {
   eq('넘는 기준선 없음', r.summary.crossedIds, []);
   eq('주 15시간 미만은 변화 없음', card(r, 'weekly15h').effect.type, 'keep');
   eq('수당이 없으면 신고 안내 없음', r.summary.reportNeeded, false);
+
+  // 사례 A. 일용근로: 확인 전 규칙이 "자격 유지"를 만들면 안 된다
+  r = evaluate({ hourlyWage: 12000, weeklyHours: 30, startMonth: 1, months: 12, incomeType: 'daily' }, { ...base, taxDependent: 'yes' }, rules);
+  d = card(r, 'dependentDeduction');
+  eq('일용 소득: 연 1,877만 원', r.timeline.rows[11].cumulative.daily, 18770400);
+  eq('일용 소득: 부모 공제는 판정하지 않음', [d.crossed, d.pending, d.effect.label], [null, true, '추가 확인 필요']);
+  eq('일용 소득: 개정안 기준도 판정하지 않음', d.proposed.crossed, null);
+  eq('일용 소득: 확인 항목 1개', r.checks.length, 1);
+
+  // 사례 B. 금액 분리: 큰 숫자는 확정 항목만
+  r = evaluate(jobA, profA, rules);
+  eq('금액 분리: 확정은 급여와 주휴수당', r.summary.confirmedNet, 1313928);
+  eq('금액 분리: 추정 항목', r.summary.estimatedParts.map((x) => [x.label, x.amount]), [['4대보험 근로자 부담분', -127680], ['구직촉진수당 감소', -375385]]);
+  eq('금액 분리: 추정까지 반영하면 기존 값과 같음', r.summary.net, 810863);
+  eq('수당 수급자: 고용센터 신고 안내', r.summary.reports, ['구직촉진수당: 소득이 생기면 고용센터에 신고']);
+  eq('수당 수급 중 주 24시간: 자격 확인 항목 없음', r.checks.length, 0);
+  r = evaluate({ ...jobA, weeklyHours: 30 }, profA, rules);
+  eq('수당 수급 중 주 30시간: 참여 자격 확인 항목', r.checks.map((c) => c.cardId), ['jobSeekerAllowance']);
+  r = evaluate(jobD, base, rules);
+  eq('해당 카드가 없으면 제외 항목도 줄어듦', r.summary.excluded, ['소득세', '교통비·식비 등 개인 지출']);
 
   // 8. 연도 범위: 해를 넘기는 기간과 다음 해 최저임금 안내
   r = evaluate({ hourlyWage: 10500, weeklyHours: 10, startMonth: 11, months: 6, incomeType: 'wage' }, base, rules);

@@ -91,6 +91,14 @@ export function firstCrossMonth(rows, pick, limit) {
 
 function won(n) { return Math.round(n).toLocaleString('ko-KR') + '원'; }
 
+// ---------------- 확인 수준 게이트 ----------------
+// official  : 금액, 판정, 대안에 쓴다.
+// secondary : 금액에 쓰되 "추정"으로 따로 표시한다.
+// unverified: 금액, 판정, 대안에 쓰지 않는다. 추가 확인 항목(checks)으로만 내보낸다.
+export function usable(verification) {
+  return verification === 'official' || verification === 'secondary';
+}
+
 // ---------------- 제도별 카드 ----------------
 
 function dependentCard(job, profile, rules, timeline) {
@@ -100,10 +108,16 @@ function dependentCard(job, profile, rules, timeline) {
   const rows = timeline.rows;
   const last = rows[11].cumulative;
 
-  const judge = (limits) => {
+  card.checks = [];
+  const judge = (limits, record) => {
     // 근로소득만 있으면 총급여 기준, 사업소득만 있으면 수입 기준(보수적), 섞이면 판단 보류
     const hasBusiness = last.business > 0;
     const hasWage = last.wage > 0;
+    // 일용근로소득이 소득 요건에서 빠지는지 원문 확인 전이면, 일용 소득이 있을 때는 판정하지 않는다.
+    if (last.daily > 0 && !usable(rule.dailyWageExcluded.verification)) {
+      if (record) card.checks.push(`일용근로소득 ${won(last.daily)}이 부양가족 소득 요건에 포함되는지 확인 필요 (국세청 126)`);
+      return { crossed: null, pending: true, month: null, status: STATUS.CHECK, text: '일용근로소득을 계산에 넣는지 확인 전이라 판정하지 않음' };
+    }
     if (job.incomeType === 'unknown' || last.unknown > 0) {
       return { crossed: null, month: null, status: STATUS.CHECK, text: '소득 종류를 알아야 판단할 수 있음' };
     }
@@ -113,7 +127,9 @@ function dependentCard(job, profile, rules, timeline) {
     if (hasBusiness) {
       const month = firstCrossMonth(rows, (c) => c.business, limits.incomeAmountLimit);
       if (!month) return { crossed: false, month: null, status: statusOf(limits.verification), text: `사업소득 수입이 ${won(limits.incomeAmountLimit)} 이하` };
-      return { crossed: 'maybe', month, status: STATUS.CHECK, text: `사업소득 수입이 ${won(limits.incomeAmountLimit)}을 넘음. 경비를 뺀 금액이 기준이라 넘을 수 있음` };
+      // 수입은 넘지만, 경비를 뺀 금액으로 판단하는 방식이 확인 전이라 판정하지 않는다.
+      if (record) card.checks.push(`사업소득 수입이 ${month}월에 ${won(limits.incomeAmountLimit)}을 넘음. 경비를 뺀 소득금액이 기준을 넘는지 확인 필요 (국세청 126)`);
+      return { crossed: null, pending: true, month: null, status: STATUS.CHECK, text: `사업소득 수입이 ${won(limits.incomeAmountLimit)}을 넘음. 실제로 기준을 넘는지는 확인 전이라 판정하지 않음` };
     }
     if (hasWage) {
       const month = firstCrossMonth(rows, (c) => c.wage, limits.wageOnlyGrossLimit);
@@ -124,9 +140,10 @@ function dependentCard(job, profile, rules, timeline) {
     return { crossed: false, month: null, status: STATUS.CHECK, text: '계산에 넣을 소득이 없음' };
   };
 
-  const current = judge(rule.current);
-  const proposed = judge(rule.proposed);
+  const current = judge(rule.current, true);
+  const proposed = judge(rule.proposed, false);
   card.applicable = true;
+  card.pending = Boolean(current.pending);
   card.crossed = current.crossed;
   card.crossMonth = current.month;
   card.status = current.status;
@@ -141,10 +158,7 @@ function dependentCard(job, profile, rules, timeline) {
     card.status = STATUS.CHECK;
     card.notes.push('부양가족으로 올라 있는지 모른다고 답해, 올라 있다고 가정하고 계산함');
   }
-  if (last.daily > 0) {
-    card.status = worstStatus(card.status, statusOf(rule.dailyWageExcluded.verification));
-    card.notes.push(rule.dailyWageExcluded.note);
-  }
+  if (last.daily > 0) card.notes.push(rule.dailyWageExcluded.note);
   if (current.crossed) {
     // 부모 세금 증가액은 근거가 부족해 금액으로 계산하지 않고 확인 항목으로만 안내한다.
     card.notes.push(rule.impact.note);
@@ -164,23 +178,29 @@ function healthCard(job, profile, rules, timeline, pay) {
   card.applicable = true;
   card.limitText = `소득 합계 연 ${won(rule.totalIncomeLimit)}, 사업자등록 없는 사업소득 연 ${won(rule.unregisteredBusinessIncomeLimit)}`;
   const base = statusOf(rule.verification);
+  card.checks = [];
 
   if (job.incomeType === 'unknown') {
     Object.assign(card, { crossed: null, crossMonth: null, status: STATUS.CHECK, headline: '소득 종류를 알아야 판단할 수 있음' });
-  } else if (pay.over15) {
-    Object.assign(card, {
-      crossed: 'maybe', crossMonth: timeline.start, status: statusOf(rule.employeeConversion.verification),
-      headline: '주 15시간 이상 일하면 직장가입자가 되어 피부양자에서 빠질 수 있음',
-    });
-    card.notes.push(rule.employeeConversion.note);
   } else {
+    // 직장가입자 전환 규칙이 확인 전이면 판정에 쓰지 않고 확인 항목으로만 남긴다.
+    if (pay.over15) {
+      if (usable(rule.employeeConversion.verification)) {
+        Object.assign(card, { crossed: true, crossMonth: timeline.start, status: statusOf(rule.employeeConversion.verification), headline: '주 15시간 이상 일하면 직장가입자가 되어 피부양자에서 빠짐' });
+      } else {
+        card.checks.push('주 15시간 이상 일하면 직장가입자가 되어 피부양자에서 빠지는지 확인 필요 (국민건강보험공단 1577-1000)');
+      }
+    }
+  }
+  if (job.incomeType !== 'unknown' && card.crossed === undefined) {
     const businessMonth = firstCrossMonth(rows, (c) => c.business, rule.unregisteredBusinessIncomeLimit);
     const totalMonth = firstCrossMonth(rows, (c) => c.total, rule.totalIncomeLimit);
     if (totalMonth) {
       Object.assign(card, { crossed: true, crossMonth: totalMonth, status: worstStatus(base, STATUS.ESTIMATED), headline: `연간 소득 합계가 ${won(rule.totalIncomeLimit)}을 넘음` });
     } else if (businessMonth) {
-      Object.assign(card, { crossed: 'maybe', crossMonth: businessMonth, status: STATUS.CHECK, headline: `사업소득 수입이 ${won(rule.unregisteredBusinessIncomeLimit)}을 넘음. 경비를 뺀 금액이 기준이라 넘을 수 있음` });
-      card.notes.push(rule.businessIncomeMeasure.note);
+      card.pending = true;
+      card.checks.push(`사업소득 수입이 ${businessMonth}월에 ${won(rule.unregisteredBusinessIncomeLimit)}을 넘음. 경비를 뺀 금액이 기준을 넘는지 확인 필요 (국민건강보험공단 1577-1000)`);
+      Object.assign(card, { crossed: null, crossMonth: null, status: STATUS.CHECK, headline: `사업소득 수입이 ${won(rule.unregisteredBusinessIncomeLimit)}을 넘음. 실제로 기준을 넘는지는 확인 전이라 판정하지 않음` });
     } else {
       Object.assign(card, { crossed: false, crossMonth: null, status: last.business > 0 ? base : worstStatus(base, STATUS.ESTIMATED), headline: '소득 기준을 넘지 않음' });
     }
@@ -212,6 +232,9 @@ function allowanceCard(job, profile, rules, pay) {
     ? `수당 ${won(rule.monthlyAllowance)} 전액 유지`
     : paid === 0 ? '이 소득이면 그 달 수당이 지급되지 않음' : `수당이 ${won(paid)}으로 줄어듦`;
   card.flatZone = { from: line - rule.monthlyAllowance, to: line };
+  card.checks = [];
+  const emp = rule.employmentCheck;
+  if (emp && !usable(emp.verification) && job.weeklyHours >= emp.weeklyHours) card.checks.push(emp.note);
   card.notes.push(rule.note);
   if (profile.allowance === 'applying') {
     card.status = STATUS.CHECK;
@@ -251,21 +274,23 @@ function weeklyCard(job, rules, pay) {
  * 기준을 넘었다는 사실(crossed)과, 그 변화가 유리한지 불리한지는 별개다.
  *   gain  급여가 늘어나는 변화 (주휴수당 발생)
  *   loss  받던 지원이 줄어드는 변화
- *   check 자격이 달라질 수 있어 확인이 필요한 변화
- *   keep  변화 없음
+ *   check   확인된 규칙으로 자격이 달라지는 변화
+ *   pending 확인 전인 규칙이나 모르는 값 때문에 판정하지 못함
+ *   note    알아 둘 변화 (유불리 없음)
+ *   keep    변화 없음
  */
 export function effectOf(card) {
   if (card.id === 'weekly15h') {
-    if (card.crossed === true) return card.holidayIncluded ? { type: 'check', label: '4대보험 가입' } : { type: 'gain', label: '급여 증가' };
-    if (card.crossed === null) return { type: 'check', label: '확인 필요' };
+    if (card.crossed === true) return card.holidayIncluded ? { type: 'note', label: '4대보험 가입' } : { type: 'gain', label: '급여 증가' };
+    if (card.crossed === null) return { type: 'pending', label: '판단 보류' };
     return { type: 'keep', label: '변화 없음' };
   }
   if (card.id === 'jobSeekerAllowance') {
     return card.crossed ? { type: 'loss', label: '수당 감소' } : { type: 'keep', label: '수당 유지' };
   }
   if (card.crossed === true) return { type: 'check', label: '자격 변동 확인' };
-  if (card.crossed === 'maybe') return { type: 'check', label: '자격 변동 가능' };
-  if (card.crossed === null) return { type: 'check', label: '판단 보류' };
+  // 확인 전인 규칙이나 모르는 값 때문에 판정하지 못한 경우. 불리한 변화로 세지 않고 따로 표시한다.
+  if (card.crossed === null) return { type: 'pending', label: card.pending ? '추가 확인 필요' : '판단 보류' };
   return { type: 'keep', label: '자격 유지' };
 }
 
@@ -306,8 +331,24 @@ export function evaluate(job, profile, rules) {
   if (next && job.hourlyWage >= rules.minimumWage.hourly && job.hourlyWage < next.hourly) {
     notices.push(`${next.year}년 최저임금은 시급 ${won(next.hourly)}입니다. 해를 넘겨 일하면 ${next.year}년 1월부터 시급이 그 이상이어야 합니다.`);
   }
+  // 금액을 확인 수준별로 나눈다. 큰 숫자에는 확정 항목만 쓰고, 추정 항목은 따로 보여 준다.
+  const parts = [{ label: '급여', amount: pay.base, status: STATUS.CONFIRMED }];
+  if (pay.holidayPay) parts.push({ label: '주휴수당', amount: pay.holidayPay, status: statusOf(rules.weekly15h.verification) });
+  if (pay.insurance) parts.push({ label: '4대보험 근로자 부담분', amount: -pay.insurance, status: statusOf(rules.weekly15h.ratesVerification), reason: '요율을 2차 자료로 넣음' });
+  if (pay.withholding) parts.push({ label: '3.3% 원천징수', amount: -pay.withholding, status: statusOf(rules.businessWithholding.verification), reason: '미리 내는 세금이며 다음 해 5월 종합소득세 신고로 정산됨' });
+  if (allowanceLoss) parts.push({ label: '구직촉진수당 감소', amount: -allowanceLoss, status: allowance.status, reason: '2025년 계산식 기준. 2026년 적용 확인 전' });
+  const sum = (list) => list.reduce((a, b) => a + b.amount, 0);
+  const confirmedNet = sum(parts.filter((x) => x.status === STATUS.CONFIRMED));
+  const estimatedParts = parts.filter((x) => x.status !== STATUS.CONFIRMED);
+  const checks = cards.flatMap((c) => (c.checks || []).map((text) => ({ cardId: c.id, title: c.title, text })));
+  const reports = [];
+  if (allowance && pay.gross > 0) reports.push('구직촉진수당: 소득이 생기면 고용센터에 신고');
+  if (job.incomeType === 'business') reports.push('3.3% 소득: 다음 해 5월 종합소득세 신고');
+  const has = (id) => cards.some((c) => c.id === id);
+  const excluded = ['소득세', has('dependentDeduction') ? '부모의 세금 변화' : null, has('healthDependent') ? '건강보험 지역가입자 보험료' : null, '교통비·식비 등 개인 지출'].filter(Boolean);
   return {
     notices,
+    checks,
     ruleVersion: rules.version,
     year: rules.appliesToYear,
     pay,
@@ -323,12 +364,18 @@ export function evaluate(job, profile, rules) {
       allowanceLoss,
       net: pay.takeHome - allowanceLoss,
       // 계산에 넣은 것과 넣지 않은 것. 화면에서 그대로 밝힌다.
-      included: ['급여', '주휴수당', '4대보험 근로자 부담분', '3.3% 원천징수', '구직촉진수당 감소'],
-      excluded: ['소득세', '부모의 세금 변화', '건강보험 지역가입자 보험료', '교통비·식비 등 개인 지출'],
+      parts,
+      confirmedNet,
+      estimatedParts,
+      included: parts.map((x) => x.label),
+      excluded,
       crossedIds: cards.filter((c) => c.crossed).map((c) => c.id),
       // 지원이 줄거나 자격 확인이 필요한 변화만 모은다. 급여가 늘어나는 변화는 넣지 않는다.
+      // 확인 전인 규칙으로 판정하지 못한 카드(pending)는 넣지 않는다.
       adverseIds: cards.filter((c) => c.effect.type === 'loss' || c.effect.type === 'check').map((c) => c.id),
-      reportNeeded: Boolean(allowance) && pay.gross > 0,
+      pendingIds: cards.filter((c) => c.effect.type === 'pending').map((c) => c.id),
+      reports,
+      reportNeeded: reports.length > 0,
     },
   };
 }
@@ -345,7 +392,7 @@ export function searchAlternatives(job, profile, rules, { minHours = 1, maxHours
     const r = evaluate({ ...job, weeklyHours: h }, profile, rules);
     table.push({
       weeklyHours: h, gross: r.pay.gross, takeHome: r.pay.takeHome, allowanceLoss: r.summary.allowanceLoss, net: r.summary.net,
-      crossedIds: r.summary.crossedIds, adverseIds: r.summary.adverseIds,
+      crossedIds: r.summary.crossedIds, adverseIds: r.summary.adverseIds, pendingIds: r.summary.pendingIds, checkCount: r.checks.length,
       effects: r.cards.map((c) => ({ id: c.id, type: c.effect.type, label: c.effect.label })),
     });
   }
@@ -425,6 +472,8 @@ export function compareOffers(offers, profile, rules, { maxHours = 40 } = {}) {
       periodNet: r.summary.net * workedMonths,
       effects: r.cards.map((c) => ({ id: c.id, type: c.effect.type, label: c.effect.label })),
       adverseIds: r.summary.adverseIds,
+      checkCount: r.checks.length,
+      confirmedNet: r.summary.confirmedNet,
       unsure,
       questions: employerQuestions(o.job, o.meta, rules),
       withinHours: o.job.weeklyHours <= maxHours,
