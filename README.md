@@ -117,7 +117,29 @@ python -m http.server 8770 --directory munteok
 
 설정 후 주소는 https://jihosw.github.io/Hackathon/ (테스트: https://jihosw.github.io/Hackathon/tests/) 입니다. 배포 진행 상황은 저장소의 Actions 탭에서 볼 수 있습니다.
 
-GitHub Pages는 정적 파일만 올릴 수 있어서, API 키가 필요한 AI 추출 서버(`api/`)는 이곳에 올릴 수 없습니다. AI를 연결할 때 별도 서버를 정하고 이 문서를 고칩니다. 그전까지 배포본에서는 AI 추출 버튼이 실패 안내를 보여주고, 샘플과 직접 입력으로 동작합니다.
+GitHub Pages는 정적 파일만 올릴 수 있어서, API 키가 필요한 AI 추출 서버는 아래 Vercel에 따로 올립니다. Vercel 주소를 `munteok/js/config.js`에 넣기 전까지 Pages 주소에서는 AI 추출 버튼이 안내 문구를 보여주고, 샘플과 직접 입력으로 동작합니다.
+
+## AI 서버 배포하기 (Vercel)
+
+GitHub Pages는 API 키를 숨길 수 없어서, AI 추출 서버(`munteok/api/extract.js`)는 Vercel에 올립니다.
+Vercel은 화면과 AI 서버를 함께 올리므로, **AI까지 동작하는 주소는 Vercel 주소**입니다. 심사 제출에도 이 주소를 씁니다.
+
+처음 한 번만 설정하면, 그다음부터는 `main`에 합칠 때마다 자동으로 다시 배포됩니다.
+
+1. [Claude Console](https://platform.claude.com)에서 API 키를 만들고, 크레딧을 충전하고, 사용 한도(spend limit)를 정합니다. 키는 채팅이나 코드에 붙여 넣지 않습니다.
+2. [Vercel](https://vercel.com)에 GitHub 계정으로 가입하고 Add New → Project에서 `JIHOSW/Hackathon`을 가져옵니다. 저장소 주인이 아니면 주인의 승인이 필요할 수 있습니다.
+3. 설정 화면에서
+   - **Root Directory**: `munteok`
+   - **Framework Preset**: Other
+   - **Environment Variables**: `ANTHROPIC_API_KEY` = 1번에서 만든 키, `ALLOWED_ORIGINS` = `https://jihosw.github.io`
+4. Deploy를 누릅니다. 끝나면 `https://<프로젝트이름>.vercel.app` 주소가 나옵니다.
+5. GitHub Pages 주소에서도 AI를 쓰려면 `munteok/js/config.js`의 `VERCEL_URL`에 4번 주소를 넣고 PR로 합칩니다. 예: `'https://munteok.vercel.app/'` (끝에 `/` 포함)
+
+주의할 점
+
+- 이 API는 누구나 부를 수 있어서, 주소가 알려지면 다른 사람이 크레딧을 쓸 수 있습니다. 1번의 사용 한도를 반드시 정하세요.
+- 예선 심사가 끝나는 11/30, 본선 진출 시 12/7까지 크레딧이 바닥나지 않게 확인하세요.
+- 대회 규정상 외부 AI에 실제 개인정보를 보내면 안 됩니다. 시연은 가상 샘플로만 합니다.
 
 ## 와이어프레임
 

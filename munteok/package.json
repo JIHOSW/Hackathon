@@ -1,0 +1,14 @@
+{
+  "name": "munteok",
+  "private": true,
+  "type": "module",
+  "description": "문턱: 청년 소득 문턱 AI 에이전트",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "latest",
+    "zod": "latest"
+  }
+}
