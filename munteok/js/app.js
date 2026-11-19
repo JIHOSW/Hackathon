@@ -3,6 +3,7 @@
 // 계산은 전부 engine.js가 한다. 이 파일은 입력을 모으고 결과를 그리기만 한다.
 import { evaluate, searchAlternatives, STATUS } from './engine.js';
 import { SAMPLES, EMPTY_PROFILE, INCOME_TYPES } from './samples.js';
+import { API_BASE, AI_AVAILABLE } from './config.js';
 
 const app = document.getElementById('app');
 const stepsEl = document.getElementById('steps');
@@ -132,6 +133,7 @@ function viewConfirm() {
   const need = missingFields().length;
   return `<h1>추출 결과 확인</h1>
     <p class="lead">원문에서 읽은 값입니다. 틀린 값은 바로 고치세요.</p>
+    ${state.extractedBy ? `<p class="small">AI(${esc(state.extractedBy)})가 추출한 내용입니다. AI는 틀릴 수 있으니 원문과 대조해 확인하세요.</p>` : ''}
     ${state.rawText ? `<div class="card"><h3>원문</h3><pre class="raw">${esc(state.rawText)}</pre></div>` : ''}
     <div class="card">${rows}</div>
     <div class="card soft"><p class="small" style="margin:0"><b>확정</b> 원문에 적힌 값 · <b>추정</b> 문맥으로 계산한 값 · <b>확인 필요</b> 원문에서 알 수 없는 값</p></div>
@@ -365,18 +367,62 @@ function jobFromFields() {
   return { hourlyWage: Number(f.hourlyWage.value), weeklyHours: Number(f.weeklyHours.value), startMonth: Number(f.startMonth.value), months: Number(f.months.value), incomeType: f.incomeType.value };
 }
 
-async function tryExtract() {
+// 사진을 긴 변 1600px 이하 JPEG로 줄여 base64로 바꾼다. 전송량과 비용을 줄이기 위해서다.
+function imageToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', 0.85).split(',')[1]);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('이미지를 읽지 못했습니다.')); };
+    img.src = url;
+  });
+}
+
+async function tryExtract(button) {
   const raw = document.getElementById('raw');
   if (raw) state.rawText = raw.value;
+  const photo = document.getElementById('photo');
+  if (photo && photo.files[0]) state.photoFile = photo.files[0];
   state.aiError = null;
+
+  const body = {};
+  if (state.mode === 'photo') {
+    if (!state.photoFile) { state.aiError = '사진을 먼저 골라 주세요.'; render(); return; }
+    try {
+      body.image = { mediaType: 'image/jpeg', data: await imageToBase64(state.photoFile) };
+    } catch (e) {
+      state.aiError = e.message; render(); return;
+    }
+    state.rawText = '';
+  } else {
+    if (!state.rawText.trim()) { state.aiError = '공고나 메시지를 붙여 넣어 주세요.'; render(); return; }
+    body.text = state.rawText;
+  }
+  if (!AI_AVAILABLE) {
+    state.aiError = '이 주소에서는 AI 추출 서버가 아직 연결되지 않았습니다. 직접 입력이나 가상 샘플을 이용하세요.';
+    render();
+    return;
+  }
+
+  if (button) { button.disabled = true; button.textContent = 'AI가 조건을 읽는 중…'; }
   try {
-    const res = await fetch('api/extract', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: state.rawText }) });
-    if (!res.ok) throw new Error('호출 실패 (' + res.status + ')');
-    const data = await res.json();
+    const res = await fetch(API_BASE + 'api/extract', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `AI 호출이 실패했습니다 (${res.status}).`);
     state.fields = data.fields;
+    state.extractedBy = data.model || 'AI';
+    state.sample = null;
     state.step = 'confirm';
   } catch (e) {
-    state.aiError = 'AI 서버에 연결되지 않았거나 호출이 실패했습니다. 다시 시도하거나, 직접 입력 또는 가상 샘플을 이용하세요.';
+    state.aiError = (e instanceof TypeError ? 'AI 서버에 연결하지 못했습니다.' : e.message) + ' 다시 시도하거나, 직접 입력 또는 가상 샘플을 이용하세요.';
   }
   render();
 }
@@ -395,6 +441,7 @@ app.addEventListener('submit', (e) => {
   };
   state.rawText = '';
   state.sample = null;
+  state.extractedBy = null;
   state.step = 'confirm';
   render();
 });
@@ -420,14 +467,14 @@ document.addEventListener('click', (e) => {
     state.aiError = null;
   } else if (action === 'sample') {
     const s = SAMPLES.find((x) => x.id === el.dataset.id);
-    Object.assign(state, { sample: s.id, rawText: s.text, fields: clone(s.extraction), profile: clone(s.profile), result: null, alts: null, chosen: null, step: 'confirm' });
+    Object.assign(state, { sample: s.id, rawText: s.text, extractedBy: null, fields: clone(s.extraction), profile: clone(s.profile), result: null, alts: null, chosen: null, step: 'confirm' });
   } else if (action === 'mode') {
     const raw = document.getElementById('raw');
     if (raw) state.rawText = raw.value;
     state.mode = el.dataset.mode;
     state.aiError = null;
   } else if (action === 'extract') {
-    tryExtract();
+    tryExtract(el);
     return;
   } else if (action === 'afterConfirm') {
     state.step = missingFields().length ? 'questions' : 'profile';
