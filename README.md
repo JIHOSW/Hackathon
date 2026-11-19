@@ -10,6 +10,45 @@
 
 제출 마감: **2026. 11. 23.(월) 17:00**. 마감 후에는 기능·알고리즘·프롬프트·데이터를 바꿀 수 없습니다.
 
+- 배포 주소: https://jihosw.github.io/Hackathon/ (GitHub Pages를 켠 뒤부터 열립니다)
+- 규칙 엔진 테스트: https://jihosw.github.io/Hackathon/tests/
+
+---
+
+## 실행하기
+
+설치할 것이 없습니다. Python만 있으면 됩니다(macOS에는 기본 설치).
+저장소 폴더에서 아래 명령을 실행하고 브라우저로 http://localhost:8770 을 엽니다.
+
+macOS, Linux:
+
+```bash
+python3 -m http.server 8770 --directory munteok
+```
+
+Windows:
+
+```bash
+python -m http.server 8770 --directory munteok
+```
+
+- 테스트는 http://localhost:8770/tests/ 에서 실행됩니다. 전체 통과인지 확인하세요.
+- `index.html`을 파일로 바로 열면 규칙표를 불러오지 못합니다. 반드시 위처럼 서버로 엽니다.
+- VS Code를 쓴다면 Live Server 확장으로 `munteok/index.html`을 열어도 됩니다.
+
+## 배포하기 (GitHub Pages)
+
+`main`에 PR이 합쳐지면 [`.github/workflows/pages.yml`](.github/workflows/pages.yml)이 `munteok/` 폴더를 자동으로 배포합니다. 따로 할 일은 없습니다.
+
+처음 한 번만 **저장소 주인(JIHOSW)** 이 설정해야 합니다. 쓰기 권한만 있는 팀원은 이 메뉴를 바꿀 수 없습니다.
+
+1. 저장소 Settings → Pages
+2. Build and deployment의 Source를 **GitHub Actions**로 선택
+
+배포 진행 상황은 저장소의 Actions 탭에서 볼 수 있습니다.
+
+GitHub Pages는 정적 파일만 올릴 수 있어서, API 키가 필요한 AI 추출 서버(`api/`)는 이곳에 올릴 수 없습니다. AI를 연결할 때 별도 서버를 정하고 이 문서를 고칩니다. 그전까지 배포본에서는 AI 추출 버튼이 실패 안내를 보여주고, 샘플과 직접 입력으로 동작합니다.
+
 ---
 
 ## 협업 방법: 팀원별 브랜치
@@ -116,3 +155,10 @@ git tag submission-2026-11-23
 ```bash
 git push origin submission-2026-11-23
 ```
+
+---
+
+## 라이선스
+
+[MIT License](LICENSE). 누구나 실행·수정·배포할 수 있으며, 저작권 표시와 라이선스 문구만 유지하면 됩니다.
+대회 규정상 결과물의 저작권은 참가팀에 귀속되며, 외부 오픈소스나 데이터를 추가하면 출처와 라이선스를 소개서 별첨에 함께 적습니다.
