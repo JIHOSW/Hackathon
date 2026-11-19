@@ -8,7 +8,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "latest",
-    "zod": "latest"
+    "@anthropic-ai/sdk": "^1.10.0",
+    "zod": "^4.6.7"
   }
 }
