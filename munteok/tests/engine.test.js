@@ -47,11 +47,24 @@ export function runTests(rules) {
   eq('A: 해당 없는 제도 2개', r.notApplicable.map((c) => c.id), ['dependentDeduction', 'healthDependent']);
   const alt = searchAlternatives(jobA, profA, rules);
   const opt = (k) => alt.options.find((o) => o.kind === k);
-  eq('A 대안: 모든 기준선 이하 최대', opt('safeAll').weeklyHours, 14);
-  eq('A 대안: 수당 전액 유지 최대', opt('keepAllowance').weeklyHours, 17);
+  eq('A: 주 15시간은 급여 증가로 구분', card(r, 'weekly15h').effect.type, 'gain');
+  eq('A: 수당은 감소로 구분', card(r, 'jobSeekerAllowance').effect.type, 'loss');
+  eq('A: 불리하거나 확인할 변화는 수당뿐', r.summary.adverseIds, ['jobSeekerAllowance']);
+  eq('A: 소득 신고 필요', r.summary.reportNeeded, true);
+  eq('A 대안: 받은 제안', opt('original').weeklyHours, 24);
+  eq('A 대안: 지원이 그대로인 가장 긴 시간', opt('noChange').weeklyHours, 17);
+  eq('A 대안: 40시간까지 가능하면 가장 큰 조건은 40시간', opt('best').weeklyHours, 40);
   eq('A 대안: 손해 구간 직전 최고는 주 18시간', alt.dip.peakHours, 18);
   eq('A 대안: 손해 구간은 주 19~29시간', [alt.dip.from, alt.dip.to], [19, 29]);
-  eq('A 대안: 순소득이 다시 커지는 최소', opt('breakEven').weeklyHours, 30);
+  eq('A 대안: 예상 추가수입이 다시 커지는 최소', opt('recover').weeklyHours, 30);
+  // 주당 최대 20시간만 가능한 경우: 그 범위 안에서만 비교한다
+  const alt20 = searchAlternatives(jobA, profA, rules, { maxHours: 20 });
+  const opt20 = (k) => alt20.options.find((o) => o.kind === k);
+  eq('최대 20시간: 계산 횟수', alt20.trace.evaluated, 20);
+  eq('최대 20시간: 받은 제안(24시간)은 범위 밖', [alt20.offeredOutOfRange, opt20('original')], [true, undefined]);
+  eq('최대 20시간: 가장 큰 조건은 주 18시간', [opt20('best').weeklyHours, opt20('best').net], [18, 842783]);
+  eq('최대 20시간: 지원이 그대로인 가장 긴 시간', opt20('noChange').weeklyHours, 17);
+  eq('최대 20시간: 다시 커지는 구간 없음', [alt20.dip.from, alt20.dip.to, alt20.dip.recoverHours, opt20('recover')], [19, 20, null, undefined]);
   const altNone = searchAlternatives({ ...jobA, weeklyHours: 10 }, { ...base }, rules);
   eq('수당이 없으면 손해 구간 없음', altNone.dip, null);
   eq('A 대안: 계산 횟수', alt.trace.evaluated, 40);
@@ -64,7 +77,8 @@ export function runTests(rules) {
   eq('부모 공제: 8월에 넘음', d.crossMonth, 8);
   eq('부모 공제: 등급 확정', d.status, STATUS.CONFIRMED);
   eq('부모 공제: 개정안은 12월', d.proposed.crossMonth, 12);
-  eq('부모 공제: 부모 세금 증가 대략값', d.impact.min, 247500);
+  eq('부모 공제: 부모 세금 금액은 계산하지 않음', d.impact, undefined);
+  eq('부모 공제: 자격 변동 확인으로 구분', d.effect.type, 'check');
   r = evaluate({ ...jobD, months: 7 }, { ...base, taxDependent: 'yes' }, rules);
   eq('부모 공제: 7개월만 일하면 넘지 않음', card(r, 'dependentDeduction').crossed, false);
   r = evaluate(jobD, { ...base, taxDependent: 'yes', ytdIncome: { wage: 3000000, daily: 0, business: 0 } }, rules);
@@ -82,6 +96,9 @@ export function runTests(rules) {
   eq('B 피부양자: 10월', h.crossMonth, 10);
   eq('B: 주 15시간 카드는 해당 없음', r.notApplicable.map((c) => c.id), ['jobSeekerAllowance', 'weekly15h']);
 
+  const altB = searchAlternatives(jobB, { ...base, taxDependent: 'yes', healthDependent: 'yes' }, rules);
+  eq('B 대안: 주 4시간 미만인 조건은 제안하지 않음', altB.options.map((o) => o.kind), ['original', 'best']);
+
   // 6. 피부양자: 주 15시간 이상 근로소득
   r = evaluate({ hourlyWage: 10320, weeklyHours: 16, startMonth: 1, months: 12, incomeType: 'wage' }, { ...base, healthDependent: 'yes' }, rules);
   eq('피부양자: 직장가입 전환 가능', card(r, 'healthDependent').crossed, 'maybe');
@@ -98,6 +115,8 @@ export function runTests(rules) {
   r = evaluate(jobD, base, rules);
   eq('해당 제도가 없으면 주 15시간 카드만', r.cards.map((c) => c.id), ['weekly15h']);
   eq('넘는 기준선 없음', r.summary.crossedIds, []);
+  eq('주 15시간 미만은 변화 없음', card(r, 'weekly15h').effect.type, 'keep');
+  eq('수당이 없으면 신고 안내 없음', r.summary.reportNeeded, false);
 
   return results;
 }
