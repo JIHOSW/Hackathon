@@ -57,7 +57,8 @@ export function allowancePayment(monthlyIncome, rules) {
 export function buildTimeline(job, profile, pay) {
   const ytd = { wage: 0, daily: 0, business: 0, ...(profile.ytdIncome || {}) };
   const start = Math.min(12, Math.max(1, job.startMonth || 1));
-  const end = Math.min(12, start + Math.max(1, job.months || 12) - 1);
+  const requestedMonths = Math.max(1, job.months || 12);
+  const end = Math.min(12, start + requestedMonths - 1);
   const type = job.incomeType;
   const rows = [];
   const cum = { wage: ytd.wage, daily: ytd.daily, business: ytd.business };
@@ -75,7 +76,9 @@ export function buildTimeline(job, profile, pay) {
         total: cum.wage + cum.daily + cum.business + prevUnknown + unknown },
     });
   }
-  return { rows, start, end };
+  // 연간 기준은 한 해(1~12월)만 계산한다. 해를 넘기는 달은 세지 않고 몇 달이 빠졌는지 알려 준다.
+  const countedMonths = end - start + 1;
+  return { rows, start, end, requestedMonths, countedMonths, uncountedMonths: requestedMonths - countedMonths };
 }
 
 /** 누적값이 limit을 처음 넘는 달. 넘지 않으면 null. */
@@ -289,7 +292,17 @@ export function evaluate(job, profile, rules) {
   if (job.hourlyWage < rules.minimumWage.hourly) {
     warnings.push(`시급이 ${rules.appliesToYear}년 최저임금 ${won(rules.minimumWage.hourly)}보다 낮음. 수습 등 예외가 아니면 확인이 필요함`);
   }
+  // 계산 범위에 대한 안내. 경고가 아니라 결과를 읽을 때 알아야 할 전제다.
+  const notices = [`${rules.appliesToYear}년 규칙으로 한 해(1월~12월)를 계산한 값입니다. 다음 해의 기준 금액은 달라질 수 있습니다.`];
+  if (timeline.uncountedMonths > 0) {
+    notices.push(`${timeline.start}월부터 ${timeline.requestedMonths}개월 중 12월까지의 ${timeline.countedMonths}개월만 계산했습니다. 해를 넘기는 ${timeline.uncountedMonths}개월은 연간 기준이 새로 시작되므로 새해 규칙으로 다시 계산해야 합니다.`);
+  }
+  const next = rules.minimumWage.next;
+  if (next && job.hourlyWage >= rules.minimumWage.hourly && job.hourlyWage < next.hourly) {
+    notices.push(`${next.year}년 최저임금은 시급 ${won(next.hourly)}입니다. 해를 넘겨 일하면 ${next.year}년 1월부터 시급이 그 이상이어야 합니다.`);
+  }
   return {
+    notices,
     ruleVersion: rules.version,
     year: rules.appliesToYear,
     pay,
@@ -403,6 +416,7 @@ export function compareOffers(offers, profile, rules, { maxHours = 40 } = {}) {
       net: r.summary.net,
       netPerHour: Math.round(r.summary.net / (o.job.weeklyHours * WEEKS_PER_MONTH)),
       workedMonths,
+      uncountedMonths: r.timeline.uncountedMonths,
       periodNet: r.summary.net * workedMonths,
       effects: r.cards.map((c) => ({ id: c.id, type: c.effect.type, label: c.effect.label })),
       adverseIds: r.summary.adverseIds,

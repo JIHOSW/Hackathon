@@ -134,5 +134,15 @@ export function runTests(rules) {
   eq('주 15시간 미만은 변화 없음', card(r, 'weekly15h').effect.type, 'keep');
   eq('수당이 없으면 신고 안내 없음', r.summary.reportNeeded, false);
 
+  // 8. 연도 범위: 해를 넘기는 기간과 다음 해 최저임금 안내
+  r = evaluate({ hourlyWage: 10500, weeklyHours: 10, startMonth: 11, months: 6, incomeType: 'wage' }, base, rules);
+  eq('11월부터 6개월: 올해 2개월만 계산', [r.timeline.countedMonths, r.timeline.uncountedMonths], [2, 4]);
+  eq('11월부터 6개월: 12월 누적은 2개월치', r.timeline.rows[11].cumulative.wage, 2 * r.pay.gross);
+  eq('해를 넘기면 안내 3개(연도, 빠진 기간, 다음 해 최저임금)', r.notices.length, 3);
+  r = evaluate({ hourlyWage: 11000, weeklyHours: 10, startMonth: 3, months: 10, incomeType: 'wage' }, base, rules);
+  eq('해를 넘기지 않고 시급이 충분하면 연도 안내만', [r.timeline.uncountedMonths, r.notices.length], [0, 1]);
+  r = evaluate({ hourlyWage: 9860, weeklyHours: 10, startMonth: 1, months: 3, incomeType: 'wage' }, base, rules);
+  eq('올해 최저임금 미달이면 경고만, 다음 해 안내는 생략', [r.warnings.length, r.notices.length], [1, 1]);
+
   return results;
 }

@@ -56,6 +56,11 @@
       "title": "2026년 4대보험 요율 안내 (민간 정리 자료)",
       "url": "https://www.bizforms.co.kr/guide/list/payslip/payslip003.asp",
       "basis": "2차 자료"
+    },
+    "minimum_wage_next": {
+      "title": "2027년 적용 최저임금 고시 (고용노동부)",
+      "url": "https://www.moel.go.kr/info/lawinfo/instruction/view.do?bbs_seq=20260800150",
+      "basis": "고용노동부 고시 제2026-60호"
     }
   },
   "contacts": {
@@ -76,7 +81,14 @@
     "hourly": 10320,
     "verification": "secondary",
     "checkedAt": "2026-11-19",
-    "source": "minimum_wage"
+    "source": "minimum_wage",
+    "next": {
+      "year": 2027,
+      "hourly": 10700,
+      "verification": "official",
+      "checkedAt": "2026-11-19",
+      "source": "minimum_wage_next"
+    }
   },
   "dependentDeduction": {
     "title": "부모 연말정산 부양가족 공제",
