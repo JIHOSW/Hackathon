@@ -141,17 +141,10 @@ function dependentCard(job, profile, rules, timeline) {
     card.notes.push(rule.dailyWageExcluded.note);
   }
   if (current.crossed) {
-    const imp = rule.impact;
-    if (profile.age != null && profile.age <= imp.basicDeductionMaxAge) {
-      const b = imp.parentBrackets[profile.parentBracket];
-      const calc = (rate) => Math.round(imp.basicDeductionAmount * rate * imp.localTaxMultiplier);
-      card.impact = b
-        ? { kind: 'annual', min: calc(b.rate), max: calc(b.rate), status: statusOf(imp.verification) }
-        : { kind: 'annual', min: calc(imp.unknownRange.minRate), max: calc(imp.unknownRange.maxRate), status: statusOf(imp.verification) };
-      card.impact.text = '부모의 연간 세금 증가(대략값)';
-      card.notes.push(imp.note);
-    } else {
-      card.notes.push('만 20세를 넘으면 기본공제 대상이 아닐 수 있음. 교육비·의료비 등 다른 공제에 미치는 영향은 계산하지 않음');
+    // 부모 세금 증가액은 근거가 부족해 금액으로 계산하지 않고 확인 항목으로만 안내한다.
+    card.notes.push(rule.impact.note);
+    if (profile.age != null && profile.age > rule.impact.basicDeductionMaxAge) {
+      card.notes.push(`만 ${rule.impact.basicDeductionMaxAge}세를 넘으면 기본공제 대상이 아닐 수 있음`);
     }
   }
   return card;
@@ -246,6 +239,29 @@ function weeklyCard(job, rules, pay) {
 }
 
 /**
+ * 카드의 변화가 사용자에게 어떤 종류인지 구분한다.
+ * 기준을 넘었다는 사실(crossed)과, 그 변화가 유리한지 불리한지는 별개다.
+ *   gain  급여가 늘어나는 변화 (주휴수당 발생)
+ *   loss  받던 지원이 줄어드는 변화
+ *   check 자격이 달라질 수 있어 확인이 필요한 변화
+ *   keep  변화 없음
+ */
+export function effectOf(card) {
+  if (card.id === 'weekly15h') {
+    if (card.crossed === true) return { type: 'gain', label: '급여 증가' };
+    if (card.crossed === null) return { type: 'check', label: '확인 필요' };
+    return { type: 'keep', label: '변화 없음' };
+  }
+  if (card.id === 'jobSeekerAllowance') {
+    return card.crossed ? { type: 'loss', label: '수당 감소' } : { type: 'keep', label: '수당 유지' };
+  }
+  if (card.crossed === true) return { type: 'check', label: '자격 변동 확인' };
+  if (card.crossed === 'maybe') return { type: 'check', label: '자격 변동 가능' };
+  if (card.crossed === null) return { type: 'check', label: '판단 보류' };
+  return { type: 'keep', label: '자격 유지' };
+}
+
+/**
  * 일자리 조건과 내 상황으로 전체 결과를 계산한다.
  * job: { hourlyWage, weeklyHours, startMonth, months, incomeType }
  * profile: { age, allowance: 'yes'|'no'|'applying', healthDependent, taxDependent: 'yes'|'no'|'unknown',
@@ -260,7 +276,7 @@ export function evaluate(job, profile, rules) {
     allowanceCard(job, profile, rules, pay),
     weeklyCard(job, rules, pay),
   ];
-  const cards = all.filter((c) => c.applicable);
+  const cards = all.filter((c) => c.applicable).map((c) => ({ ...c, effect: effectOf(c) }));
   const notApplicable = all.filter((c) => !c.applicable).map((c) => ({ id: c.id, title: c.title, reason: c.reason }));
   const allowance = cards.find((c) => c.id === 'jobSeekerAllowance');
   const allowanceLoss = allowance ? allowance.impact.min : 0;
@@ -288,38 +304,51 @@ export function evaluate(job, profile, rules) {
       withholding: pay.withholding,
       allowanceLoss,
       net: pay.takeHome - allowanceLoss,
+      // 계산에 넣은 것과 넣지 않은 것. 화면에서 그대로 밝힌다.
+      included: ['급여', '주휴수당', '4대보험 근로자 부담분', '3.3% 원천징수', '구직촉진수당 감소'],
+      excluded: ['소득세', '부모의 세금 변화', '건강보험 지역가입자 보험료', '교통비·식비 등 개인 지출'],
       crossedIds: cards.filter((c) => c.crossed).map((c) => c.id),
+      // 지원이 줄거나 자격 확인이 필요한 변화만 모은다. 급여가 늘어나는 변화는 넣지 않는다.
+      adverseIds: cards.filter((c) => c.effect.type === 'loss' || c.effect.type === 'check').map((c) => c.id),
+      reportNeeded: Boolean(allowance) && pay.gross > 0,
     },
   };
 }
 
 /**
- * 주당 근무시간을 1~40시간으로 바꿔 가며 계산해 대안을 찾는다.
+ * 사용자가 가능한 범위 안에서 주당 근무시간을 바꿔 가며 계산해 비교할 조건을 찾는다.
  * AI 에이전트가 이 함수를 도구로 호출한다. 계산 자체는 전부 evaluate가 한다.
+ * maxHours는 사용자가 답한 "주당 가능한 최대 시간"이다.
  */
 export function searchAlternatives(job, profile, rules, { minHours = 1, maxHours = 40 } = {}) {
+  const top = Math.max(minHours, Math.min(52, Math.round(maxHours)));
   const table = [];
-  for (let h = minHours; h <= maxHours; h++) {
+  for (let h = minHours; h <= top; h++) {
     const r = evaluate({ ...job, weeklyHours: h }, profile, rules);
-    table.push({ weeklyHours: h, gross: r.pay.gross, takeHome: r.pay.takeHome, allowanceLoss: r.summary.allowanceLoss, net: r.summary.net, crossedIds: r.summary.crossedIds });
+    table.push({
+      weeklyHours: h, gross: r.pay.gross, takeHome: r.pay.takeHome, allowanceLoss: r.summary.allowanceLoss, net: r.summary.net,
+      crossedIds: r.summary.crossedIds, adverseIds: r.summary.adverseIds,
+      effects: r.cards.map((c) => ({ id: c.id, type: c.effect.type, label: c.effect.label })),
+    });
   }
   const at = (h) => table.find((t) => t.weeklyHours === h);
-  const original = at(Math.min(maxHours, Math.max(minHours, Math.round(job.weeklyHours))));
+  const offered = Math.round(job.weeklyHours);
   const options = [];
-  if (original) options.push({ kind: 'original', label: '원래 조건', ...original });
+  const push = (kind, label, row) => {
+    if (row && !options.some((o) => o.weeklyHours === row.weeklyHours)) options.push({ kind, label, ...row });
+  };
 
-  const safe = [...table].reverse().find((t) => t.crossedIds.length === 0);
-  if (safe) options.push({ kind: 'safeAll', label: '어떤 기준선도 넘지 않는 최대 근무시간', ...safe });
+  // 받은 제안. 가능한 범위를 넘으면 범위 밖이라 비교에서 빠진다.
+  push('original', '받은 제안 그대로', at(offered));
+  // 가능한 범위에서 예상 추가수입이 가장 큰 조건. 같으면 근무시간이 적은 쪽.
+  push('best', '가능한 범위에서 예상 추가수입이 가장 큰 조건', table.reduce((a, b) => (b.net > a.net ? b : a)));
+  // 지원이 줄거나 자격 확인이 필요한 변화가 없는 조건 중 가장 긴 근무시간.
+  // 주 4시간 미만이면 현실적인 제안이 아니어서 보여주지 않는다.
+  const noChange = [...table].reverse().find((t) => t.adverseIds.length === 0);
+  if (noChange && noChange.weeklyHours >= 4) push('noChange', '지원과 자격이 그대로인 가장 긴 근무시간', noChange);
 
-  if (profile.allowance !== 'no') {
-    const keep = [...table].reverse().find((t) => t.allowanceLoss === 0);
-    if (keep && (!safe || keep.weeklyHours !== safe.weeklyHours)) {
-      options.push({ kind: 'keepAllowance', label: '수당을 전액 유지하는 최대 근무시간', ...keep });
-    }
-  }
-
-  // 더 일해도 실질 순소득이 직전 최고치보다 적은 구간(손해 구간)을 찾는다.
-  // peak: 구간 직전의 최고 순소득, recover: 그 최고치를 다시 넘는 최소 근무시간
+  // 더 일해도 예상 추가수입이 직전 최고치보다 적은 구간을 찾는다.
+  // peak: 구간 직전의 최고치, recover: 그 최고치를 다시 넘는 최소 근무시간
   let dip = null;
   let peak = table[0];
   for (const t of table) {
@@ -327,16 +356,16 @@ export function searchAlternatives(job, profile, rules, { minHours = 1, maxHours
       if (dip && !dip.recoverHours) { dip.recoverHours = t.weeklyHours; dip.to = t.weeklyHours - 1; }
       if (!dip) peak = t;
     } else if (t.net < peak.net && !dip) {
-      dip = { peakHours: peak.weeklyHours, peakNet: peak.net, from: t.weeklyHours, to: maxHours, recoverHours: null };
+      dip = { peakHours: peak.weeklyHours, peakNet: peak.net, from: t.weeklyHours, to: top, recoverHours: null };
     }
   }
-  if (dip && dip.recoverHours) {
-    options.push({ kind: 'breakEven', label: '손해 구간을 지나 실질 순소득이 다시 커지는 최소 근무시간', ...table.find((t) => t.weeklyHours === dip.recoverHours) });
-  }
+  if (dip && dip.recoverHours) push('recover', '수당이 줄어든 뒤 예상 추가수입이 다시 커지는 근무시간', at(dip.recoverHours));
+
   return {
     options,
     table,
     dip,
-    trace: { variable: '주당 근무시간', from: minHours, to: maxHours, evaluated: table.length },
+    offeredOutOfRange: !at(offered),
+    trace: { variable: '주당 근무시간', from: minHours, to: top, evaluated: table.length },
   };
 }

@@ -19,7 +19,6 @@ const state = {
 const FIELD_LABELS = { hourlyWage: '시급 (원)', weeklyHours: '주당 근무시간', startMonth: '시작 월', months: '근무 개월 수', incomeType: '소득 종류' };
 const STEP_GROUP = { upload: 0, confirm: 1, questions: 1, profile: 2, result: 3, alts: 3, basis: 3 };
 const STEP_NAMES = ['올리기', '확인', '내 상황', '결과'];
-const CARD_SHORT = { dependentDeduction: '부모 공제', healthDependent: '피부양자', jobSeekerAllowance: '구직촉진수당', weekly15h: '주 15시간' };
 
 function emptyFields() {
   const blank = (v) => ({ value: v, status: STATUS.CHECK, evidence: '' });
@@ -31,11 +30,17 @@ function badge(status) {
   return `<span class="badge ${cls}">${esc(status)}</span>`;
 }
 
+// 기준을 넘는지 여부. 좋고 나쁨을 뜻하지 않으므로 중립 색으로만 표시한다.
 function crossTag(crossed) {
-  if (crossed === true) return '<span class="tag over">넘음</span>';
-  if (crossed === 'maybe') return '<span class="tag maybe">넘을 수 있음</span>';
-  if (crossed === false) return '<span class="tag ok">넘지 않음</span>';
+  if (crossed === true) return '<span class="tag neutral">기준 초과</span>';
+  if (crossed === 'maybe') return '<span class="tag neutral">초과 가능</span>';
+  if (crossed === false) return '<span class="tag neutral">기준 이내</span>';
   return '<span class="tag hold">판단 보류</span>';
+}
+
+// 변화의 종류. 급여 증가, 수당 감소, 자격 확인, 변화 없음을 색으로 구분한다.
+function effectTag(effect) {
+  return `<span class="tag e-${effect.type}">${esc(effect.label)}</span>`;
 }
 
 function choices(name, options, current, multi = false) {
@@ -178,7 +183,6 @@ function viewProfile() {
   const p = state.profile;
   const f = state.fields;
   const yn = [['yes', '예'], ['no', '아니오'], ['unknown', '모름']];
-  const brackets = Object.entries(state.rules.dependentDeduction.impact.parentBrackets).map(([k, v]) => [k, v.label]).concat([['unknown', '모름']]);
   const others = Object.entries(state.rules.outOfScope).map(([k, v]) => [k, v.title]);
   return `<h1>내 상황</h1>
     <p class="lead">계산에 필요한 것만 묻습니다. 입력값은 이 브라우저 안에서만 쓰입니다.</p>
@@ -201,9 +205,9 @@ function viewProfile() {
       <label class="f" for="y-daily">일용근로소득 (원)</label><input id="y-daily" type="number" inputmode="numeric" min="0" value="${p.ytdIncome.daily}">
     </div>
     <div class="card">
-      <label class="f" style="margin-top:0">부모님의 연 소득 구간</label>
-      ${choices('parentBracket', brackets, p.parentBracket)}
-      <p class="hint">모르면 부모님 세금 영향을 범위로만 표시합니다.</p>
+      <label class="f" for="p-max" style="margin-top:0">주당 최대 몇 시간까지 일할 수 있나요?</label>
+      <input id="p-max" type="number" inputmode="numeric" min="1" max="52" value="${p.maxHours ?? 40}">
+      <p class="hint">근무조건 비교는 이 시간 안에서만 합니다.</p>
       <label class="f">그 밖에 받고 있는 지원 (여러 개 선택 가능)</label>
       ${choices('otherSupports', others, p.otherSupports, true)}
       <p class="hint">이 제도들은 이번 버전에서 계산하지 않고 문의처만 안내합니다.</p>
@@ -230,10 +234,10 @@ function cardHtml(c) {
     </div>` : '';
   return `<div class="card" data-card="${c.id}">
     <div class="card-head"><h3>${esc(c.title)}</h3>${badge(c.status)}</div>
-    <p>${crossTag(c.crossed)} ${esc(c.headline)}</p>
+    <p>${effectTag(c.effect)} ${esc(c.headline)}</p>
     <dl class="kv">
       <dt>기준선</dt><dd>${esc(c.limitText)}</dd>
-      ${c.crossMonth ? `<dt>넘는 시점</dt><dd>${c.crossMonth}월</dd>` : ''}
+      ${c.crossMonth ? `<dt>기준에 닿는 시점</dt><dd>${c.crossMonth}월</dd>` : ''}
       ${impact}
     </dl>
     ${proposed}
@@ -247,12 +251,12 @@ function timelineHtml(r) {
   const months = r.cards.map((c) => c.crossMonth).filter(Boolean);
   const firstHit = months.length ? Math.min(...months) : null;
   const bars = rows.map((row) => {
-    const cls = firstHit && row.month >= firstHit ? 'hit' : row.working ? 'work' : '';
+    const cls = firstHit && row.month >= firstHit ? 'reach' : row.working ? 'work' : '';
     return `<div class="bar ${cls}" style="height:${Math.max(2, Math.round((row.cumulative.total / max) * 100))}%" title="${row.month}월 누적 ${won(row.cumulative.total)}"></div>`;
   }).join('');
   return `<div class="card">
     <h3>월별 누적 소득</h3>
-    <p class="small">${firstHit ? `${firstHit}월부터 연간 기준선을 넘는 구간입니다(붉은색).` : '연간 기준선을 넘는 달이 없습니다.'} 12월 누적 ${won(rows[11].cumulative.total)}</p>
+    <p class="small">${firstHit ? `${firstHit}월에 연간 기준에 닿습니다(진한 색 구간).` : '연간 기준에 닿는 달이 없습니다.'} 12월 누적 ${won(rows[11].cumulative.total)}</p>
     <div class="tl" role="img" aria-label="1월부터 12월까지 누적 소득 막대 그래프">${bars}</div>
     <div class="tl-x">${rows.map((row) => `<span>${row.month}</span>`).join('')}</div>
   </div>`;
@@ -262,60 +266,76 @@ function viewResult() {
   const r = state.result;
   const s = r.summary;
   const deduct = s.insurance + s.withholding;
-  const none = s.crossedIds.length === 0;
-  return `<h1>결과</h1>
+  const types = new Set(r.cards.map((c) => c.effect.type));
+  const chips = [
+    types.has('gain') ? '<span class="tag e-gain">급여 증가</span>' : '',
+    types.has('loss') ? '<span class="tag e-loss">수당 감소</span>' : '',
+    types.has('check') ? '<span class="tag e-check">자격 확인 필요</span>' : '',
+    s.reportNeeded ? '<span class="tag e-report">소득 신고 필요</span>' : '',
+  ].filter(Boolean).join(' ');
+  return `<h1>이 일을 시작하면 달라지는 것</h1>
     <p class="lead">${r.year}년 기준 규칙으로 계산했습니다. 연간 기준은 1월부터 12월까지 합산합니다.</p>
     <div class="sum">
-      <div class="card"><div class="k">추가 소득 (월)</div><div class="v mono">${won(s.addedIncome)}</div></div>
+      <div class="card"><div class="k">급여 (월)</div><div class="v mono">${won(s.addedIncome)}</div></div>
       <div class="card"><div class="k">${r.pay.withholding ? '3.3% 원천징수' : '4대보험 공제'} (월)</div><div class="v mono">${won(deduct)}</div></div>
       <div class="card"><div class="k">줄어드는 수당 (월)</div><div class="v mono">${won(s.allowanceLoss)}</div></div>
-      <div class="card"><div class="k">실질 순소득 변화 (월)</div><div class="v mono">${won(s.net)}</div></div>
+      <div class="card"><div class="k">계산 범위 내 예상 추가수입 (월)</div><div class="v mono">${won(s.net)}</div></div>
     </div>
-    ${r.pay.holidayPay ? `<p class="small" style="margin-top:8px">추가 소득에는 주휴수당 ${won(r.pay.holidayPay)}이 포함되어 있습니다.</p>` : ''}
+    <p class="small" style="margin-top:8px"><b>계산에 넣은 것</b> ${esc(s.included.join(', '))}<br><b>넣지 않은 것</b> ${esc(s.excluded.join(', '))}</p>
+    ${r.pay.holidayPay ? `<p class="small">급여에는 주휴수당 ${won(r.pay.holidayPay)}이 포함되어 있습니다.</p>` : ''}
     ${r.warnings.map((w) => `<div class="card warn" role="alert"><p class="small" style="margin:0">${esc(w)}</p></div>`).join('')}
-    <h2>제도별 결과</h2>
-    ${none ? '<div class="card soft"><p style="margin:0"><b>현재 조건에서는 넘는 기준선이 없습니다.</b></p></div>' : ''}
+    <h2>제도별 변화</h2>
+    ${chips ? `<p>${chips}</p>` : '<div class="card soft"><p style="margin:0"><b>현재 조건에서는 지원이나 자격에 달라지는 것이 없습니다.</b></p></div>'}
     ${r.cards.map(cardHtml).join('')}
     ${timelineHtml(r)}
     ${r.notApplicable.length ? `<div class="card"><h3>해당하지 않아 계산하지 않은 제도</h3><ul class="notes">${r.notApplicable.map((n) => `<li>${esc(n.title)}: ${esc(n.reason)}</li>`).join('')}</ul></div>` : ''}
     ${r.outOfScope.length ? `<div class="card warn"><h3>이번 버전에서 계산하지 않는 제도</h3><ul class="notes">${r.outOfScope.map((o) => `<li><b>${esc(o.title)}</b>: 확인 필요. 문의처 ${esc(o.contact)}</li>`).join('')}</ul></div>` : ''}
-    <button class="btn" data-action="go" data-step="alts">대안 비교 보기</button>
-    <div class="btn-row"><button class="btn ghost" data-action="go" data-step="basis">근거와 다음 행동</button><button class="btn ghost" data-action="go" data-step="profile">조건 바꿔 다시</button></div>`;
+    <button class="btn" data-action="go" data-step="alts">근무조건 비교하기</button>
+    <div class="btn-row"><button class="btn ghost" data-action="go" data-step="basis">근거와 시작 전 준비</button><button class="btn ghost" data-action="go" data-step="profile">조건 바꿔 다시</button></div>`;
 }
 
-function requestMessage(original, option) {
-  return `안녕하세요. 근무시간과 관련해 여쭙고 싶습니다.\n제안해 주신 주 ${original}시간 대신 주 ${option.weeklyHours}시간으로 조정할 수 있을까요?\n제가 받고 있는 지원 제도의 소득 기준 때문에 근무시간을 맞춰야 해서 부탁드립니다.\n요일과 시간대는 최대한 맞추겠습니다. 감사합니다.`;
+// 선택한 조건이 받은 제안보다 긴지 짧은지에 따라 요청 문구를 다르게 쓴다.
+function requestMessage(offered, option) {
+  const h = option.weeklyHours;
+  if (h > offered) {
+    return `안녕하세요. 근무시간과 관련해 여쭙고 싶습니다.\n제안해 주신 주 ${offered}시간보다 더 일할 수 있는데, 주 ${h}시간 정도로 늘릴 수 있을까요?\n가능한 요일과 시간대를 알려 주시면 맞추겠습니다. 감사합니다.`;
+  }
+  if (h < offered) {
+    return `안녕하세요. 근무시간과 관련해 여쭙고 싶습니다.\n제 사정상 주 ${offered}시간은 어려워서, 주 ${h}시간으로 조정할 수 있을까요?\n요일과 시간대는 최대한 맞추겠습니다. 감사합니다.`;
+  }
+  return `안녕하세요. 제안해 주신 주 ${offered}시간 조건으로 일하고 싶습니다.\n시작 전에 급여 지급 방식(4대보험 또는 3.3%)과 주휴수당 지급 여부를 확인하고 싶습니다. 감사합니다.`;
 }
 
 function viewAlts() {
   const a = state.alts;
-  const original = a.options.find((o) => o.kind === 'original');
-  const dip = a.dip ? `<div class="card danger">
-      <h3>더 일해도 손해인 구간</h3>
-      <p style="margin:0">주 ${a.dip.from}~${a.dip.to}시간은 실질 순소득이 주 ${a.dip.peakHours}시간 때(월 ${won(a.dip.peakNet)})보다 적습니다.${a.dip.recoverHours ? ` 주 ${a.dip.recoverHours}시간부터 다시 커집니다.` : ''}</p>
+  const offered = Math.round(state.fields.weeklyHours.value);
+  const dip = a.dip ? `<div class="card warn">
+      <h3>더 일해도 예상 추가수입이 줄어드는 구간</h3>
+      <p style="margin:0">주 ${a.dip.from}~${a.dip.to}시간은 예상 추가수입이 주 ${a.dip.peakHours}시간 때(월 ${won(a.dip.peakNet)})보다 적습니다. 수당이 줄어드는 폭이 급여가 늘어나는 폭보다 크기 때문입니다.${a.dip.recoverHours ? ` 주 ${a.dip.recoverHours}시간부터 다시 커집니다.` : ''}</p>
     </div>` : '';
   const cards = a.options.map((o) => `<div class="card">
-      <div class="card-head"><h3>${esc(o.label)}</h3><span class="tag ${o.crossedIds.length ? 'over' : 'ok'}">${o.crossedIds.length ? '기준선 ' + o.crossedIds.length + '개 넘음' : '기준선 이하'}</span></div>
+      <div class="card-head"><h3>${esc(o.label)}</h3></div>
+      <p>${o.effects.filter((e) => e.type !== 'keep').map(effectTag).join(' ') || '<span class="tag e-keep">지원·자격 변화 없음</span>'}</p>
       <dl class="kv">
         <dt>근무시간</dt><dd>주 ${o.weeklyHours}시간</dd>
-        <dt>월 급여</dt><dd>${won(o.gross)}</dd>
-        <dt>줄어드는 수당</dt><dd>${won(o.allowanceLoss)}</dd>
-        <dt>실질 순소득</dt><dd><b>${won(o.net)}</b></dd>
-        <dt>넘는 기준선</dt><dd>${o.crossedIds.length ? o.crossedIds.map((id) => CARD_SHORT[id]).join(', ') : '없음'}</dd>
+        <dt>급여 (월)</dt><dd>${won(o.gross)}</dd>
+        <dt>줄어드는 수당 (월)</dt><dd>${won(o.allowanceLoss)}</dd>
+        <dt>예상 추가수입 (월)</dt><dd><b>${won(o.net)}</b></dd>
       </dl>
-      ${o.kind === 'original' ? '' : `<button class="btn ghost" data-action="pick" data-kind="${o.kind}" style="margin-top:10px">이 조건으로 요청 문구 만들기</button>`}
+      <button class="btn ghost" data-action="pick" data-kind="${o.kind}" style="margin-top:10px">이 조건으로 문구 만들기</button>
     </div>`).join('');
   const chosen = state.chosen && a.options.find((o) => o.kind === state.chosen);
   const msg = chosen ? `<div class="card soft" id="msg-card">
-      <h3>근무시간 조정 요청 문구</h3>
-      <pre class="msg" id="msg">${esc(requestMessage(original ? original.weeklyHours : state.fields.weeklyHours.value, chosen))}</pre>
+      <h3>고용주에게 보낼 문구</h3>
+      <pre class="msg" id="msg">${esc(requestMessage(offered, chosen))}</pre>
       <button class="btn" data-action="copy">문구 복사</button>
       <p class="hint">문구 예시입니다. 상황에 맞게 고쳐 쓰세요.</p>
     </div>` : '';
-  return `<h1>대안 비교</h1>
-    <p class="lead">${esc(a.trace.variable)}을 ${a.trace.from}~${a.trace.to}시간으로 바꿔 가며 ${a.trace.evaluated}번 계산해 찾은 조건입니다. 시급과 기간은 그대로 두었습니다.</p>
+  return `<h1>근무조건 비교</h1>
+    <p class="lead">내가 가능한 주 ${a.trace.to}시간 안에서 ${esc(a.trace.variable)}을 바꿔 가며 ${a.trace.evaluated}번 계산했습니다. 시급과 기간은 그대로 두었습니다. 어떤 조건을 고를지는 직접 정하세요.</p>
+    ${a.offeredOutOfRange ? `<div class="card warn"><p class="small" style="margin:0">받은 제안(주 ${offered}시간)은 내가 가능한 시간을 넘어 비교에서 빠졌습니다.</p></div>` : ''}
     ${dip}${cards}${msg}
-    <div class="btn-row"><button class="btn ghost" data-action="go" data-step="result">결과로</button><button class="btn ghost" data-action="go" data-step="basis">근거와 다음 행동</button></div>`;
+    <div class="btn-row"><button class="btn ghost" data-action="go" data-step="result">결과로</button><button class="btn ghost" data-action="go" data-step="basis">근거와 시작 전 준비</button></div>`;
 }
 
 function viewBasis() {
@@ -332,7 +352,7 @@ function viewBasis() {
     </div>`;
   }).join('');
   const contacts = Object.values(rules.contacts).map((c) => `<li>${esc(c.name)} <a href="tel:${esc(c.phone)}">${esc(c.phone)}</a></li>`).join('');
-  return `<h1>근거와 다음 행동</h1>
+  return `<h1>근거와 시작 전 준비</h1>
     <p class="lead">규칙표 ${esc(rules.version)} 기준입니다. 확정은 정부·법령 원문을 확인한 규칙, 추정은 2차 자료나 계산값, 확인 필요는 원문을 확인하지 못한 규칙입니다.</p>
     ${cards}
     <div class="card warn">
@@ -359,6 +379,7 @@ function saveProfileInputs() {
   const num = (id) => { const el = document.getElementById(id); return el && el.value !== '' ? Number(el.value) : null; };
   if (!document.getElementById('p-age')) return;
   state.profile.age = num('p-age');
+  state.profile.maxHours = Math.min(52, Math.max(1, num('p-max') || 40));
   state.profile.ytdIncome = { wage: num('y-wage') || 0, business: num('y-business') || 0, daily: num('y-daily') || 0 };
 }
 
@@ -514,7 +535,7 @@ document.addEventListener('click', (e) => {
     saveProfileInputs();
     const job = jobFromFields();
     state.result = evaluate(job, state.profile, state.rules);
-    state.alts = searchAlternatives(job, state.profile, state.rules);
+    state.alts = searchAlternatives(job, state.profile, state.rules, { maxHours: state.profile.maxHours || 40 });
     state.chosen = null;
     state.step = 'result';
   } else if (action === 'pick') {
