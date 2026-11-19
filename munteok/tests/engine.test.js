@@ -1,6 +1,6 @@
 // 규칙 엔진 기대값 테스트
 // 기대값은 엔진과 별개로 손으로 계산한 값이다. 규칙표(data/rules.json)의 수치가 바뀌면 함께 고친다.
-import { monthlyPay, allowancePayment, allowanceLine, evaluate, searchAlternatives, STATUS } from '../js/engine.js';
+import { monthlyPay, allowancePayment, allowanceLine, evaluate, searchAlternatives, compareOffers, employerQuestions, STATUS } from '../js/engine.js';
 
 export function runTests(rules) {
   const results = [];
@@ -98,6 +98,22 @@ export function runTests(rules) {
 
   const altB = searchAlternatives(jobB, { ...base, taxDependent: 'yes', healthDependent: 'yes' }, rules);
   eq('B 대안: 주 4시간 미만인 조건은 제안하지 않음', altB.options.map((o) => o.kind), ['original', 'best']);
+
+  // 5-1. 제안 두 개 비교: 카페(A)와 학원 보조(B), 수당 수급자
+  const cmp = compareOffers([
+    { name: '카페', job: jobA, meta: { hourlyWage: '확정', weeklyHours: '추정', startMonth: '확정', months: '추정', incomeType: '확정' } },
+    { name: '학원', job: jobB, meta: { hourlyWage: '확정', weeklyHours: '추정', startMonth: '확정', months: '확정', incomeType: '확정' } },
+  ], profA, rules, { maxHours: 20 });
+  eq('비교: 월 예상 추가수입', cmp.rows.map((x) => x.net), [810863, 655452]);
+  eq('비교: 시간당 예상 추가수입', cmp.rows.map((x) => x.netPerHour), [7776, 12571]);
+  eq('비교: 일하는 기간 전체', cmp.rows.map((x) => x.periodNet), [9730356, 6554520]);
+  eq('비교: 월 금액은 카페, 시간당은 학원이 앞섬', [cmp.highlights.net, cmp.highlights.netPerHour], [0, 1]);
+  eq('비교: 확인 안 된 항목이 적은 쪽은 학원', cmp.highlights.fewestUnsure, 1);
+  eq('비교: 카페는 가능한 시간(20시간)을 넘음', cmp.rows.map((x) => x.withinHours), [false, true]);
+  eq('비교: 학원은 수당이 줄지 않음', cmp.rows[1].allowanceLoss, 0);
+  eq('고용주 질문: 카페 3개', cmp.rows[0].questions.length, 3);
+  eq('고용주 질문: 학원은 계약 형태와 근무시간', cmp.rows[1].questions, ['근로계약서를 쓰나요, 용역(프리랜서) 계약인가요?', '주당 근무시간과 휴게시간이 정확히 어떻게 되나요?']);
+  eq('고용주 질문: 소득 종류를 모르면 지급 방식부터', employerQuestions({ incomeType: 'unknown', weeklyHours: 10 }, {}, rules), ['급여에서 4대보험을 떼나요, 3.3%를 떼나요?']);
 
   // 6. 피부양자: 주 15시간 이상 근로소득
   r = evaluate({ hourlyWage: 10320, weeklyHours: 16, startMonth: 1, months: 12, incomeType: 'wage' }, { ...base, healthDependent: 'yes' }, rules);
