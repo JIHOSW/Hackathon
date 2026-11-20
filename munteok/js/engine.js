@@ -25,27 +25,39 @@ export function worstStatus(...statuses) {
  */
 export function monthlyPay(job, rules) {
   const r = rules.weekly15h;
-  const base = Math.round(job.hourlyWage * job.weeklyHours * WEEKS_PER_MONTH);
+  // 기간을 일수로 넣으면(job.days, 한 달보다 짧은 일) 한 달 대신 그 기간 동안의 돈을 계산한다.
+  const days = shortDays(job);
+  const weeks = days ? days / 7 : WEEKS_PER_MONTH;
+  const base = Math.round(job.hourlyWage * job.weeklyHours * weeks);
   const isWage = job.incomeType === 'wage';
   const over15 = isWage && job.weeklyHours >= r.thresholdHours;
   // 공고의 시급에 주휴수당이 이미 포함되어 있으면 따로 더하지 않는다.
   const holidayIncluded = over15 && job.holidayIncluded === true;
   const holidayHours = over15 && !holidayIncluded ? (Math.min(job.weeklyHours, 40) / 40) * 8 : 0;
-  const holidayPay = Math.round(job.hourlyWage * holidayHours * WEEKS_PER_MONTH);
+  // 주휴수당은 한 주를 다 채워야 생기므로, 일수로 넣은 기간은 다 채운 주만 센다(근로기준법 제55조).
+  const holidayWeeks = days ? Math.floor(days / 7) : WEEKS_PER_MONTH;
+  const holidayPay = Math.round(job.hourlyWage * holidayHours * holidayWeeks);
   const gross = base + holidayPay;
   const rates = r.employeeRates;
   // 4대보험 가입은 한 달 소정근로시간 60시간이 기준이다. 주 15시간 이상이면 확실히 해당한다.
   // 주 15시간 미만이어도 3개월 이상 계속 일하면 고용보험은 가입 대상이다(고용보험법 시행령 제3조).
   const cov = r.coverage || {};
-  const monthlyHours = job.weeklyHours * WEEKS_PER_MONTH;
+  const monthlyHours = job.weeklyHours * weeks;
   const healthPension = over15;
-  const employmentIns = isWage && (over15 || (cov.employmentMonthsException != null && (job.months || 0) >= cov.employmentMonthsException));
+  const employmentIns = isWage && (over15 || (!days && cov.employmentMonthsException != null && (job.months || 0) >= cov.employmentMonthsException));
   // 주 15시간 미만인데 한 달로 바꾸면 60시간 이상인 구간(주 14시간): 건강보험·국민연금 대상인지 공단 확인이 필요하다.
-  const insuranceBoundary = isWage && !over15 && cov.monthlyHours != null && monthlyHours >= cov.monthlyHours;
+  const insuranceBoundary = !days && isWage && !over15 && cov.monthlyHours != null && monthlyHours >= cov.monthlyHours;
   const insuranceRate = (healthPension ? rates.pension + rates.health + rates.longTermCare : 0) + (employmentIns ? rates.employment : 0);
   const insurance = Math.round(gross * insuranceRate);
   const withholding = job.incomeType === 'business' ? Math.round(gross * rules.businessWithholding.rate) : 0;
-  return { base, holidayPay, gross, insurance, withholding, takeHome: gross - insurance - withholding, over15, holidayIncluded, healthPension, employmentIns, insuranceBoundary, monthlyHours };
+  return { base, holidayPay, gross, insurance, withholding, takeHome: gross - insurance - withholding, over15, holidayIncluded, healthPension, employmentIns, insuranceBoundary, monthlyHours, days };
+}
+
+/** 한 달보다 짧게 일하는 일수(1~31). 개월로 넣었으면 null. */
+export const MAX_SHORT_DAYS = 31;
+export function shortDays(job) {
+  const d = Math.round(Number(job.days));
+  return d >= 1 && d <= MAX_SHORT_DAYS ? d : null;
 }
 
 /** 구직촉진수당의 감액 기준선(이 금액에서 소득을 뺀 만큼 지급). */
@@ -67,7 +79,9 @@ export function allowancePayment(monthlyIncome, rules) {
 export function buildTimeline(job, profile, pay) {
   const ytd = { wage: 0, daily: 0, business: 0, ...(profile.ytdIncome || {}) };
   const start = Math.min(12, Math.max(1, job.startMonth || 1));
-  const requestedMonths = Math.max(1, job.months || 12);
+  // 일수로 넣은 짧은 일은 시작하는 달에 모두 번 것으로 본다.
+  const days = shortDays(job);
+  const requestedMonths = days ? 1 : Math.max(1, job.months || 12);
   const end = Math.min(12, start + requestedMonths - 1);
   const type = job.incomeType;
   const rows = [];
@@ -88,7 +102,7 @@ export function buildTimeline(job, profile, pay) {
   }
   // 연간 기준은 한 해(1~12월)만 계산한다. 해를 넘기는 달은 세지 않고 몇 달이 빠졌는지 알려 준다.
   const countedMonths = end - start + 1;
-  return { rows, start, end, requestedMonths, countedMonths, uncountedMonths: requestedMonths - countedMonths };
+  return { rows, start, end, requestedMonths, countedMonths, uncountedMonths: requestedMonths - countedMonths, days };
 }
 
 /** 누적값이 limit을 처음 넘는 달. 넘지 않으면 null. */
@@ -194,7 +208,10 @@ function healthCard(job, profile, rules, timeline, pay) {
   } else {
     // 직장가입자 전환 규칙이 확인 전이면 판정에 쓰지 않고 확인 항목으로만 남긴다.
     const conv = rule.employeeConversion;
-    if (pay.over15) {
+    if (pay.over15 && pay.days) {
+      // 1개월이 안 되는 일은 직장가입자 대상에서 빠질 수 있다(국민건강보험법 시행령 제9조). 원문 확인 전이라 판정하지 않는다.
+      card.checks.push(`${pay.days}일 동안만 일하면 직장가입자가 되지 않을 수 있어, 피부양자에서 빠지는지 확인 필요 (국민건강보험공단 1577-1000)`);
+    } else if (pay.over15) {
       if (usable(conv.verification)) {
         Object.assign(card, { crossed: true, crossMonth: timeline.start, status: statusOf(conv.verification), headline: '한 달 60시간(주 15시간) 이상 일하면 직장가입자가 되어 피부양자에서 빠짐' });
       } else {
@@ -250,7 +267,8 @@ function allowanceCard(job, profile, rules, pay, timeline) {
   const line = allowanceLine(rules);
   // 주 30시간 이상 일자리에 취업하면 취업지원이 끝나 수당도 끊긴다(시행규칙 제20조). 일용근로는 제외.
   const emp = rule.employmentCheck;
-  const ended = Boolean(emp && usable(emp.verification) && job.incomeType !== 'daily' && job.weeklyHours >= emp.weeklyHours);
+  // 한 달이 안 되는 일(일수로 넣은 일)은 일용근로로 볼 수 있어, 수당이 끝난다고 판정하지 않고 확인 항목으로 남긴다.
+  const ended = Boolean(emp && usable(emp.verification) && job.incomeType !== 'daily' && !pay.days && job.weeklyHours >= emp.weeklyHours);
   const paid = ended ? 0 : allowancePayment(pay.gross, rules);
   const loss = rule.monthlyAllowance - paid;
   card.applicable = true;
@@ -271,6 +289,9 @@ function allowanceCard(job, profile, rules, pay, timeline) {
   if (endMonth && endMonth < timeline.end) card.notes.push(`${endMonth}월에 수당이 끝나면 ${endMonth + 1}월부터는 줄어드는 수당이 없음`);
   if (profile.allowanceEndMonth === 'unknown') card.checks.push('수당이 몇 월에 끝나는지 몰라 일하는 동안 계속 받는다고 보고 계산함. 고용24나 고용센터(1350)에서 끝나는 달을 확인 필요');
   if (emp && !usable(emp.verification) && job.weeklyHours >= emp.weeklyHours) card.checks.push(emp.note);
+  if (emp && pay.days && job.incomeType !== 'daily' && job.weeklyHours >= emp.weeklyHours) {
+    card.checks.push(`주 ${emp.weeklyHours}시간 이상이지만 ${pay.days}일만 일하는 일이라, 취업으로 보아 수당이 끝나는지 확인 필요 (고용센터 1350)`);
+  }
   if (ended) card.notes.push(emp.note);
   card.notes.push(rule.note);
   if (profile.allowance === 'applying') {
@@ -299,13 +320,21 @@ function weeklyCard(job, rules, pay) {
   card.employmentOnly = !pay.over15 && pay.employmentIns;
   card.crossMonth = null;
   card.checks = [];
+  // 일수로 넣은 일은 금액이 한 달이 아니라 그 기간 동안의 돈이다.
+  const amt = (n) => (pay.days ? `${won(n)}(${pay.days}일 동안)` : `월 ${won(n)}`);
   card.headline = pay.over15
     ? pay.holidayIncluded
-      ? `주 ${rule.thresholdHours}시간 이상: 주휴수당은 시급에 포함된 것으로 계산, 4대보험 월 ${won(pay.insurance)} 공제`
-      : `주 ${rule.thresholdHours}시간 이상: 주휴수당 월 ${won(pay.holidayPay)} 발생, 4대보험 월 ${won(pay.insurance)} 공제`
+      ? `주 ${rule.thresholdHours}시간 이상: 주휴수당은 시급에 포함된 것으로 계산, 4대보험 ${amt(pay.insurance)} 공제`
+      : pay.days && !pay.holidayPay
+        ? `주 ${rule.thresholdHours}시간 이상이지만 한 주를 다 채우지 않아 주휴수당은 넣지 않음, 4대보험 ${amt(pay.insurance)} 공제`
+        : `주 ${rule.thresholdHours}시간 이상: 주휴수당 ${amt(pay.holidayPay)} 발생, 4대보험 ${amt(pay.insurance)} 공제`
     : card.employmentOnly
-      ? `주 ${rule.thresholdHours}시간 미만: 주휴수당은 없고, 3개월 이상 일해 고용보험 월 ${won(pay.insurance)}만 공제`
+      ? `주 ${rule.thresholdHours}시간 미만: 주휴수당은 없고, 3개월 이상 일해 고용보험 ${amt(pay.insurance)}만 공제`
       : `주 ${rule.thresholdHours}시간 미만: 주휴수당과 4대보험 가입 대상이 아님`;
+  if (pay.days && pay.over15) {
+    if (pay.holidayPay) card.checks.push('일이 끝나는 마지막 주는 다음 주 근무가 없어 주휴수당이 없을 수 있어 확인 필요 (고용노동부 1350)');
+    card.checks.push(`${pay.days}일만 일하면 국민연금·건강보험 가입 대상이 아닐 수 있어 확인 필요. 보험료는 떼는 것으로 보고 계산함 (국민연금공단 1355, 국민건강보험공단 1577-1000)`);
+  }
   if (pay.insuranceBoundary && rule.coverage) card.checks.push(rule.coverage.boundaryNote + ' (국민건강보험공단 1577-1000)');
   if (card.employmentOnly && rule.coverage) card.notes.push(rule.coverage.employmentNote);
   card.notes.push(rule.note);
@@ -387,12 +416,17 @@ export function evaluate(job, profile, rules) {
   if (next && job.hourlyWage >= rules.minimumWage.hourly && job.hourlyWage < next.hourly) {
     notices.push(`${next.year}년 최저임금은 시급 ${won(next.hourly)}입니다. 해를 넘겨 일하면 ${next.year}년 1월부터 시급이 그 이상이어야 합니다.`);
   }
+  if (pay.days) {
+    notices.push(`${pay.days}일 동안 일하고, 번 돈은 모두 ${timeline.start}월에 받는 것으로 계산했습니다. 달을 넘겨 일하면 달마다 금액이 나뉘어 수당이 줄어드는 정도가 달라질 수 있습니다.`);
+  }
   // 금액을 확인 수준별로 나눈다. 큰 숫자에는 확정 항목만 쓰고, 추정 항목은 따로 보여 준다.
   const parts = [{ label: '급여', amount: pay.base, status: STATUS.CONFIRMED }];
   if (pay.holidayPay) parts.push({ label: '주휴수당', amount: pay.holidayPay, status: statusOf(rules.weekly15h.verification) });
   const reasonIf = (status, text) => (status === STATUS.CONFIRMED ? undefined : text);
-  const insStatus = statusOf(rules.weekly15h.ratesVerification);
-  if (pay.insurance) parts.push({ label: '4대보험 근로자 부담분', amount: -pay.insurance, status: insStatus, reason: reasonIf(insStatus, '요율을 2차 자료로 넣음') });
+  // 한 달이 안 되는 일은 국민연금·건강보험 가입 대상인지 확인 전이라, 떼는 것으로 계산하되 어림값으로 표시한다.
+  const insStatus = pay.days && pay.healthPension ? STATUS.ESTIMATED : statusOf(rules.weekly15h.ratesVerification);
+  const insReason = pay.days && pay.healthPension ? '한 달이 안 되는 일은 국민연금·건강보험 가입 대상이 아닐 수 있음' : '요율을 2차 자료로 넣음';
+  if (pay.insurance) parts.push({ label: '4대보험 근로자 부담분', amount: -pay.insurance, status: insStatus, reason: reasonIf(insStatus, insReason) });
   if (pay.withholding) parts.push({ label: '3.3% 원천징수', amount: -pay.withholding, status: statusOf(rules.businessWithholding.verification), reason: '미리 내는 세금이며 다음 해 5월 종합소득세 신고로 정산됨' });
   if (allowanceLoss) parts.push({ label: allowance.ended ? '구직촉진수당 종료' : '구직촉진수당 감소', amount: -allowanceLoss, status: allowance.status, reason: reasonIf(allowance.status, '수급 확정 전이거나 소득 종류를 몰라 참고로 계산함') });
   const sum = (list) => list.reduce((a, b) => a + b.amount, 0);
@@ -451,6 +485,8 @@ export function evaluate(job, profile, rules) {
       months,
       periods,
       periodNet: months.reduce((a, b) => a + b.net, 0),
+      // 일수로 넣은 일이면 위 금액은 한 달이 아니라 그 기간 동안의 돈이다.
+      days: pay.days,
     },
   };
 }
@@ -597,8 +633,9 @@ export function compareOffers(offers, profile, rules, { maxHours = 40 } = {}) {
       gross: r.pay.gross,
       allowanceLoss: r.summary.allowanceLoss,
       net: r.summary.net,
-      netPerHour: Math.round(r.summary.net / (o.job.weeklyHours * WEEKS_PER_MONTH)),
+      netPerHour: Math.round(r.summary.net / r.pay.monthlyHours),
       workedMonths,
+      days: r.pay.days,
       uncountedMonths: r.timeline.uncountedMonths,
       periodNet: r.summary.periodNet,
       effects: r.cards.map((c) => ({ id: c.id, type: c.effect.type, label: c.effect.label })),

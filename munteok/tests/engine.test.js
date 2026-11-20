@@ -239,5 +239,32 @@ export function runTests(rules) {
   r = evaluate({ hourlyWage: 9860, weeklyHours: 10, startMonth: 1, months: 3, incomeType: 'wage' }, base, rules);
   eq('올해 최저임금 미달이면 경고만, 다음 해 안내는 생략', [r.warnings.length, r.notices.length], [1, 1]);
 
+  // 9. 기간을 일수로 넣은 짧은 일 (한 달보다 짧음)
+  // 20일, 주 40시간, 시급 12,000원: 기본급 12,000×40×20/7 = 1,371,429원, 주휴수당은 다 채운 2주만 12,000×8×2 = 192,000원
+  p = monthlyPay({ hourlyWage: 12000, weeklyHours: 40, incomeType: 'wage', days: 20 }, rules);
+  eq('20일: 기본급', p.base, 1371429);
+  eq('20일: 주휴수당은 다 채운 주만', p.holidayPay, 192000);
+  eq('20일: 4대보험 (1,563,429 × 9.7174%)', p.insurance, 151925);
+  const jobShort = { hourlyWage: 12000, weeklyHours: 40, startMonth: 3, days: 20, incomeType: 'wage' };
+  r = evaluate(jobShort, { ...base, allowance: 'yes' }, rules);
+  // 그 달 소득 1,563,429원이 기준선 1,538,543원을 넘어 그 달 수당은 0원. 한 달이 안 되는 일이라 "수당 종료"로 단정하지 않는다.
+  eq('20일: 그 달 수당 0원, 종료로 단정하지 않음', [card(r, 'jobSeekerAllowance').paid, card(r, 'jobSeekerAllowance').ended, r.summary.allowanceLoss], [0, false, 600000]);
+  eq('20일: 취업으로 보는지 확인 항목', card(r, 'jobSeekerAllowance').checks.some((t) => t.includes('20일만 일하는 일')), true);
+  eq('20일: 늘어나는 돈 (1,563,429 − 151,925 − 600,000)', r.summary.net, 811504);
+  eq('20일: 시작하는 달에만 소득', [r.timeline.start, r.timeline.end, r.summary.months.length, r.summary.days], [3, 3, 1, 20]);
+  // 5일, 주 20시간, 시급 10,320원: 10,320×20×5/7 = 147,429원, 한 주를 다 채우지 않아 주휴수당 없음
+  const job5 = { hourlyWage: 10320, weeklyHours: 20, startMonth: 7, days: 5, incomeType: 'wage' };
+  r = evaluate(job5, { ...base, healthDependent: 'yes' }, rules);
+  eq('5일: 급여와 주휴수당', [r.pay.base, r.pay.holidayPay, r.pay.insurance], [147429, 0, 14326]);
+  eq('5일: 7월에만 소득', [r.timeline.rows[6].income, r.timeline.rows[7].income, r.timeline.rows[11].cumulative.total], [147429, 0, 147429]);
+  eq('5일: 주휴수당을 넣지 않았다고 밝힘', card(r, 'weekly15h').headline.includes('주휴수당은 넣지 않음'), true);
+  eq('5일: 4대보험은 어림값으로 표시', r.summary.parts.find((x) => x.label === '4대보험 근로자 부담분').status, STATUS.ESTIMATED);
+  eq('5일: 직장가입자 전환은 판정하지 않고 확인 항목', [card(r, 'healthDependent').crossed, card(r, 'healthDependent').checks.some((t) => t.includes('5일 동안만'))], [false, true]);
+  eq('5일: 계산 전제 안내', r.notices.some((n) => n.includes('5일 동안 일하고')), true);
+  const cmpShort = compareOffers([{ name: '단기', job: job5, meta: {} }], base, rules, { maxHours: 40 });
+  // 늘어나는 돈 133,103원 ÷ 일한 시간 (20×5/7 = 14.29시간)
+  eq('5일: 비교의 시간당 금액은 그 기간 일한 시간으로 나눔', [cmpShort.rows[0].days, cmpShort.rows[0].net, cmpShort.rows[0].netPerHour], [5, 133103, 9317]);
+  eq('일수가 범위를 벗어나면 개월로 계산', monthlyPay({ hourlyWage: 10320, weeklyHours: 20, incomeType: 'wage', days: 40 }, rules).gross, 1076170);
+
   return results;
 }
