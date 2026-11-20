@@ -74,6 +74,12 @@ export function runTests(rules) {
   eq('40시간까지: 수당이 끊기는 지점과 취업 종료 지점 포함', alt40.changePoints.map((c) => c.weeklyHours), [14, 15, 18, 29, 30]);
   eq('40시간까지: 30시간은 취업으로 보아 수당 종료', cpAt(alt40, 30).changes.map((c) => c.text), ['취업으로 보아 구직촉진수당 지급이 끝남']);
   eq('40시간까지: 다시 커지는 시간', alt40.dip.recoverHours, 30);
+  // 가장 많이 남는 시간은 줄어드는 구간 직전의 봉우리(18시간)가 아니라 할 수 있는 시간 전체에서 고른다.
+  //   주 18시간: 985,446 − 보험료 95,760 − 수당 46,903 = 842,783원
+  //   주 30시간: 급여 1,368,675 + 주휴 273,735 = 1,642,410원 − 보험료 159,600 − 수당 600,000(취업으로 끝남) = 882,810원
+  const alt30 = searchAlternatives(jobA, profA, rules, { maxHours: 30 });
+  eq('가장 많이 남는 시간: 30시간까지면 18시간이 아니라 30시간', [alt30.best, alt30.dip.peakHours, alt30.dip.to], [{ weeklyHours: 30, net: 882810 }, 18, 29]);
+  eq('가장 많이 남는 시간: 28시간까지면 봉우리 18시간이 전체에서도 가장 많음', alt.best, { weeklyHours: 18, net: 842783 });
   const alt20 = searchAlternatives(jobA, profA, rules, { maxHours: 20 });
   eq('최대 20시간: 받은 제안(24시간)은 범위 밖', [alt20.offeredOutOfRange, alt20.options.map((o) => o.kind)], [true, ['max']]);
   const altSame = searchAlternatives(jobA, profA, rules, { maxHours: 24 });

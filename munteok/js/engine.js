@@ -723,11 +723,16 @@ export function searchAlternatives(job, profile, rules, { minHours = 1, maxHours
     }
   }
 
+  // 할 수 있는 시간 전체에서 가장 많이 남는 시간. 같은 금액이면 더 짧은 시간.
+  // dip의 peak는 "줄어드는 구간 직전"의 봉우리일 뿐이라, 더 길게 일해 더 많이 남는 시간이 있을 수 있다.
+  const bestRow = table.reduce((b, t) => (t.net > b.net ? t : b), table[0]);
+  const best = { weeklyHours: bestRow.weeklyHours, net: bestRow.net };
   return {
     options,
     changePoints,
     table,
     dip,
+    best,
     offered,
     offeredOutOfRange: !at(offered),
     trace: { variable: '주당 근무시간', from: minHours, to: top, evaluated: table.length },

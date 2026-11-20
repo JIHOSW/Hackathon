@@ -170,7 +170,7 @@ function viewStart() {
     </div>
     <div class="card pv">
       <span class="chip">예시</span>
-      <p class="pvt">주말 카페 알바로 <span class="num">${man(s.addedIncome)}</span>을 벌면,<br>실제로 늘어나는 돈은 <mark class="num">${man(s.net)}</mark>이에요</p>
+      <p class="pvt">주말 카페 알바로 <span class="num">${man(s.addedIncome)}</span>을 벌면,<br>실제로 남는 돈은 <mark class="num">${man(s.net)}</mark>이에요</p>
       ${moneyBar(s)}
     </div>
     <p class="gline center">로그인 없이 바로 써요 · 입력한 내용은 저장하지 않아요</p>
@@ -793,56 +793,45 @@ function allowanceUntil() {
   const c = state.result && state.result.cards.find((x) => x.id === 'jobSeekerAllowance');
   return c && c.endMonth && !c.beforeStart && c.endMonth < state.result.timeline.end ? c.endMonth : null;
 }
-function betterOption() {
-  const a = state.alts;
-  if (!a || a.offeredOutOfRange) return null;
-  const at = (h) => a.table.find((t) => t.weeklyHours === h);
-  const cur = at(a.offered);
-  if (!cur || cur.pendingIds.length) return null;
-  if (a.dip && a.offered > a.dip.peakHours && a.dip.peakNet > cur.net) {
-    const p = at(a.dip.peakHours);
-    return { hours: p.weeklyHours, title: `주 ${p.weeklyHours}시간이면 ${manOrWon(p.net - cur.net)} 더 남아요`, sub: `일하는 시간은 ${a.offered - p.weeklyHours}시간 줄고, ${perLong(state.result && state.result.summary)} ${man(p.net)}이 늘어나요` };
-  }
-  if (cur.allowanceLoss > 0) {
-    const keep = a.table.filter((t) => t.weeklyHours < a.offered && t.allowanceLoss === 0 && t.allowancePaid !== null).pop();
-    if (keep) return { hours: keep.weeklyHours, title: `주 ${keep.weeklyHours}시간이면 정부 지원이 그대로예요`, sub: `그때 늘어나는 돈은 ${perShort(state.result && state.result.summary)} ${man(keep.net)}이에요` };
-  }
-  return null;
-}
+// 결과 화면의 "근무시간을 바꾸면" 카드. 할 수 있는 시간 전체에서 가장 많이 남는 시간을 보여 준다.
+// 시간을 줄이라고 권하지 않고, 어느 시간이 가장 많이 남는지와 그때 지원이 어떻게 되는지만 알려 준다.
 function betterOptionAll() {
-  const b = betterOptionBase();
-  const until = allowanceUntil();
-  if (b && b.hours && until) b.sub += ` (수당이 끝나는 ${until}월까지 기준)`;
-  return b;
-}
-function betterOptionBase() {
   const a = state.alts;
-  if (!a || a.offeredOutOfRange) return null;
+  if (!a || a.offeredOutOfRange || !a.best) return null;
   const at = (h) => a.table.find((t) => t.weeklyHours === h);
   const cur = at(a.offered);
   if (!cur || cur.pendingIds.length) return null;
-  const first = betterOption();
-  if (first) return first;
-  const best = a.table.reduce((b, t) => (t.net > b.net ? t : b), a.table[0]);
-  if (best.weeklyHours === a.offered) return { hours: null, title: '할 수 있는 시간 안에서는 지금 조건이 가장 많이 남아요', sub: '근무시간을 바꾸면 어떻게 달라지는지 볼 수 있어요' };
-  return null;
+  const best = at(a.best.weeklyHours);
+  if (best.weeklyHours === a.offered || best.net <= cur.net) {
+    return { hours: null, title: '할 수 있는 시간 안에서는 지금 조건이 가장 많이 남아요', sub: '근무시간을 바꾸면 어떻게 달라지는지 볼 수 있어요' };
+  }
+  const diff = best.weeklyHours - a.offered;
+  const support = best.allowanceEnded && !cur.allowanceEnded ? ' 구직촉진수당은 끝나요'
+    : best.allowanceLoss > cur.allowanceLoss ? ' 구직촉진수당은 더 줄어요'
+      : best.allowanceLoss < cur.allowanceLoss ? ' 구직촉진수당은 덜 줄어요' : '';
+  const until = allowanceUntil();
+  return {
+    hours: best.weeklyHours,
+    title: `주 ${best.weeklyHours}시간이면 ${manOrWon(best.net - cur.net)} 더 남아요`,
+    sub: `일하는 시간이 ${Math.abs(diff)}시간 ${diff > 0 ? '늘고' : '줄고'}, ${perLong(state.result && state.result.summary)} ${man(best.net)}이 남아요${until ? `(${until}월까지 기준)` : ''}.${support}`,
+  };
 }
 
 function resultTitle(r, job) {
   const s = r.summary;
   if (s.net <= 0 && s.addedIncome > 0) {
-    return `<h1 class="t2">일해도 ${periodOf(s) ? '' : '한 달 '}수입이<br><mark class="rd">늘지 않아요</mark></h1>
+    return `<h1 class="t2">일해도 ${periodOf(s) ? '' : '한 달에 '}<br><mark class="rd">남는 돈이 없어요</mark></h1>
       <p class="cut">버는 돈 <b class="num">${man(s.addedIncome)}</b>보다 빠지는 돈이 더 커요</p>`;
   }
   const mp = manParts(s);
-  // 급여를 어떻게 받는지 모르면 보험료·세금을 뺄 수 없어 "더 생겨요"라고 하지 않는다.
+  // 급여를 어떻게 받는지 모르면 보험료·세금을 뺄 수 없어 "남아요"라고 하지 않는다.
   if (job.incomeType === 'unknown') return `<h1 class="t2">${perLong(s)} <mark class="num">${mp.gross}만 원</mark>을<br>받아요</h1>`;
   if (s.allowanceLoss > 0) {
     const ended = state.result.cards.some((c) => c.ended);
-    return `<h1 class="t2">${periodOf(s) ? `${periodOf(s)} 동안<br>` : ''}<span class="num">${mp.gross}만 원</span>을 벌지만<br>실제로 늘어나는 돈은<br><mark class="num">${mp.kept}만 원</mark>이에요</h1>
+    return `<h1 class="t2">${periodOf(s) ? `${periodOf(s)} 동안<br>` : ''}<span class="num">${mp.gross}만 원</span>을 벌지만<br>실제로 남는 돈은<br><mark class="num">${mp.kept}만 원</mark>이에요</h1>
       <p class="cut">${mp.deduct ? '보험료와 ' : ''}${ended ? '끊기는' : '줄어드는'} 정부 지원으로 <mark class="rd"><b class="num">${mp.deduct + mp.loss}만 원</b></mark>이 빠져요</p>`;
   }
-  return `<h1 class="t2">${perLong(s)} <mark class="num">${mp.kept}만 원</mark><br>더 생겨요</h1>`;
+  return `<h1 class="t2">${perLong(s)} <mark class="num">${mp.kept}만 원</mark>이<br>남아요</h1>`;
 }
 
 function reportText(t) {
@@ -859,14 +848,14 @@ function periodsCard(r) {
   const small = (p) => (hasAllowance
     ? (p.allowancePaid === null ? '수당 끝남' : p.allowancePaid > 0 ? `수당 ${won(p.allowancePaid)} 받음` : '수당 0원')
     : r.pay.byMonth && p.from === p.to && r.pay.byMonth[p.from] ? `${r.pay.byMonth[p.from].workDays}일 일함` : '');
-  return `<p class="sec">달마다 늘어나는 돈</p><div class="rows kvs">${ps.map((p) => `<div class="kv col2"><span class="k"><b>${periodLabel(p)}</b><small>${small(p)}</small></span><span class="v num">${r.summary.span ? '' : '한 달 '}${man(p.net)}</span></div>`).join('')}</div>`;
+  return `<p class="sec">달마다 남는 돈</p><div class="rows kvs">${ps.map((p) => `<div class="kv col2"><span class="k"><b>${periodLabel(p)}</b><small>${small(p)}</small></span><span class="v num">${r.summary.span ? '' : '한 달 '}${man(p.net)}</span></div>`).join('')}</div>`;
 }
 function nextPeriodLine(r) {
   const ps = r.summary.periods;
   // 수당이 끝나 구간이 나뉜 경우에만 쓴다. 날짜로 넣은 기간은 달마다 금액이 달라 아래 목록으로 보여 준다.
   if (ps.length < 2 || r.summary.span) return '';
   const later = ps[ps.length - 1];
-  return `<p class="cut">${later.from}월부터는 수당이 끝나서 한 달에 <mark><b class="num">${man(later.net)}</b></mark>이 늘어나요</p>`;
+  return `<p class="cut">${later.from}월부터는 수당이 끝나서 한 달에 <mark><b class="num">${man(later.net)}</b></mark>이 남아요</p>`;
 }
 
 function viewResult() {
@@ -938,7 +927,7 @@ function viewCompare() {
         <span class="meta"><span class="num">시간당 ${won(r.netPerHour)}</span>${lead(i)}${r.allowanceLoss ? '<span class="tagm need">정부 지원 줄어듦</span>' : ''}${r.result.summary.pendingIds.length ? `<span class="tagm need">확인 필요 ${r.result.summary.pendingIds.length}</span>` : ''}${r.withinHours ? '' : '<span class="tagm hold">할 수 있는 시간 초과</span>'}</span>
       </button>`).join('')}
       <div class="lg"><span>남는 돈</span><span class="o">보험료·세금</span><span class="r">줄어드는 정부 지원</span></div>
-      <p class="gline">금액은 한 달에 늘어나는 돈이에요${anyDays ? '. 일수나 날짜로 넣은 제안은 그 기간 동안 늘어나는 돈이라 한 달 금액과 바로 비교하기 어려워요' : ''}. 고르는 건 내 몫이에요. 카드를 누르면 자세히 볼 수 있어요</p>`,
+      <p class="gline">금액은 한 달에 남는 돈이에요. 번 돈에서 보험료와 줄어드는 정부 지원을 뺀 돈이에요${anyDays ? '. 일수나 날짜로 넣은 제안은 그 기간 동안 남는 돈이라 한 달 금액과 바로 비교하기 어려워요' : ''}. 고르는 건 내 몫이에요. 카드를 누르면 자세히 볼 수 있어요</p>`,
     bottom: two(weak('제안 더하기', 'addOffer', state.offers.length < MAX_OFFERS ? '' : 'disabled'), cta('내 상황 바꾸기', 'go', 'data-step="profile"')),
   };
 }
@@ -960,13 +949,22 @@ function altsTitle(a) {
 function altOptions(a) {
   const at = (h) => a.table.find((t) => t.weeklyHours === h);
   const list = [];
-  const add = (h, name) => { const t = at(h); if (t && !list.some((x) => x.weeklyHours === h)) list.push({ ...t, name }); };
+  // 한 시간에 이름이 여러 개 붙으면 함께 보인다 (예: 받은 제안 그대로 · 가장 많이 남는 시간).
+  const add = (h, name) => {
+    const t = at(h);
+    if (!t) return;
+    const found = list.find((x) => x.weeklyHours === h);
+    if (found) { if (!found.names.includes(name)) found.names.push(name); } else list.push({ ...t, names: [name] });
+  };
   if (!a.offeredOutOfRange) add(a.offered, '받은 제안 그대로');
-  if (a.dip) add(a.dip.peakHours, '가장 많이 남는 시간');
+  // "가장 많이 남는 시간"은 할 수 있는 시간 전체에서 고른다.
+  if (a.best) add(a.best.weeklyHours, '가장 많이 남는 시간');
+  // 줄어드는 구간 직전의 봉우리는 범위를 밝혀서 보인다. 전체에서 가장 많이 남는 시간과 같으면 따로 붙이지 않는다.
+  if (a.dip && (!a.best || a.dip.peakHours !== a.best.weeklyHours)) add(a.dip.peakHours, `주 ${a.dip.to}시간까지 중에서는 가장 많이 남는 시간`);
   const keep = a.table.filter((t) => t.allowanceLoss === 0 && t.allowancePaid !== null).pop();
   if (keep && a.table.some((t) => t.allowanceLoss > 0)) add(keep.weeklyHours, '정부 지원이 그대로인 가장 긴 시간');
   add(a.trace.to, '내가 할 수 있는 최대 시간');
-  return list.sort((x, y) => x.weeklyHours - y.weeklyHours);
+  return list.map((x) => ({ ...x, name: x.names.join(' · ') })).sort((x, y) => x.weeklyHours - y.weeklyHours);
 }
 
 function viewAlts() {
@@ -980,7 +978,7 @@ function viewAlts() {
     html: `<h1 class="t2">${altsTitle(a)}</h1>
       ${a.offeredOutOfRange ? `<p class="gline warn">받은 제안(주 ${a.offered}시간)은 할 수 있는 시간을 넘어 비교에서 뺐어요</p>` : ''}
       <div role="radiogroup" aria-label="비교할 근무시간">${opts.map((o) => `<button type="button" role="radio" aria-checked="${o.weeklyHours === chosen}" class="opc ${o.weeklyHours === chosen ? 'on' : ''}" data-action="chooseHours" data-hours="${o.weeklyHours}">
-        <span class="top"><span class="nm num">주 ${o.weeklyHours}시간</span><span class="am">늘어나는 돈 <b class="num">${man(o.net)}</b></span></span>
+        <span class="top"><span class="nm num">주 ${o.weeklyHours}시간</span><span class="am">남는 돈 <b class="num">${man(o.net)}</b></span></span>
         <span class="gl2">${esc(o.name)}</span>
         ${moneyBar(sumOf(o), { scale, height: 12, legend: false })}
       </button>`).join('')}</div>
@@ -991,7 +989,7 @@ function viewAlts() {
         return row({ ic, cls, title: `주 ${c.weeklyHours}시간부터`, sub: esc(c.changes.map((y) => polite(y.text)).join(' · ')) });
       }).join('')}</div>` : ''}
       ${a.dip ? `<p class="gline">주 ${a.dip.from}~${a.dip.to}시간은 주 ${a.dip.peakHours}시간(${perShort(state.result && state.result.summary)} ${man(a.dip.peakNet)})보다 남는 돈이 적어요. 줄어드는 정부 지원이 늘어나는 급여보다 커서예요</p>` : ''}
-      ${allowanceUntil() ? `<p class="gline">수당이 끝나는 ${allowanceUntil()}월까지 기준이에요. ${allowanceUntil() + 1}월부터는 줄어드는 수당이 없어서 일한 만큼 늘어나요</p>` : ''}
+      ${allowanceUntil() ? `<p class="gline">수당이 끝나는 ${allowanceUntil()}월까지 기준이에요. ${allowanceUntil() + 1}월부터는 줄어드는 수당이 없어서 일한 만큼 더 남아요</p>` : ''}
       <p class="gline">시급과 기간은 그대로 두고 근무시간만 1시간씩 바꿔 ${a.trace.evaluated}번 계산했어요. 고르는 건 내 몫이에요</p>`,
     bottom: two(weak('준비물 보기', 'go', 'data-step="basis"'), cta('이 시간으로 문구 만들기', 'go', 'data-step="message"')),
   };
@@ -1138,9 +1136,10 @@ function sheetAmounts() {
   const s = state.result.summary;
   const rows = s.parts.map((x) => `<div class="amt"><span class="k">${esc(x.label === '4대보험 근로자 부담분' ? '보험료 (4대보험)' : x.label)}${tag(x.status)}</span><span class="n ${x.amount < 0 ? 'minus' : ''}">${x.amount < 0 ? '−' : '+'}${won(Math.abs(x.amount))}</span></div>`).join('');
   return `<h2 id="sheet-title">이렇게 계산했어요</h2>${rows}
-    <div class="sum"><span>${perLong(s)} 늘어나는 돈${s.periods.length > 1 && !s.span ? ` (${periodLabel(s.periods[0])})` : ''}</span><span class="n">${won(s.net)}</span></div>
+    <div class="sum"><span>${perLong(s)} 남는 돈${s.periods.length > 1 && !s.span ? ` (${periodLabel(s.periods[0])})` : ''}</span><span class="n">${won(s.net)}</span></div>
     ${s.span && s.months.length > 1 ? s.months.map((m) => `<div class="amt"><span class="k">${m.month}월</span><span class="n">${won(m.net)}</span></div>`).join('')
       : s.periods.length > 1 ? s.periods.slice(1).map((p) => `<div class="amt"><span class="k">${periodLabel(p)} (수당 끝난 뒤)</span><span class="n">${won(p.net)}</span></div>`).join('') : ''}
+    <p class="gline">남는 돈은 번 돈에서 보험료·세금과 줄어드는 정부 지원을 뺀 돈이에요</p>
     ${s.estimatedParts.length ? `<p class="gline">어림값: ${s.estimatedParts.map((x) => `${esc(x.label)} (${esc(polite(x.reason || '2차 자료 기준'))})`).join(', ')}</p>` : ''}
     <p class="gline">넣지 않은 것: ${esc(s.excluded.join(', '))}</p>
     ${cta('닫기', 'closeSheet')}`;
