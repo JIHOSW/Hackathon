@@ -49,7 +49,8 @@ export function runTests(rules) {
   eq('A: 월 급여', r.pay.gross, 1313928);
   eq('A: 받는 수당', card(r, 'jobSeekerAllowance').paid, 224615);
   eq('A: 줄어드는 수당', r.summary.allowanceLoss, 375385);
-  eq('A: 수당 카드 등급', card(r, 'jobSeekerAllowance').status, STATUS.ESTIMATED);
+  // 2026-11-20: 감액 계산식(시행령 제9조의2)과 중위소득 고시를 원문으로 확인해 확정으로 올림
+  eq('A: 수당 카드 등급', card(r, 'jobSeekerAllowance').status, STATUS.CONFIRMED);
   eq('A: 해당 없는 제도 2개', r.notApplicable.map((c) => c.id), ['dependentDeduction', 'healthDependent']);
   eq('A: 주 15시간은 급여 증가로 구분', card(r, 'weekly15h').effect.type, 'gain');
   eq('A: 수당은 감소로 구분', card(r, 'jobSeekerAllowance').effect.type, 'loss');
@@ -61,19 +62,24 @@ export function runTests(rules) {
   const alt = searchAlternatives(jobA, profA, rules, { maxHours: 28 });
   eq('비교 기준: 받은 제안과 가능한 최대', alt.options.map((o) => o.kind + o.weeklyHours), ['original24', 'max28']);
   eq('비교 기준: 계산 횟수', alt.trace.evaluated, 28);
-  eq('변화 지점: 주 15시간과 18시간', alt.changePoints.map((c) => c.weeklyHours), [15, 18]);
-  eq('변화 지점 15시간: 주휴수당', alt.changePoints[0].changes.map((c) => c.type), ['gain']);
-  eq('변화 지점 18시간: 수당이 줄기 시작', [alt.changePoints[1].changes[0].type, alt.changePoints[1].allowanceLoss], ['loss', 46903]);
+  const cpAt = (a, h) => a.changePoints.find((c) => c.weeklyHours === h);
+  // 주 14시간은 한 달 약 61시간이라 4대보험 대상인지 확인이 필요한 경계(월 60시간 기준)
+  eq('변화 지점: 주 14시간(확인 필요), 15시간, 18시간', alt.changePoints.map((c) => c.weeklyHours), [14, 15, 18]);
+  eq('변화 지점 14시간: 4대보험 경계 확인', cpAt(alt, 14).changes.map((c) => c.type), ['pending']);
+  eq('변화 지점 15시간: 주휴수당', cpAt(alt, 15).changes.map((c) => c.type), ['gain']);
+  eq('변화 지점 18시간: 수당이 줄기 시작', [cpAt(alt, 18).changes[0].type, cpAt(alt, 18).allowanceLoss], ['loss', 46903]);
+  eq('변화 지점 18시간: 확정 규칙이라 (추정) 표시 없음', cpAt(alt, 18).changes[0].text, '구직촉진수당이 줄기 시작함');
   eq('알아 둘 구간: 주 19~28시간', [alt.dip.peakHours, alt.dip.from, alt.dip.to, alt.dip.recoverHours], [18, 19, 28, null]);
   const alt40 = searchAlternatives(jobA, profA, rules, { maxHours: 40 });
-  eq('40시간까지: 수당이 끊기는 지점과 자격 확인 지점 포함', alt40.changePoints.map((c) => c.weeklyHours), [15, 18, 29, 30]);
+  eq('40시간까지: 수당이 끊기는 지점과 취업 종료 지점 포함', alt40.changePoints.map((c) => c.weeklyHours), [14, 15, 18, 29, 30]);
+  eq('40시간까지: 30시간은 취업으로 보아 수당 종료', cpAt(alt40, 30).changes.map((c) => c.text), ['취업으로 보아 구직촉진수당 지급이 끝남']);
   eq('40시간까지: 다시 커지는 시간', alt40.dip.recoverHours, 30);
   const alt20 = searchAlternatives(jobA, profA, rules, { maxHours: 20 });
   eq('최대 20시간: 받은 제안(24시간)은 범위 밖', [alt20.offeredOutOfRange, alt20.options.map((o) => o.kind)], [true, ['max']]);
   const altSame = searchAlternatives(jobA, profA, rules, { maxHours: 24 });
   eq('받은 제안이 가능한 최대와 같으면 카드 하나', altSame.options.map((o) => o.kind), ['original']);
   const altPlain = searchAlternatives({ ...jobA, weeklyHours: 10 }, { ...base }, rules, { maxHours: 20 });
-  eq('수당이 없으면 변화 지점은 주 15시간뿐, 줄어드는 구간 없음', [altPlain.changePoints.map((c) => c.weeklyHours), altPlain.dip], [[15], null]);
+  eq('수당이 없으면 변화 지점은 주 14시간(확인)과 15시간뿐, 줄어드는 구간 없음', [altPlain.changePoints.map((c) => c.weeklyHours), altPlain.dip], [[14, 15], null]);
 
   // 3-2. 요청 문구
   const qs = ['주휴수당은 시급과 별도로 지급되나요?'];
@@ -142,14 +148,16 @@ export function runTests(rules) {
 
   // 6. 피부양자: 주 15시간 이상 근로소득
   r = evaluate({ hourlyWage: 10320, weeklyHours: 16, startMonth: 1, months: 12, incomeType: 'wage' }, { ...base, healthDependent: 'yes' }, rules);
-  eq('피부양자: 직장가입 전환 규칙은 확인 전이라 판정에 쓰지 않음', [card(r, 'healthDependent').crossed, card(r, 'healthDependent').checks.length], [false, 1]);
-  eq('피부양자: 확인 전 규칙은 불리한 변화로 세지 않음', r.summary.adverseIds, []);
-  const verified = JSON.parse(JSON.stringify(rules));
-  verified.healthDependent.employeeConversion.verification = 'official';
-  r = evaluate({ hourlyWage: 10320, weeklyHours: 16, startMonth: 1, months: 12, incomeType: 'wage' }, { ...base, healthDependent: 'yes' }, verified);
-  eq('피부양자: 규칙을 확정으로 올리면 판정에 쓰임', [card(r, 'healthDependent').crossed, r.summary.adverseIds], [true, ['healthDependent']]);
+  // 2026-11-20: 직장가입자 기준(한 달 소정근로시간 60시간, 국민건강보험법 시행령 제9조)을 원문으로 확인해 확정으로 올림
+  eq('피부양자: 주 16시간이면 직장가입자가 되어 빠짐', [card(r, 'healthDependent').crossed, card(r, 'healthDependent').status, card(r, 'healthDependent').checks.length], [true, STATUS.CONFIRMED, 0]);
+  eq('피부양자: 자격 변동은 확인할 변화로 셈', r.summary.adverseIds, ['healthDependent']);
+  const unverified = JSON.parse(JSON.stringify(rules));
+  unverified.healthDependent.employeeConversion.verification = 'unverified';
+  r = evaluate({ hourlyWage: 10320, weeklyHours: 16, startMonth: 1, months: 12, incomeType: 'wage' }, { ...base, healthDependent: 'yes' }, unverified);
+  eq('피부양자: 규칙을 확인 전으로 내리면 판정에 쓰지 않음', [card(r, 'healthDependent').crossed, r.summary.adverseIds], [false, []]);
   r = evaluate(jobD, { ...base, healthDependent: 'yes' }, rules);
-  eq('피부양자: 주 14시간은 넘지 않음', card(r, 'healthDependent').crossed, false);
+  eq('피부양자: 주 14시간은 소득 기준을 넘지 않음', card(r, 'healthDependent').crossed, false);
+  eq('피부양자: 주 14시간은 직장가입자 여부 확인 항목', card(r, 'healthDependent').checks.length, 1);
 
   // 7. 소득 종류 모름, 범위 밖 제도, 최저임금
   r = evaluate({ hourlyWage: 11000, weeklyHours: 16, startMonth: 1, months: 12, incomeType: 'unknown' }, { ...base, taxDependent: 'yes', healthDependent: 'yes', allowance: 'yes', otherSupports: ['youthRent', 'nothing'] }, rules);
@@ -161,7 +169,11 @@ export function runTests(rules) {
   r = evaluate(jobD, base, rules);
   eq('해당 제도가 없으면 주 15시간 카드만', r.cards.map((c) => c.id), ['weekly15h']);
   eq('넘는 기준선 없음', r.summary.crossedIds, []);
-  eq('주 15시간 미만은 변화 없음', card(r, 'weekly15h').effect.type, 'keep');
+  // 3개월 이상 일하면 주 15시간 미만이어도 고용보험 가입(고용보험법 시행령 제3조)
+  eq('주 14시간 12개월: 고용보험 가입', [card(r, 'weekly15h').effect.type, card(r, 'weekly15h').effect.label], ['note', '고용보험 가입']);
+  r = evaluate({ ...jobD, weeklyHours: 10, months: 2 }, base, rules);
+  eq('주 10시간 2개월: 변화 없음', card(r, 'weekly15h').effect.type, 'keep');
+  r = evaluate(jobD, base, rules);
   eq('수당이 없으면 신고 안내 없음', r.summary.reportNeeded, false);
 
   // 사례 A. 일용근로: 확인 전 규칙이 "자격 유지"를 만들면 안 된다
@@ -174,15 +186,48 @@ export function runTests(rules) {
 
   // 사례 B. 금액 분리: 큰 숫자는 확정 항목만
   r = evaluate(jobA, profA, rules);
-  eq('금액 분리: 확정은 급여와 주휴수당', r.summary.confirmedNet, 1313928);
-  eq('금액 분리: 추정 항목', r.summary.estimatedParts.map((x) => [x.label, x.amount]), [['4대보험 근로자 부담분', -127680], ['구직촉진수당 감소', -375385]]);
+  // 2026-11-20: 4대보험 요율과 수당 계산식을 원문으로 확인해 모두 확정 항목이 됨
+  eq('금액 분리: 모두 확정이면 큰 숫자가 최종 금액', r.summary.confirmedNet, 810863);
+  eq('금액 분리: 추정 항목 없음', r.summary.estimatedParts, []);
   eq('금액 분리: 추정까지 반영하면 기존 값과 같음', r.summary.net, 810863);
-  eq('수당 수급자: 고용센터 신고 안내', r.summary.reports, ['구직촉진수당: 소득이 생기면 고용센터에 신고']);
+  eq('수당 수급자: 신청할 때마다 소득 신고 안내', r.summary.reports, ['구직촉진수당: 수당을 신청할 때마다 번 돈을 신고']);
   eq('수당 수급 중 주 24시간: 자격 확인 항목 없음', r.checks.length, 0);
   r = evaluate({ ...jobA, weeklyHours: 30 }, profA, rules);
-  eq('수당 수급 중 주 30시간: 참여 자격 확인 항목', r.checks.map((c) => c.cardId), ['jobSeekerAllowance']);
+  // 주 30시간 이상 취업은 수당 감액이 아니라 지급 종료(시행규칙 제20조)
+  eq('수당 수급 중 주 30시간: 수당 종료', [card(r, 'jobSeekerAllowance').ended, card(r, 'jobSeekerAllowance').paid, card(r, 'jobSeekerAllowance').effect.label], [true, 0, '수당 종료']);
+  eq('수당 수급 중 주 30시간: 취업 신고 안내', r.summary.reports, ['구직촉진수당: 취업 사실을 고용센터에 신고']);
+  r = evaluate({ ...jobA, weeklyHours: 30, incomeType: 'daily' }, profA, rules);
+  eq('일용근로는 주 30시간이어도 종료로 보지 않음', card(r, 'jobSeekerAllowance').ended, false);
   r = evaluate(jobD, base, rules);
   eq('해당 카드가 없으면 제외 항목도 줄어듦', r.summary.excluded, ['소득세', '교통비·식비 등 개인 지출']);
+
+  // 7-1. 2026-11-20 원문 확인으로 추가한 규칙
+  p = monthlyPay({ hourlyWage: 10320, weeklyHours: 14, incomeType: 'wage', months: 3 }, rules);
+  eq('주 14시간 3개월: 고용보험만 공제', [p.insurance, p.healthPension, p.employmentIns], [5650, false, true]);
+  p = monthlyPay({ hourlyWage: 10320, weeklyHours: 14, incomeType: 'wage', months: 2 }, rules);
+  eq('주 14시간 2개월: 4대보험 없음', p.insurance, 0);
+  eq('주 14시간: 한 달 60시간 경계', p.insuranceBoundary, true);
+  eq('주 13시간: 경계 아님', monthlyPay({ hourlyWage: 10320, weeklyHours: 13, incomeType: 'wage' }, rules).insuranceBoundary, false);
+  r = evaluate(jobD, { ...base, age: 21, taxDependent: 'yes' }, rules);
+  eq('부모 공제: 21세는 해당 없음', r.notApplicable.map((c) => c.id).includes('dependentDeduction'), true);
+  r = evaluate(jobD, { ...base, age: 20, taxDependent: 'yes' }, rules);
+  eq('부모 공제: 20세는 계산함', r.cards.map((c) => c.id).includes('dependentDeduction'), true);
+
+  // 7-2. 수당이 끝나는 달과 달마다 늘어나는 돈
+  r = evaluate(jobA, { ...profA, allowanceEndMonth: 6 }, rules);
+  eq('수당 6월까지: 구간 두 개', r.summary.periods.map((x) => [x.from, x.to, x.net]), [[1, 6, 810863], [7, 12, 1186248]]);
+  eq('수당 6월까지: 첫 달 기준 금액은 그대로', [r.summary.net, r.summary.allowanceLoss], [810863, 375385]);
+  eq('수당 6월까지: 올해 합계', r.summary.periodNet, 810863 * 6 + 1186248 * 6);
+  eq('수당 6월까지: 끝나는 달 안내', card(r, 'jobSeekerAllowance').notes.some((n) => n.includes('7월부터')), true);
+  r = evaluate({ ...jobA, startMonth: 8, months: 5 }, { ...profA, allowanceEndMonth: 6 }, rules);
+  eq('일 시작 전에 수당이 끝나면 줄어드는 수당 없음', [card(r, 'jobSeekerAllowance').beforeStart, r.summary.allowanceLoss, r.summary.reports], [true, 0, []]);
+  r = evaluate(jobA, { ...profA, allowanceEndMonth: 'unknown' }, rules);
+  eq('끝나는 달을 모르면 계속 받는다고 보고 확인 항목', [r.summary.periods.length, r.checks.map((c) => c.cardId)], [1, ['jobSeekerAllowance']]);
+  r = evaluate(jobA, { ...profA, otherSupports: ['unemploymentBenefit'], unemploymentEndMonth: 2 }, rules);
+  eq('실업급여: 끝나는 달 안내', r.outOfScope[0].note.startsWith('2월에 끝나면'), true);
+  eq('실업급여와 구직촉진수당을 함께 받으면 경고', r.warnings.some((w) => w.includes('시행규칙 제20조')), true);
+  const cmpEnd = compareOffers([{ name: '카페', job: jobA, meta: {} }], { ...profA, allowanceEndMonth: 6 }, rules, { maxHours: 40 });
+  eq('제안 비교: 기간 합계는 달별 합', cmpEnd.rows[0].periodNet, 810863 * 6 + 1186248 * 6);
 
   // 8. 연도 범위: 해를 넘기는 기간과 다음 해 최저임금 안내
   r = evaluate({ hourlyWage: 10500, weeklyHours: 10, startMonth: 11, months: 6, incomeType: 'wage' }, base, rules);

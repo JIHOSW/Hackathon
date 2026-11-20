@@ -15,7 +15,7 @@ export const SAMPLES = [
       incomeType: { value: 'wage', status: '확정', evidence: '4대보험 가입, 주휴수당 별도 지급' },
       holidayIncluded: { value: false, status: '확정', evidence: '주휴수당 별도 지급' },
     },
-    profile: { age: 27, maxHours: 28, allowance: 'yes', healthDependent: 'no', taxDependent: 'no', ytdIncome: { wage: 0, daily: 0, business: 0 }, otherSupports: [] },
+    profile: { age: 27, maxHours: 28, allowance: 'yes', allowanceEndMonth: 6, healthDependent: 'no', taxDependent: 'no', ytdIncome: { wage: 0, daily: 0, business: 0 }, otherSupports: [] },
   },
   {
     id: 'tutor',
@@ -47,7 +47,7 @@ export const SAMPLES = [
   },
 ];
 
-export const EMPTY_PROFILE = { age: null, maxHours: null, allowance: 'no', healthDependent: 'unknown', taxDependent: 'unknown', ytdIncome: { wage: 0, daily: 0, business: 0 }, otherSupports: [] };
+export const EMPTY_PROFILE = { age: null, maxHours: null, allowance: 'no', allowanceEndMonth: 'unknown', healthDependent: 'unknown', taxDependent: 'unknown', ytdIncome: { wage: 0, daily: 0, business: 0 }, otherSupports: [], unemploymentEndMonth: null };
 
 export const INCOME_TYPES = {
   wage: '근로소득 (4대보험 공제)',

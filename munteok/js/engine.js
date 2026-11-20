@@ -34,10 +34,18 @@ export function monthlyPay(job, rules) {
   const holidayPay = Math.round(job.hourlyWage * holidayHours * WEEKS_PER_MONTH);
   const gross = base + holidayPay;
   const rates = r.employeeRates;
-  const insuranceRate = rates.pension + rates.health + rates.longTermCare + rates.employment;
-  const insurance = over15 ? Math.round(gross * insuranceRate) : 0;
+  // 4대보험 가입은 한 달 소정근로시간 60시간이 기준이다. 주 15시간 이상이면 확실히 해당한다.
+  // 주 15시간 미만이어도 3개월 이상 계속 일하면 고용보험은 가입 대상이다(고용보험법 시행령 제3조).
+  const cov = r.coverage || {};
+  const monthlyHours = job.weeklyHours * WEEKS_PER_MONTH;
+  const healthPension = over15;
+  const employmentIns = isWage && (over15 || (cov.employmentMonthsException != null && (job.months || 0) >= cov.employmentMonthsException));
+  // 주 15시간 미만인데 한 달로 바꾸면 60시간 이상인 구간(주 14시간): 건강보험·국민연금 대상인지 공단 확인이 필요하다.
+  const insuranceBoundary = isWage && !over15 && cov.monthlyHours != null && monthlyHours >= cov.monthlyHours;
+  const insuranceRate = (healthPension ? rates.pension + rates.health + rates.longTermCare : 0) + (employmentIns ? rates.employment : 0);
+  const insurance = Math.round(gross * insuranceRate);
   const withholding = job.incomeType === 'business' ? Math.round(gross * rules.businessWithholding.rate) : 0;
-  return { base, holidayPay, gross, insurance, withholding, takeHome: gross - insurance - withholding, over15, holidayIncluded };
+  return { base, holidayPay, gross, insurance, withholding, takeHome: gross - insurance - withholding, over15, holidayIncluded, healthPension, employmentIns, insuranceBoundary, monthlyHours };
 }
 
 /** 구직촉진수당의 감액 기준선(이 금액에서 소득을 뺀 만큼 지급). */
@@ -105,6 +113,10 @@ function dependentCard(job, profile, rules, timeline) {
   const rule = rules.dependentDeduction;
   const card = { id: 'dependentDeduction', title: rule.title, period: rule.period, sources: ['tax_current', 'tax_proposed'], notes: [] };
   if (profile.taxDependent === 'no') return { ...card, applicable: false, reason: '부모의 연말정산 부양가족이 아니라고 답함' };
+  // 자녀는 20세 이하만 기본공제 대상이다(소득세법 제50조). 장애인은 나이 제한이 없어 안내에 적는다.
+  if (usable(rule.impact.verification) && profile.age != null && profile.age > rule.impact.basicDeductionMaxAge) {
+    return { ...card, applicable: false, reason: `만 ${rule.impact.basicDeductionMaxAge}세를 넘으면 소득과 관계없이 부모님 기본공제 대상이 아님 (장애인은 예외)` };
+  }
   const rows = timeline.rows;
   const last = rows[11].cumulative;
 
@@ -162,9 +174,6 @@ function dependentCard(job, profile, rules, timeline) {
   if (current.crossed) {
     // 부모 세금 증가액은 근거가 부족해 금액으로 계산하지 않고 확인 항목으로만 안내한다.
     card.notes.push(rule.impact.note);
-    if (profile.age != null && profile.age > rule.impact.basicDeductionMaxAge) {
-      card.notes.push(`만 ${rule.impact.basicDeductionMaxAge}세를 넘으면 기본공제 대상이 아닐 수 있음`);
-    }
   }
   return card;
 }
@@ -184,12 +193,15 @@ function healthCard(job, profile, rules, timeline, pay) {
     Object.assign(card, { crossed: null, crossMonth: null, status: STATUS.CHECK, headline: '소득 종류를 알아야 판단할 수 있음' });
   } else {
     // 직장가입자 전환 규칙이 확인 전이면 판정에 쓰지 않고 확인 항목으로만 남긴다.
+    const conv = rule.employeeConversion;
     if (pay.over15) {
-      if (usable(rule.employeeConversion.verification)) {
-        Object.assign(card, { crossed: true, crossMonth: timeline.start, status: statusOf(rule.employeeConversion.verification), headline: '주 15시간 이상 일하면 직장가입자가 되어 피부양자에서 빠짐' });
+      if (usable(conv.verification)) {
+        Object.assign(card, { crossed: true, crossMonth: timeline.start, status: statusOf(conv.verification), headline: '한 달 60시간(주 15시간) 이상 일하면 직장가입자가 되어 피부양자에서 빠짐' });
       } else {
         card.checks.push('주 15시간 이상 일하면 직장가입자가 되어 피부양자에서 빠지는지 확인 필요 (국민건강보험공단 1577-1000)');
       }
+    } else if (pay.insuranceBoundary) {
+      card.checks.push(`주 ${job.weeklyHours}시간은 한 달 약 ${Math.round(pay.monthlyHours)}시간이라 직장가입자가 되는지 확인 필요 (국민건강보험공단 1577-1000)`);
     }
   }
   if (job.incomeType !== 'unknown' && card.crossed === undefined) {
@@ -214,12 +226,32 @@ function healthCard(job, profile, rules, timeline, pay) {
   return card;
 }
 
-function allowanceCard(job, profile, rules, pay) {
+/**
+ * 수당을 받는 마지막 달. 숫자면 그 달까지, 'unknown'이면 모름(일하는 동안 계속 받는다고 보고 확인 항목을 남김),
+ * 값이 없으면 일하는 동안 계속 받는다고 본다.
+ */
+export function allowanceEnd(profile) {
+  const v = profile.allowanceEndMonth;
+  return typeof v === 'number' && v >= 1 && v <= 12 ? v : null;
+}
+
+function allowanceCard(job, profile, rules, pay, timeline) {
   const rule = rules.jobSeekerAllowance;
   const card = { id: 'jobSeekerAllowance', title: rule.title, period: rule.period, sources: ['allowance_amount', 'allowance_formula', 'median_income'], notes: [] };
   if (profile.allowance === 'no') return { ...card, applicable: false, reason: '구직촉진수당을 받지 않는다고 답함' };
+  const endMonth = allowanceEnd(profile);
+  card.endMonth = endMonth;
+  if (endMonth && endMonth < timeline.start) {
+    return { ...card, applicable: true, crossed: false, crossMonth: null, paid: 0, ended: false, beforeStart: true, status: statusOf(rule.allowanceVerification),
+      impact: { kind: 'monthly', min: 0, max: 0, status: statusOf(rule.allowanceVerification), text: '줄어드는 수당(월)' },
+      flatZone: { from: allowanceLine(rules) - rule.monthlyAllowance, to: allowanceLine(rules) },
+      headline: `일을 시작하는 ${timeline.start}월 전에 수당이 끝나서 줄어드는 수당이 없음`, limitText: `${endMonth}월까지 받음`, checks: [] };
+  }
   const line = allowanceLine(rules);
-  const paid = allowancePayment(pay.gross, rules);
+  // 주 30시간 이상 일자리에 취업하면 취업지원이 끝나 수당도 끊긴다(시행규칙 제20조). 일용근로는 제외.
+  const emp = rule.employmentCheck;
+  const ended = Boolean(emp && usable(emp.verification) && job.incomeType !== 'daily' && job.weeklyHours >= emp.weeklyHours);
+  const paid = ended ? 0 : allowancePayment(pay.gross, rules);
   const loss = rule.monthlyAllowance - paid;
   card.applicable = true;
   card.limitText = `월 소득 ${won(line - rule.monthlyAllowance)}까지 전액, ${won(line)} 이상이면 0원`;
@@ -227,14 +259,19 @@ function allowanceCard(job, profile, rules, pay) {
   card.crossed = loss > 0;
   card.crossMonth = null;
   card.paid = paid;
-  card.impact = { kind: 'monthly', min: loss, max: loss, status: card.status, text: '줄어드는 수당(월)' };
-  card.headline = loss === 0
-    ? `수당 ${won(rule.monthlyAllowance)} 전액 유지`
-    : paid === 0 ? '이 소득이면 그 달 수당이 지급되지 않음' : `수당이 ${won(paid)}으로 줄어듦`;
+  card.ended = ended;
+  card.impact = { kind: 'monthly', min: loss, max: loss, status: card.status, text: ended ? '받지 못하게 되는 수당(월)' : '줄어드는 수당(월)' };
+  card.headline = ended
+    ? `주 ${emp.weeklyHours}시간 이상 일자리에 취업하면 수당 지급이 끝남`
+    : loss === 0
+      ? `수당 ${won(rule.monthlyAllowance)} 전액 유지`
+      : paid === 0 ? '이 소득이면 그 달 수당이 지급되지 않음' : `수당이 ${won(paid)}으로 줄어듦`;
   card.flatZone = { from: line - rule.monthlyAllowance, to: line };
   card.checks = [];
-  const emp = rule.employmentCheck;
+  if (endMonth && endMonth < timeline.end) card.notes.push(`${endMonth}월에 수당이 끝나면 ${endMonth + 1}월부터는 줄어드는 수당이 없음`);
+  if (profile.allowanceEndMonth === 'unknown') card.checks.push('수당이 몇 월에 끝나는지 몰라 일하는 동안 계속 받는다고 보고 계산함. 고용24나 고용센터(1350)에서 끝나는 달을 확인 필요');
   if (emp && !usable(emp.verification) && job.weeklyHours >= emp.weeklyHours) card.checks.push(emp.note);
+  if (ended) card.notes.push(emp.note);
   card.notes.push(rule.note);
   if (profile.allowance === 'applying') {
     card.status = STATUS.CHECK;
@@ -259,12 +296,18 @@ function weeklyCard(job, rules, pay) {
   card.status = worstStatus(statusOf(rule.verification), statusOf(rule.ratesVerification));
   card.crossed = pay.over15;
   card.holidayIncluded = pay.holidayIncluded;
+  card.employmentOnly = !pay.over15 && pay.employmentIns;
   card.crossMonth = null;
+  card.checks = [];
   card.headline = pay.over15
     ? pay.holidayIncluded
       ? `주 ${rule.thresholdHours}시간 이상: 주휴수당은 시급에 포함된 것으로 계산, 4대보험 월 ${won(pay.insurance)} 공제`
       : `주 ${rule.thresholdHours}시간 이상: 주휴수당 월 ${won(pay.holidayPay)} 발생, 4대보험 월 ${won(pay.insurance)} 공제`
-    : `주 ${rule.thresholdHours}시간 미만: 주휴수당과 4대보험 가입 대상이 아님`;
+    : card.employmentOnly
+      ? `주 ${rule.thresholdHours}시간 미만: 주휴수당은 없고, 3개월 이상 일해 고용보험 월 ${won(pay.insurance)}만 공제`
+      : `주 ${rule.thresholdHours}시간 미만: 주휴수당과 4대보험 가입 대상이 아님`;
+  if (pay.insuranceBoundary && rule.coverage) card.checks.push(rule.coverage.boundaryNote + ' (국민건강보험공단 1577-1000)');
+  if (card.employmentOnly && rule.coverage) card.notes.push(rule.coverage.employmentNote);
   card.notes.push(rule.note);
   return card;
 }
@@ -282,10 +325,12 @@ function weeklyCard(job, rules, pay) {
 export function effectOf(card) {
   if (card.id === 'weekly15h') {
     if (card.crossed === true) return card.holidayIncluded ? { type: 'note', label: '4대보험 가입' } : { type: 'gain', label: '급여 증가' };
+    if (card.employmentOnly) return { type: 'note', label: '고용보험 가입' };
     if (card.crossed === null) return { type: 'pending', label: '판단 보류' };
     return { type: 'keep', label: '변화 없음' };
   }
   if (card.id === 'jobSeekerAllowance') {
+    if (card.ended) return { type: 'loss', label: '수당 종료' };
     return card.crossed ? { type: 'loss', label: '수당 감소' } : { type: 'keep', label: '수당 유지' };
   }
   if (card.crossed === true) return { type: 'check', label: '자격 변동 확인' };
@@ -306,7 +351,7 @@ export function evaluate(job, profile, rules) {
   const all = [
     dependentCard(job, profile, rules, timeline),
     healthCard(job, profile, rules, timeline, pay),
-    allowanceCard(job, profile, rules, pay),
+    allowanceCard(job, profile, rules, pay, timeline),
     weeklyCard(job, rules, pay),
   ];
   const cards = all.filter((c) => c.applicable).map((c) => ({ ...c, effect: effectOf(c) }));
@@ -316,9 +361,20 @@ export function evaluate(job, profile, rules) {
   const outOfScope = (profile.otherSupports || []).filter((id) => rules.outOfScope[id]).map((id) => {
     const o = rules.outOfScope[id];
     const contact = o.contact ? `${rules.contacts[o.contact].name} ${rules.contacts[o.contact].phone}` : o.contactText;
-    return { id, title: o.title, contact };
+    const item = { id, title: o.title, contact };
+    if (o.note) item.note = o.note;
+    // 실업급여는 계산하지 않지만, 끝나는 달을 알면 그 뒤로는 줄어들 실업급여가 없다는 것까지는 알려 준다.
+    if (id === 'unemploymentBenefit') {
+      const end = typeof profile.unemploymentEndMonth === 'number' ? profile.unemploymentEndMonth : null;
+      item.endMonth = end;
+      item.note = end ? `${end}월에 끝나면 그 뒤로는 일해도 줄어들 실업급여가 없음. 끝나기 전에 일하면 받는 금액이 달라질 수 있어 확인 필요` : '일을 시작하면 고용센터에 알려야 하고, 받는 금액이 달라질 수 있어 확인 필요';
+    }
+    return item;
   });
   const warnings = [];
+  if (profile.allowance !== 'no' && (profile.otherSupports || []).includes('unemploymentBenefit')) {
+    warnings.push('실업급여(구직급여)를 받게 되면 국민취업지원제도 지원이 끝남(시행규칙 제20조). 두 지원을 함께 받고 있다면 고용센터(1350)에 확인 필요');
+  }
   if (job.hourlyWage < rules.minimumWage.hourly) {
     warnings.push(`시급이 ${rules.appliesToYear}년 최저임금 ${won(rules.minimumWage.hourly)}보다 낮음. 수습 등 예외가 아니면 확인이 필요함`);
   }
@@ -334,15 +390,31 @@ export function evaluate(job, profile, rules) {
   // 금액을 확인 수준별로 나눈다. 큰 숫자에는 확정 항목만 쓰고, 추정 항목은 따로 보여 준다.
   const parts = [{ label: '급여', amount: pay.base, status: STATUS.CONFIRMED }];
   if (pay.holidayPay) parts.push({ label: '주휴수당', amount: pay.holidayPay, status: statusOf(rules.weekly15h.verification) });
-  if (pay.insurance) parts.push({ label: '4대보험 근로자 부담분', amount: -pay.insurance, status: statusOf(rules.weekly15h.ratesVerification), reason: '요율을 2차 자료로 넣음' });
+  const reasonIf = (status, text) => (status === STATUS.CONFIRMED ? undefined : text);
+  const insStatus = statusOf(rules.weekly15h.ratesVerification);
+  if (pay.insurance) parts.push({ label: '4대보험 근로자 부담분', amount: -pay.insurance, status: insStatus, reason: reasonIf(insStatus, '요율을 2차 자료로 넣음') });
   if (pay.withholding) parts.push({ label: '3.3% 원천징수', amount: -pay.withholding, status: statusOf(rules.businessWithholding.verification), reason: '미리 내는 세금이며 다음 해 5월 종합소득세 신고로 정산됨' });
-  if (allowanceLoss) parts.push({ label: '구직촉진수당 감소', amount: -allowanceLoss, status: allowance.status, reason: '2025년 계산식 기준. 2026년 적용 확인 전' });
+  if (allowanceLoss) parts.push({ label: allowance.ended ? '구직촉진수당 종료' : '구직촉진수당 감소', amount: -allowanceLoss, status: allowance.status, reason: reasonIf(allowance.status, '수급 확정 전이거나 소득 종류를 몰라 참고로 계산함') });
   const sum = (list) => list.reduce((a, b) => a + b.amount, 0);
   const confirmedNet = sum(parts.filter((x) => x.status === STATUS.CONFIRMED));
   const estimatedParts = parts.filter((x) => x.status !== STATUS.CONFIRMED);
   const checks = cards.flatMap((c) => (c.checks || []).map((text) => ({ cardId: c.id, title: c.title, text })));
+  // 달마다 늘어나는 돈. 수당이 끝나는 달을 기준으로 구간을 나눈다.
+  const endMonth = allowance ? allowance.endMonth : null;
+  const months = [];
+  for (let m = timeline.start; m <= timeline.end; m++) {
+    const active = Boolean(allowance) && (!endMonth || m <= endMonth);
+    const loss = active ? allowanceLoss : 0;
+    months.push({ month: m, gross: pay.gross, deductions: pay.insurance + pay.withholding, allowanceLoss: loss, allowancePaid: active ? allowance.paid : null, net: pay.takeHome - loss });
+  }
+  const periods = [];
+  for (const row of months) {
+    const last = periods[periods.length - 1];
+    if (last && last.net === row.net && last.allowanceLoss === row.allowanceLoss && (last.allowancePaid === null) === (row.allowancePaid === null)) last.to = row.month;
+    else periods.push({ from: row.month, to: row.month, net: row.net, allowanceLoss: row.allowanceLoss, allowancePaid: row.allowancePaid, gross: row.gross, deductions: row.deductions });
+  }
   const reports = [];
-  if (allowance && pay.gross > 0) reports.push('구직촉진수당: 소득이 생기면 고용센터에 신고');
+  if (allowance && !allowance.beforeStart && pay.gross > 0) reports.push(allowance.ended ? '구직촉진수당: 취업 사실을 고용센터에 신고' : '구직촉진수당: 수당을 신청할 때마다 번 돈을 신고');
   if (job.incomeType === 'business') reports.push('3.3% 소득: 다음 해 5월 종합소득세 신고');
   const has = (id) => cards.some((c) => c.id === id);
   const excluded = ['소득세', has('dependentDeduction') ? '부모의 세금 변화' : null, has('healthDependent') ? '건강보험 지역가입자 보험료' : null, '교통비·식비 등 개인 지출'].filter(Boolean);
@@ -376,6 +448,9 @@ export function evaluate(job, profile, rules) {
       pendingIds: cards.filter((c) => c.effect.type === 'pending').map((c) => c.id),
       reports,
       reportNeeded: reports.length > 0,
+      months,
+      periods,
+      periodNet: months.reduce((a, b) => a + b.net, 0),
     },
   };
 }
@@ -395,7 +470,8 @@ export function searchAlternatives(job, profile, rules, { minHours = 1, maxHours
     table.push({
       weeklyHours: h, gross: r.pay.gross, takeHome: r.pay.takeHome, allowanceLoss: r.summary.allowanceLoss, net: r.summary.net,
       confirmedNet: r.summary.confirmedNet, over15: r.pay.over15, holidayIncluded: r.pay.holidayIncluded,
-      allowancePaid: allowance ? allowance.paid : null,
+      allowancePaid: allowance ? allowance.paid : null, allowanceEnded: Boolean(allowance && allowance.ended),
+      insuranceBoundary: r.pay.insuranceBoundary, allowanceStatus: allowance ? allowance.status : null,
       crossedIds: r.summary.crossedIds, adverseIds: r.summary.adverseIds, pendingIds: r.summary.pendingIds, checkCount: r.checks.length,
       effects: r.cards.map((c) => ({ id: c.id, type: c.effect.type, label: c.effect.label })),
     });
@@ -418,8 +494,11 @@ export function searchAlternatives(job, profile, rules, { minHours = 1, maxHours
     const cur = table[i];
     const changes = [];
     if (!prev.over15 && cur.over15) changes.push({ type: cur.holidayIncluded ? 'note' : 'gain', text: cur.holidayIncluded ? '4대보험 가입 대상이 됨' : '주휴수당이 생기고 4대보험 가입 대상이 됨' });
-    if (prev.allowanceLoss === 0 && cur.allowanceLoss > 0) changes.push({ type: 'loss', text: '구직촉진수당이 줄기 시작함 (추정)' });
-    if (prev.allowancePaid > 0 && cur.allowancePaid === 0) changes.push({ type: 'loss', text: '구직촉진수당이 지급되지 않음 (추정)' });
+    const mark = cur.allowanceStatus && cur.allowanceStatus !== STATUS.CONFIRMED ? ` (${cur.allowanceStatus})` : '';
+    if (!prev.insuranceBoundary && cur.insuranceBoundary) changes.push({ type: 'pending', text: '한 달 60시간 근처라 4대보험 가입 대상인지 확인이 필요해짐' });
+    if (prev.allowanceLoss === 0 && cur.allowanceLoss > 0) changes.push({ type: 'loss', text: `구직촉진수당이 줄기 시작함${mark}` });
+    if (prev.allowancePaid > 0 && cur.allowancePaid === 0 && !cur.allowanceEnded) changes.push({ type: 'loss', text: `구직촉진수당이 지급되지 않음${mark}` });
+    if (!prev.allowanceEnded && cur.allowanceEnded) changes.push({ type: 'loss', text: '취업으로 보아 구직촉진수당 지급이 끝남' });
     for (const id of cur.adverseIds) {
       if (id !== 'jobSeekerAllowance' && !prev.adverseIds.includes(id)) changes.push({ type: 'check', text: `${titleOf(id)}: 연간 기준에 닿음` });
     }
@@ -427,6 +506,7 @@ export function searchAlternatives(job, profile, rules, { minHours = 1, maxHours
       if (!prev.pendingIds.includes(id)) changes.push({ type: 'pending', text: `${titleOf(id)}: 추가 확인이 필요해짐` });
     }
     if (cur.checkCount > prev.checkCount && !changes.some((c) => c.type === 'pending')) changes.push({ type: 'pending', text: '추가 확인 항목이 생김' });
+    // 경계 구간을 벗어나 확인 항목이 줄어든 것은 변화로 세지 않는다.
     if (changes.length) changePoints.push({ weeklyHours: cur.weeklyHours, beforeHours: prev.weeklyHours, beforeNet: prev.net, net: cur.net, gross: cur.gross, allowanceLoss: cur.allowanceLoss, changes });
   }
 
@@ -520,7 +600,7 @@ export function compareOffers(offers, profile, rules, { maxHours = 40 } = {}) {
       netPerHour: Math.round(r.summary.net / (o.job.weeklyHours * WEEKS_PER_MONTH)),
       workedMonths,
       uncountedMonths: r.timeline.uncountedMonths,
-      periodNet: r.summary.net * workedMonths,
+      periodNet: r.summary.periodNet,
       effects: r.cards.map((c) => ({ id: c.id, type: c.effect.type, label: c.effect.label })),
       adverseIds: r.summary.adverseIds,
       checkCount: r.checks.length,
