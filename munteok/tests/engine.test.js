@@ -1,6 +1,6 @@
 // 규칙 엔진 기대값 테스트
 // 기대값은 엔진과 별개로 손으로 계산한 값이다. 규칙표(data/rules.json)의 수치가 바뀌면 함께 고친다.
-import { monthlyPay, allowancePayment, allowanceLine, evaluate, searchAlternatives, compareOffers, employerQuestions, buildRequestMessage, forbiddenIn, REQUEST_ACTIONS, STATUS } from '../js/engine.js';
+import { monthlyPay, allowancePayment, allowanceLine, evaluate, dateSpan, searchAlternatives, compareOffers, employerQuestions, buildRequestMessage, forbiddenIn, REQUEST_ACTIONS, STATUS } from '../js/engine.js';
 
 export function runTests(rules) {
   const results = [];
@@ -265,6 +265,66 @@ export function runTests(rules) {
   // 늘어나는 돈 133,103원 ÷ 일한 시간 (20×5/7 = 14.29시간)
   eq('5일: 비교의 시간당 금액은 그 기간 일한 시간으로 나눔', [cmpShort.rows[0].days, cmpShort.rows[0].net, cmpShort.rows[0].netPerHour], [5, 133103, 9317]);
   eq('일수가 범위를 벗어나면 개월로 계산', monthlyPay({ hourlyWage: 10320, weeklyHours: 20, incomeType: 'wage', days: 40 }, rules).gross, 1076170);
+
+  // 10. 시작일~끝나는 날로 넣은 기간 (달마다 나눠 계산하고 금액은 기간 합계)
+  // 3월 25일~4월 10일(17일), 주 20시간, 시급 12,000원, 요일 모름
+  //   3월 7일: 12,000×20×7/7 = 240,000원, 4월 10일: 12,000×20×10/7 = 342,857원
+  //   주휴수당(주 4시간 = 48,000원)은 다 채운 주가 끝나는 날의 달에: 3/25~3/31 → 3월, 4/1~4/7 → 4월
+  //   4대보험(9.7174%): 3월 288,000 → 27,986원, 4월 390,857 → 37,981원
+  const jobSpan = { hourlyWage: 12000, weeklyHours: 20, startDate: '2026-03-25', endDate: '2026-04-10', incomeType: 'wage' };
+  r = evaluate(jobSpan, base, rules);
+  eq('날짜: 달마다 나눈 급여', r.summary.months.map((x) => [x.month, x.gross]), [[3, 288000], [4, 390857]]);
+  eq('날짜: 기간 합계 (버는 돈, 보험료, 늘어나는 돈)', [r.summary.addedIncome, r.summary.insurance, r.summary.net], [678857, 65967, 612890]);
+  eq('날짜: 기간 이름과 한 달 미만 판단', [r.summary.span.label, r.pay.shortJobDays], ['3월 25일~4월 10일', 17]);
+  eq('날짜: 한 달 미만이면 4대보험은 어림값', r.summary.parts.find((x) => x.label === '4대보험 근로자 부담분').status, STATUS.ESTIMATED);
+  eq('날짜: 연간 표에 3·4월만 소득', [r.timeline.rows[2].income, r.timeline.rows[3].income, r.timeline.rows[4].income], [288000, 390857, 0]);
+  // 월~금, 3월 2일(월)~3월 13일(금): 근무일 10일 × 하루 4시간(주 20시간 ÷ 5일) = 40시간 → 480,000원
+  //   다 채운 주는 3/2~3/8 한 주 → 주휴수당 48,000원, 4대보험 528,000 × 9.7174% = 51,308원
+  const jobWeek = { hourlyWage: 12000, weeklyHours: 20, startDate: '2026-03-02', endDate: '2026-03-13', workDays: [1, 2, 3, 4, 5], incomeType: 'wage' };
+  r = evaluate(jobWeek, base, rules);
+  eq('요일: 실제 근무일로 계산', [r.pay.base, r.pay.holidayPay, r.pay.gross, r.pay.insurance], [480000, 48000, 528000, 51308]);
+  const cmpWeek = compareOffers([{ name: '요일', job: jobWeek, meta: {} }], base, rules, { maxHours: 40 });
+  // 늘어나는 돈 476,692원 ÷ 일한 시간 40시간
+  eq('요일: 비교의 시간당 금액은 실제 일한 시간으로 나눔', [cmpWeek.rows[0].net, cmpWeek.rows[0].netPerHour], [476692, 11917]);
+  eq('요일: 근무시간 바꿔 보기의 같은 시간 값은 결과와 같음', searchAlternatives(jobWeek, { ...base, maxHours: 20 }, rules, { maxHours: 20 }).table.find((t) => t.weeklyHours === 20).net, 476692);
+  // 3월 1일~5월 31일, 주 24시간, 수당 받는 중: 주휴수당 주 4.8시간 = 57,600원, 다 채운 주 3월 4·4월 4·5월 5
+  //   3월 1,275,429 + 230,400 = 1,505,829원 → 수당 1,538,543 − 1,505,829 = 32,714원 (567,286원 줄어듦)
+  //   4월 1,234,286 + 230,400 = 1,464,686원 → 수당 73,857원 (526,143원 줄어듦)
+  //   5월 1,275,429 + 288,000 = 1,563,429원 → 수당 0원 (600,000원 줄어듦)
+  const jobLong = { hourlyWage: 12000, weeklyHours: 24, startDate: '2026-03-01', endDate: '2026-05-31', incomeType: 'wage' };
+  r = evaluate(jobLong, { ...base, allowance: 'yes' }, rules);
+  eq('날짜 3개월: 달마다 받는 수당', r.summary.months.map((x) => [x.month, x.gross, x.allowancePaid]), [[3, 1505829, 32714], [4, 1464686, 73857], [5, 1563429, 0]]);
+  eq('날짜 3개월: 줄어드는 수당 합계와 늘어나는 돈', [r.summary.allowanceLoss, r.summary.net, card(r, 'jobSeekerAllowance').ended], [1693429, 2399934, false]);
+  r = evaluate(jobLong, { ...base, allowance: 'yes', allowanceEndMonth: 4 }, rules);
+  eq('날짜 3개월: 4월에 수당이 끝나면 5월은 줄어들 수당 없음', [r.summary.allowanceLoss, r.summary.net, r.summary.months[2].allowancePaid], [1093429, 2999934, null]);
+  // 주 10시간, 3월 1일~5월 31일: 3개월 이상이라 고용보험만 (0.9%): 4,783 + 4,629 + 4,783원
+  r = evaluate({ ...jobLong, weeklyHours: 10 }, base, rules);
+  eq('날짜: 주 15시간 미만이어도 3개월 이상이면 고용보험', [r.pay.employmentIns, r.pay.insurance], [true, 14195]);
+  r = evaluate({ ...jobLong, weeklyHours: 10, endDate: '2026-05-30' }, base, rules);
+  eq('날짜: 3개월이 안 되면 고용보험 없음', [r.pay.employmentIns, r.pay.insurance], [false, 0]);
+  // 12월 20일~2027년 1월 10일: 2026년 안의 12일만 계산 (12,000×20×12/7 = 411,429원 + 다 채운 1주 48,000원)
+  r = evaluate({ ...jobSpan, startDate: '2026-12-20', endDate: '2027-01-10' }, base, rules);
+  eq('날짜: 해를 넘기면 12월 31일까지만', [r.summary.addedIncome, r.summary.span.countedDays, r.summary.span.label], [459429, 12, '12월 20일~2027년 1월 10일']);
+  eq('날짜: 해를 넘기는 날 안내', r.notices.some((n) => n.includes('해를 넘기는 10일')), true);
+  eq('날짜: 끝나는 날이 시작일보다 앞서면 날짜로 계산하지 않음', dateSpan({ startDate: '2026-04-10', endDate: '2026-03-25' }, 2026), null);
+  // 11. 일하는 날을 하나씩 고른 경우 (하루 시간 × 고른 날)
+  // 11월 4·5·6·16·17·18일(수목금·월화수), 하루 4시간, 시급 12,000원: 24시간 → 288,000원
+  //   7일씩 끊으면 11/4~10일 12시간, 11/11~17일 8시간 → 15시간 이상인 주가 없어 주휴수당·4대보험 없음
+  const jobPick = { hourlyWage: 12000, workDates: ['2026-11-04', '2026-11-05', '2026-11-06', '2026-11-16', '2026-11-17', '2026-11-18'], dailyHours: 4, incomeType: 'wage' };
+  r = evaluate(jobPick, base, rules);
+  eq('고른 날짜: 급여와 주휴수당·보험료', [r.pay.base, r.pay.holidayPay, r.pay.insurance, r.summary.net], [288000, 0, 0, 288000]);
+  eq('고른 날짜: 이름과 가장 많이 일한 주', [r.summary.span.label, r.summary.span.maxWeekHours, r.pay.shortJobDays], ['11월 4일~18일 중 6일', 12, 6]);
+  eq('고른 날짜: 비교의 시간당 금액 (288,000 ÷ 24시간)', compareOffers([{ name: '고른 날', job: jobPick, meta: {} }], base, rules, { maxHours: 40 }).rows[0].netPerHour, 12000);
+  // 11월 2~6일(월~금) + 9일(월), 하루 4시간: 11/2~8일이 20시간이라 그 주만 주휴수당 20÷40×8 = 4시간(48,000원)
+  //   급여 24시간 288,000원 + 48,000원 = 336,000원, 4대보험 336,000 × 9.7174% = 32,650원 (한 달 미만이라 어림값)
+  const jobPick2 = { ...jobPick, workDates: ['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06', '2026-11-09'] };
+  r = evaluate(jobPick2, base, rules);
+  eq('고른 날짜: 15시간 이상인 주만 주휴수당', [r.pay.base, r.pay.holidayPay, r.pay.gross, r.pay.insurance], [288000, 48000, 336000, 32650]);
+  eq('고른 날짜: 한 달 미만이라 4대보험은 어림값', r.summary.parts.find((x) => x.label === '4대보험 근로자 부담분').status, STATUS.ESTIMATED);
+  // 11월 30일(월)·12월 1일(화), 하루 8시간: 달마다 96,000원씩, 같은 주 16시간이라 4대보험 대상 (보험료 각 9,329원)
+  r = evaluate({ ...jobPick, workDates: ['2026-11-30', '2026-12-01'], dailyHours: 8 }, { ...base, allowance: 'yes' }, rules);
+  eq('고른 날짜: 달을 넘기면 달마다 나눔', r.summary.months.map((x) => [x.month, x.gross, x.deductions, x.allowancePaid]), [[11, 96000, 9329, 600000], [12, 96000, 9329, 600000]]);
+  eq('고른 날짜: 하루 시간이 없으면 날짜로 계산하지 않음', dateSpan({ workDates: ['2026-11-04'], dailyHours: 0 }, 2026), null);
 
   return results;
 }

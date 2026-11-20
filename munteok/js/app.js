@@ -1,7 +1,7 @@
 // 문턱 화면 흐름
 // 시작 → 공고 올리기 → 조건 확인 → 내 상황 → 결과 → 근무조건 비교 → 시작 전 준비
 // 계산은 전부 engine.js가 한다. 이 파일은 입력을 모으고 결과를 그리기만 한다.
-import { evaluate, searchAlternatives, compareOffers, buildRequestMessage, REQUEST_ACTIONS, STATUS, MAX_SHORT_DAYS } from './engine.js';
+import { evaluate, searchAlternatives, compareOffers, buildRequestMessage, REQUEST_ACTIONS, STATUS, MAX_SHORT_DAYS, dateSpan } from './engine.js';
 import { SAMPLES, EMPTY_PROFILE } from './samples.js';
 import { API_BASE, AI_AVAILABLE, AI_OFF, CLARITY_ID } from './config.js';
 
@@ -122,9 +122,9 @@ function manParts(s) {
   const [k, d, l] = splitMan([kept, deduct, loss]);
   return { kept: k, deduct: d, loss: l, gross: k + d + l };
 }
-function moneyBar(s, { scale = null, height = 16, legend = true, lossName = '줄어드는 정부 지원' } = {}) {
+function moneyBar(s, { scale = null, height = 16, legend = true, lossName = '줄어드는 정부 지원', keptName = '남는 돈' } = {}) {
   const { kept, deduct, loss, deductName } = moneyParts(s);
-  const segs = [['g', kept, '남는 돈'], ['o', deduct, deductName], ['r', loss, lossName]].filter(([, v]) => v > 0);
+  const segs = [['g', kept, keptName], ['o', deduct, deductName], ['r', loss, lossName]].filter(([, v]) => v > 0);
   const sum = segs.reduce((a, [, v]) => a + v, 0) || 1;
   const width = scale ? Math.min(100, (Math.max(s.addedIncome, sum) / scale) * 100) : 100;
   const mans = splitMan(segs.map(([, v]) => v));
@@ -218,6 +218,129 @@ function viewSamples() {
   };
 }
 
+// ---------------- 직접 입력: 매주 같은 요일 / 날짜를 골라서 ----------------
+// 직접 입력 값은 state.manual에 두고, 바뀔 때마다 화면을 다시 그린다. 글자를 넣는 칸은 입력할 때마다 저장한다.
+const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토']; // 인덱스는 Date.getDay()와 같다 (0=일)
+const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
+const pad2 = (n) => String(n).padStart(2, '0');
+const isoDate = (y, m, d) => `${y}-${pad2(m)}-${pad2(d)}`;
+function manualDefaults() {
+  const year = state.rules.appliesToYear;
+  const now = new Date();
+  const inYear = now.getFullYear() === year;
+  return {
+    how: 'pattern', wage: '', days: [1, 2, 3, 4, 5], dates: [], calMonth: inYear ? now.getMonth() + 1 : 1,
+    start: '09:00', end: '13:00', breakMin: 0,
+    sdate: inYear ? isoDate(year, now.getMonth() + 1, now.getDate()) : `${year}-01-01`, edate: '',
+    type: 'unknown', holiday: false,
+  };
+}
+function manual() {
+  if (!state.manual) state.manual = manualDefaults();
+  return state.manual;
+}
+// 조건 확인 화면에서 시간·기간을 고칠 때, 저장된 값을 직접 입력 화면으로 되돌린다.
+function fieldsToManual(f) {
+  const base = manualDefaults();
+  const w = f.weeklyHours;
+  const mo = f.months;
+  const sc = w.sched || {};
+  return {
+    ...base,
+    how: w.how, wage: f.hourlyWage.value ? String(f.hourlyWage.value) : '',
+    days: sc.days || base.days, dates: mo.unit === 'picked' ? [...mo.dates] : [],
+    calMonth: mo.unit === 'picked' ? Number(mo.dates[0].slice(5, 7)) : base.calMonth,
+    start: sc.start || base.start, end: sc.end || base.end, breakMin: sc.breakMin || 0,
+    sdate: mo.unit === 'date' ? mo.start : base.sdate, edate: mo.unit === 'date' ? mo.end : '',
+    type: f.incomeType.value, holiday: Boolean(f.holidayIncluded && f.holidayIncluded.value),
+  };
+}
+const fmtH = (h) => String(Math.round(h * 100) / 100);
+/** 출근·퇴근·쉬는 시간으로 하루 근무시간을 계산한다. 퇴근이 출근보다 이르면 밤을 넘기는 근무로 본다. */
+function dailyHoursOf(m) {
+  const toMin = (t) => { const x = /^(\d{1,2}):(\d{2})/.exec(t || ''); return x ? Number(x[1]) * 60 + Number(x[2]) : null; };
+  const a = toMin(m.start);
+  const b = toMin(m.end);
+  if (a === null || b === null || a === b) return null;
+  const mins = (b > a ? b - a : b - a + 1440) - (m.breakMin || 0);
+  return mins > 0 ? mins / 60 : null;
+}
+/** [1,2,3,4,5] → '월~금', [6,0] → '토·일', [1,3,5] → '월·수·금' */
+function daysLabel(days) {
+  const order = WEEK_ORDER.filter((d) => days.includes(d));
+  const idx = order.map((d) => WEEK_ORDER.indexOf(d));
+  const run = order.length >= 3 && idx.every((v, i) => i === 0 || v === idx[i - 1] + 1);
+  return run ? `${WEEKDAY[order[0]]}~${WEEKDAY[order[order.length - 1]]}` : order.map((d) => WEEKDAY[d]).join('·');
+}
+/** '2026-03-25', '2026-04-10' → '3월 25일~4월 10일' (다른 해면 연도를 붙인다) */
+function spanText(start, end) {
+  const year = state.rules.appliesToYear;
+  const md = (t) => { const [y, m, d] = t.split('-').map(Number); return `${y !== year ? `${y}년 ` : ''}${m}월 ${d}일`; };
+  return `${md(start)}~${md(end)}`;
+}
+function daysBetween(start, end) {
+  const t = (x) => { const [y, m, d] = x.split('-').map(Number); return Date.UTC(y, m - 1, d); };
+  return Math.round((t(end) - t(start)) / 86400000) + 1;
+}
+/** ['2026-11-04', '2026-11-05', '2026-12-01'] → '11월 4·5일, 12월 1일'. 많으면 '11월 4일~12월 1일 중 15일' */
+function datesText(dates) {
+  const sorted = [...dates].sort();
+  if (sorted.length > 12) return `${spanText(sorted[0], sorted[sorted.length - 1])} 중 ${sorted.length}일`;
+  const byMonth = new Map();
+  for (const d of sorted) {
+    const m = Number(d.slice(5, 7));
+    if (!byMonth.has(m)) byMonth.set(m, []);
+    byMonth.get(m).push(Number(d.slice(8, 10)));
+  }
+  return [...byMonth].map(([m, ds]) => `${m}월 ${ds.join('·')}일`).join(', ');
+}
+// 고른 날짜에서 가장 많이 일한 주의 시간. 엔진(dateSpan)과 같은 방식으로 센다.
+function pickedWeekHours(dates, daily) {
+  const sp = dateSpan({ workDates: dates, dailyHours: daily }, state.rules.appliesToYear);
+  return sp ? sp.maxWeekHours : 0;
+}
+function manualCalcHtml() {
+  const m = manual();
+  const d = dailyHoursOf(m);
+  if (!d) return '<span class="warn">출근·퇴근 시간을 넣어 주세요</span>';
+  if (m.how === 'pattern') {
+    if (!m.days.length) return '<span class="warn">일하는 요일을 골라 주세요</span>';
+    const w = d * m.days.length;
+    return `<span>하루 ${fmtH(d)}시간</span>×<span>${m.days.length}일</span>=<span class="res">주 ${fmtH(w)}시간</span>${w > 52 ? '<span class="warn">일주일에 52시간을 넘어요</span>' : ''}`;
+  }
+  if (!m.dates.length) return '<span class="warn">달력에서 일하는 날을 골라 주세요</span>';
+  return `<span>하루 ${fmtH(d)}시간</span>×<span>${m.dates.length}일</span>=<span class="res">모두 ${fmtH(d * m.dates.length)}시간</span>`;
+}
+// 여러 날을 고를 수 있는 달력. 브라우저 기본 달력은 하루만 고를 수 있어 직접 그린다. 월요일부터 시작한다.
+function calendarHtml(m) {
+  const year = state.rules.appliesToYear;
+  const mo = m.calMonth;
+  const lead = (new Date(Date.UTC(year, mo - 1, 1)).getUTCDay() + 6) % 7;
+  const daysIn = new Date(Date.UTC(year, mo, 0)).getUTCDate();
+  const cells = Array.from({ length: lead }, () => '<span class="cal-e" aria-hidden="true"></span>');
+  for (let d = 1; d <= daysIn; d++) {
+    const v = isoDate(year, mo, d);
+    const on = m.dates.includes(v);
+    const wd = new Date(Date.UTC(year, mo - 1, d)).getUTCDay();
+    cells.push(`<button type="button" class="cal-d ${on ? 'on' : ''} ${wd === 0 || wd === 6 ? 'we' : ''}" data-action="calDay" data-value="${v}" aria-pressed="${on}" aria-label="${mo}월 ${d}일 ${WEEKDAY[wd]}요일">${d}</button>`);
+  }
+  const inMonth = m.dates.some((x) => x.startsWith(`${year}-${pad2(mo)}-`));
+  return `<div class="cal">
+    <div class="cal-h">
+      <button type="button" class="cal-nav" data-action="calMove" data-value="-1" aria-label="이전 달" ${mo <= 1 ? 'disabled' : ''}>${icon('back')}</button>
+      <b aria-live="polite">${year}년 ${mo}월</b>
+      <button type="button" class="cal-nav" data-action="calMove" data-value="1" aria-label="다음 달" ${mo >= 12 ? 'disabled' : ''}>${icon('ch')}</button>
+    </div>
+    <div class="cal-g" role="group" aria-label="${mo}월 날짜">${WEEK_ORDER.map((d) => `<span class="dow ${d === 0 || d === 6 ? 'we' : ''}" aria-hidden="true">${WEEKDAY[d]}</span>`).join('')}${cells.join('')}</div>
+    <div class="chips cal-q">
+      <button type="button" data-action="calQuick" data-value="weekdays">이 달 평일 모두</button>
+      <button type="button" data-action="calQuick" data-value="weekend">이 달 주말 모두</button>
+      ${inMonth ? '<button type="button" data-action="calQuick" data-value="clear">이 달 지우기</button>' : ''}
+    </div>
+    <p class="gline">${m.dates.length ? `고른 날: ${datesText(m.dates)}` : '일하는 날을 눌러 고르세요. 다시 누르면 빠져요'}</p>
+  </div>`;
+}
+
 function viewInput() {
   if (state.loading) {
     return { html: `<div class="center-box" role="status"><div class="spin" aria-hidden="true"></div><h1 class="t2">공고를 읽고 있어요</h1><p class="sub">3~5초쯤 걸려요</p></div>` };
@@ -260,25 +383,40 @@ function viewInput() {
       bottom: cta('공고 읽기', 'extract'),
     };
   }
-  const t = state.manualType || 'unknown';
-  const opt = (v, label) => `<button type="button" class="seg-b ${t === v ? 'on' : ''}" data-action="manualType" data-value="${v}" aria-pressed="${t === v}">${label}</button>`;
-  const day = state.manualUnit === 'day';
-  const unitOpt = (v, label) => `<button type="button" class="seg-b ${(v === 'day') === day ? 'on' : ''}" data-action="manualUnit" data-value="${v}" aria-pressed="${(v === 'day') === day}">${label}</button>`;
+  const m = manual();
+  const year = state.rules.appliesToYear;
+  const seg = (action, cur, v, label) => `<button type="button" class="seg-b ${cur === v ? 'on' : ''}" data-action="${action}" data-value="${v}" aria-pressed="${cur === v}">${label}</button>`;
   return {
     html: `<h1 class="t2">조건을 <mark>직접</mark><br>입력해 주세요</h1>
     <form id="manual" class="form">
-      <label for="m-wage">시급</label><div class="unit"><input id="m-wage" type="number" inputmode="numeric" min="0" required placeholder="10,320"><span>원</span></div>
-      <label for="m-hours">일주일에 일하는 시간</label><div class="unit"><input id="m-hours" type="number" inputmode="decimal" min="1" max="52" step="0.5" required placeholder="20"><span>시간</span></div>
-      <label for="m-start">시작하는 달</label>
-      <select id="m-start">${Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${i + 1}월</option>`).join('')}</select>
-      <label for="m-months">일하는 기간</label>
-      <div class="seg2 unit-seg" role="group" aria-label="기간 단위">${unitOpt('month', '개월로')}${unitOpt('day', '일수로')}</div>
-      <div class="unit"><input id="m-months" type="number" inputmode="numeric" min="1" max="${day ? MAX_SHORT_DAYS : 12}" value="${day ? 5 : 12}" required><span id="m-unit">${day ? '일' : '개월'}</span></div>
-      <p class="gline" id="m-unit-hint">${day ? `한 달보다 짧은 일은 일수로 넣어요 (최대 ${MAX_SHORT_DAYS}일)` : '한 달보다 짧게 일하면 일수로 넣을 수 있어요'}</p>
+      <label for="m-wage">시급</label><div class="unit"><input id="m-wage" type="number" inputmode="numeric" min="1" required placeholder="10,320" value="${esc(m.wage)}"><span>원</span></div>
+      <p class="lbl">어떻게 일하나요?</p>
+      <div class="seg2" role="group" aria-label="일하는 방식">${seg('mHow', m.how, 'pattern', '매주 같은 요일에')}${seg('mHow', m.how, 'picked', '날짜를 골라서')}</div>
+      ${m.how === 'pattern'
+        ? `<p class="lbl">일하는 요일</p>
+          <div class="days" role="group" aria-label="일하는 요일">${WEEK_ORDER.map((d) => `<button type="button" class="seg-b ${m.days.includes(d) ? 'on' : ''}" data-action="mDay" data-value="${d}" aria-pressed="${m.days.includes(d)}">${WEEKDAY[d]}</button>`).join('')}</div>`
+        : `<p class="lbl">일하는 날</p>${calendarHtml(m)}`}
+      <p class="lbl">하루 근무 시간</p>
+      <div class="grid2 pair">
+        <div><label for="m-tstart">출근</label><input id="m-tstart" class="field" type="time" value="${m.start}" required></div>
+        <div><label for="m-tend">퇴근</label><input id="m-tend" class="field" type="time" value="${m.end}" required></div>
+      </div>
+      <label for="m-break">쉬는 시간</label>
+      <select id="m-break">${[[0, '없음'], [30, '30분'], [60, '1시간'], [90, '1시간 30분'], [120, '2시간']].map(([v, l]) => `<option value="${v}" ${m.breakMin === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <div class="calc" id="m-calc" aria-live="polite">${manualCalcHtml()}</div>
+      ${m.how === 'pattern' ? `<p class="lbl">언제부터 언제까지 일하나요?</p>
+        <div class="grid2 pair">
+          <div><label for="m-sdate">시작일</label><input id="m-sdate" class="field" type="date" min="${year}-01-01" max="${year}-12-31" value="${m.sdate}" required></div>
+          <div><label for="m-edate">끝나는 날</label><input id="m-edate" class="field" type="date" min="${m.sdate || `${year}-01-01`}" max="${year + 1}-12-31" value="${m.edate}" required></div>
+        </div>
+        <div class="chips" role="group" aria-label="시작일부터 기간 고르기">${[['1', '1개월'], ['3', '3개월'], ['6', '6개월'], ['end', '연말까지']].map(([v, l]) => `<button type="button" data-action="mPeriod" data-value="${v}">${l}</button>`).join('')}</div>` : ''}
       <p class="lbl">급여를 어떻게 받나요?</p>
-      <div class="seg2">${opt('wage', '4대보험 떼고')}${opt('business', '3.3% 떼고')}${opt('daily', '일당으로')}${opt('unknown', '모르겠어요')}</div>
+      <div class="seg2">${seg('mType', m.type, 'wage', '4대보험 떼고')}${seg('mType', m.type, 'business', '3.3% 떼고')}${seg('mType', m.type, 'daily', '일당으로')}${seg('mType', m.type, 'unknown', '모르겠어요')}</div>
+      ${m.type === 'wage' ? `<p class="lbl">주휴수당은 어떻게 받나요?</p>
+        <div class="seg2">${seg('mHoliday', String(m.holiday), 'false', '시급과 따로 받아요')}${seg('mHoliday', String(m.holiday), 'true', '시급에 포함돼 있어요')}</div>
+        <p class="gline">일주일에 15시간 이상 일하면 받는 수당이에요. 모르면 '따로 받아요'로 계산해요</p>` : ''}
     </form>
-    <p class="gline">2026년 최저임금은 시급 ${won(state.rules.minimumWage.hourly)}이에요</p>`,
+    <p class="gline">${year}년 최저임금은 시급 ${won(state.rules.minimumWage.hourly)}이에요</p>`,
     bottom: `<button type="submit" form="manual" class="cta">조건 확인하기</button>`,
   };
 }
@@ -299,23 +437,29 @@ const WHY = {
 function valueText(key, f) {
   const v = f.value;
   if (key === 'hourlyWage') return won(v);
-  if (key === 'weeklyHours') return `일주일에 ${v}시간`;
+  if (key === 'weeklyHours') {
+    if (f.how === 'pattern') return `${daysLabel(f.sched.days)} ${f.sched.start}~${f.sched.end} · 주 ${fmtH(v)}시간`;
+    if (f.how === 'picked') return `하루 ${fmtH(f.daily)}시간 · ${f.sched.start}~${f.sched.end}`;
+    return `일주일에 ${v}시간`;
+  }
   if (key === 'startMonth') return v ? `${v}월` : '모름';
-  if (key === 'months') return v ? (f.unit === 'day' ? `${v}일` : `${v}개월`) : '모름';
+  if (key === 'months') return v ? (f.unit === 'picked' ? `${datesText(f.dates)} (${f.dates.length}일)` : f.unit === 'date' ? spanText(f.start, f.end) : f.unit === 'day' ? `${v}일` : `${v}개월`) : '모름';
   if (key === 'incomeType') return PAY_LABEL[v] || '모름';
   return v ? '시급에 포함' : '따로 받아요';
 }
 function askText(key, f) {
   const v = f.value;
   if (key === 'weeklyHours') return `일주일에 <mark class="num">${v}시간</mark><br>일하는 게 맞나요?`;
-  if (key === 'months') return `<mark class="num">${v}${f.unit === 'day' ? '일' : '개월'}</mark> 동안<br>일하는 게 맞나요?`;
+  if (key === 'months') return f.unit === 'date' ? `<mark class="num">${spanText(f.start, f.end)}</mark><br>일하는 게 맞나요?` : `<mark class="num">${v}${f.unit === 'day' ? '일' : '개월'}</mark> 동안<br>일하는 게 맞나요?`;
   if (key === 'hourlyWage') return `시급이 <mark class="num">${won(v)}</mark>이<br>맞나요?`;
   if (key === 'startMonth') return `<mark class="num">${v}월</mark>부터<br>일하는 게 맞나요?`;
   if (key === 'incomeType') return `급여는 <mark>${esc(PAY_LABEL[v])}</mark>가<br>맞나요?`;
   return `주휴수당을 <mark>${v ? '시급에 포함해' : '따로'}</mark><br>받는 게 맞나요?`;
 }
 
-function relevantKeys(f) { return FIELD_ORDER.filter((k) => f[k] && (k !== 'holidayIncluded' || f.incomeType.value === 'wage')); }
+// 날짜로 넣은 기간은 시작일이 시작하는 달을 정하므로 시작 달은 따로 보이지 않는다.
+// 날짜로 넣은 기간은 시작일이나 고른 날이 시작하는 달을 정하므로 시작 달은 따로 보이지 않는다.
+function relevantKeys(f) { return FIELD_ORDER.filter((k) => f[k] && (k !== 'holidayIncluded' || f.incomeType.value === 'wage') && (k !== 'startMonth' || !['date', 'picked'].includes(f.months.unit))); }
 function reviewQueue() {
   const f = state.fields;
   return relevantKeys(f).filter((k) => f[k].status === STATUS.ESTIMATED && !state.reviewed.includes(k));
@@ -340,10 +484,10 @@ function evidenceHtml(f) {
   const quote = cut > 0 ? ev.slice(0, cut) : ev;
   const explain = cut > 0 ? ev.slice(cut + 2) : '';
   let shown = '';
-  if (quote) {
-    const line = (state.rawText || '').split('\n').find((l) => l.includes(quote));
-    shown = line ? esc(line).replace(esc(quote), `<mark>${esc(quote)}</mark>`) : `<mark>${esc(quote)}</mark>`;
-  }
+  // 공고 원문에서 찾은 문장만 "공고에 이렇게 적혀 있어요"로 보인다. 찾지 못하면 가정한 내용이라고 밝힌다.
+  const line = quote ? (state.rawText || '').split('\n').find((l) => l.includes(quote)) : null;
+  if (quote && !line) return `<div class="quote"><p class="cap">공고에 없어 이렇게 가정했어요</p><p class="q">${esc(polite(ev))}</p></div>`;
+  if (line) shown = esc(line).replace(esc(quote), `<mark>${esc(quote)}</mark>`);
   const m = explain.match(/하루\s*([\d.]+)시간\s*×\s*([\d.]+)일/);
   const calc = m ? `<div class="calc" aria-label="계산 과정"><span>하루 ${m[1]}시간</span>×<span>${m[2]}일</span>=<span class="res">${Number(m[1]) * Number(m[2])}시간</span></div>`
     : explain ? `<p class="gline center">${esc(explain)}</p>` : '';
@@ -365,6 +509,17 @@ function viewConfirm() {
   const total = Math.max(state.reviewTotal, n);
   if (queue.length) {
     const key = queue[0];
+    // 답이 둘뿐인 주휴수당은 맞는지 묻지 않고 두 가지를 바로 보여 준다. 가정한 쪽이 먼저 골라져 있다.
+    if (key === 'holidayIncluded') {
+      const opt = (v, label) => `<button type="button" class="opt ${Boolean(f[key].value) === v ? 'on' : ''}" data-action="answer" data-key="holidayIncluded" data-value="${v}">${label}<i aria-hidden="true"></i></button>`;
+      return {
+        html: `<span class="step">확인 ${n} / ${total}</span>
+          <h1 class="t2">주휴수당은<br>어떻게 받나요?</h1>
+          <p class="sub">공고에 없어서 물어봐요. 모르면 '따로 받아요'로 계산해요</p>
+          <div class="opts">${opt(false, '시급과 따로 받아요')}${opt(true, '시급에 포함돼 있어요')}</div>
+          ${why(WHY[key])}`,
+      };
+    }
     return {
       html: `<span class="step">확인 ${n} / ${total}</span>
         <h1 class="t2">${askText(key, f[key])}</h1>
@@ -392,8 +547,8 @@ function viewConfirm() {
       <div class="rows kvs">${keys.map((k) => `<button type="button" class="kv" data-action="editField" data-key="${k}">
         <span class="k">${FIELD_NAME[k]}${f[k].status !== STATUS.CONFIRMED ? `<i class="dot ${f[k].status === STATUS.CHECK ? 'need' : ''}" aria-label="${f[k].status === STATUS.CHECK ? '확인 필요' : '공고를 읽고 계산한 값'}"></i>` : ''}</span>
         <span class="v num">${esc(valueText(k, f[k]))}${icon('ch')}</span></button>`).join('')}</div>
-      <p class="legend"><i class="dot"></i>공고를 읽고 계산한 값이에요. 눌러서 고칠 수 있어요</p>
-      ${keys.some((k) => f[k].status === STATUS.CHECK) ? '<p class="legend"><i class="dot need"></i>공고에 없어 모르는 값이에요. 사장님께 물어보면 좋아요</p>' : ''}
+      ${keys.some((k) => f[k].status === STATUS.ESTIMATED) ? `<p class="legend"><i class="dot"></i>${state.rawText ? '공고를 읽고 계산하거나 가정한 값이에요' : '넣지 않아 가정한 값이에요'}. 눌러서 고칠 수 있어요</p>` : ''}
+      ${keys.some((k) => f[k].status === STATUS.CHECK) ? `<p class="legend"><i class="dot need"></i>${state.rawText ? '공고에 없어 모르는 값이에요' : '모른다고 답한 값이에요'}. 사장님께 물어보면 좋아요</p>` : ''}
       ${state.rawText ? `<details class="raw-box"><summary>공고 원문 보기</summary><pre>${esc(state.rawText)}</pre></details>` : ''}
       ${ready ? '' : '<p class="gline warn" role="alert">시급과 일하는 시간을 넣어야 다음으로 갈 수 있어요</p>'}`,
     bottom: state.editing !== null
@@ -403,16 +558,32 @@ function viewConfirm() {
 }
 
 function offerLine(f) {
-  return `시급 ${won(f.hourlyWage.value)} · 일주일에 ${f.weeklyHours.value}시간 · ${f.startMonth.value}월부터 ${valueText('months', f.months)}`;
+  const when = f.months.unit === 'date' ? spanText(f.months.start, f.months.end) : `${f.startMonth.value}월부터 ${valueText('months', f.months)}`;
+  return `시급 ${won(f.hourlyWage.value)} · ${valueText('weeklyHours', f.weeklyHours)} · ${when}`;
 }
-// 기간을 일수로 넣었으면 months 대신 days로 넘긴다. 계산은 그 기간 동안의 돈으로 한다.
+// 기간을 일수로 넣었으면 days로, 날짜로 넣었으면 startDate·endDate로 넘긴다. 계산은 그 기간 동안의 돈으로 한다.
+// 요일을 넣었으면 workDays로 넘겨, 날짜로 넣은 기간에서 실제 근무일을 센다.
 function jobOf(f) {
-  const day = f.months.unit === 'day';
-  return { hourlyWage: Number(f.hourlyWage.value), weeklyHours: Number(f.weeklyHours.value), startMonth: Number(f.startMonth.value), months: day ? 1 : Number(f.months.value), ...(day ? { days: Number(f.months.value) } : {}), incomeType: f.incomeType.value, holidayIncluded: Boolean(f.holidayIncluded && f.holidayIncluded.value) };
+  const unit = f.months.unit;
+  const w = f.weeklyHours;
+  return {
+    hourlyWage: Number(f.hourlyWage.value),
+    weeklyHours: Number(w.value),
+    startMonth: unit === 'date' ? Number(f.months.start.slice(5, 7)) : unit === 'picked' ? Number(f.months.dates[0].slice(5, 7)) : Number(f.startMonth.value),
+    months: unit === 'day' || unit === 'date' || unit === 'picked' ? 1 : Number(f.months.value),
+    ...(unit === 'day' ? { days: Number(f.months.value) } : {}),
+    ...(unit === 'date' ? { startDate: f.months.start, endDate: f.months.end } : {}),
+    // 매주 같은 요일이면 요일로 실제 근무일을 세고, 날짜를 골랐으면 고른 날 × 하루 시간으로 계산한다.
+    ...(w.how === 'pattern' && w.sched ? { workDays: w.sched.days } : {}),
+    ...(unit === 'picked' ? { workDates: f.months.dates, dailyHours: w.daily } : {}),
+    incomeType: f.incomeType.value,
+    holidayIncluded: Boolean(f.holidayIncluded && f.holidayIncluded.value),
+  };
 }
-// 금액 앞에 붙이는 기간 말. 일수로 넣은 제안은 한 달이 아니라 그 기간 동안의 돈이다.
-function perLong(s) { return s && s.days ? `${s.days}일 동안` : '한 달에'; }
-function perShort(s) { return s && s.days ? `${s.days}일 동안` : '한 달'; }
+// 금액 앞에 붙이는 기간 말. 일수나 날짜로 넣은 제안은 한 달이 아니라 그 기간 동안의 돈이다.
+function periodOf(s) { return s && s.days ? `${s.days}일` : s && s.span ? s.span.label : null; }
+function perLong(s) { const p = periodOf(s); return p ? `${p} 동안` : '한 달에'; }
+function perShort(s) { const p = periodOf(s); return p ? `${p} 동안` : '한 달'; }
 // 주휴수당 항목은 근로소득일 때만 의미가 있어, 그 밖에는 확인 안 된 조건으로 세지 않는다.
 function metaOf(f) {
   return Object.fromEntries(Object.entries(f).filter(([k]) => k !== 'holidayIncluded' || f.incomeType.value === 'wage').map(([k, v]) => [k, v.status]));
@@ -582,9 +753,15 @@ function cardLine(c) {
   }
   if (c.id === 'jobSeekerAllowance') {
     // 일수로 넣은 짧은 일은 취업으로 보아 수당이 끝나는지 확인 전이라 "확인 필요"를 붙인다.
-    if (state.result.summary.days && (c.checks || []).length) st = tag(STATUS.CHECK);
+    if (state.result.pay.shortJobDays && (c.checks || []).length) st = tag(STATUS.CHECK);
     if (c.beforeStart) return ['same', 'gray', '구직촉진수당은 일을 시작하기 전에 끝나요', `${c.endMonth}월까지 받아서 줄어드는 수당이 없어요`, st];
     if (c.ended) return ['down', 'red', '구직촉진수당이 끊겨요', '주 30시간 이상 일자리는 취업으로 봐요', st];
+    // 날짜로 넣은 기간: 수당은 달마다 그 달에 번 돈으로 줄어들어 기간 합계로 보여 준다.
+    if (c.crossed && state.result.summary.span) {
+      const l = manParts(state.result.summary).loss;
+      const until = c.endMonth && c.endMonth < state.result.timeline.end ? `${c.endMonth}월까지 줄고, 그 뒤로는 수당이 끝나요` : c.paid === 0 ? '수당을 받지 못하는 달이 있어요. 달마다 번 돈에 따라 달라져요' : '달마다 번 돈에 따라 줄어드는 금액이 달라요';
+      return ['down', 'red', `구직촉진수당이 기간 동안 ${l ? l + '만 원' : won(c.totalLoss)}쯤 줄어요`, until, st];
+    }
     if (c.crossed && c.paid === 0) return ['down', 'red', '그 달 구직촉진수당을 받지 못해요', `한 달에 ${won(c.flatZone.to)} 이상 벌면 0원이에요`, st];
     if (c.crossed) { const l = manParts(state.result.summary).loss; const until = c.endMonth && c.endMonth < state.result.timeline.end ? `${c.endMonth}월까지 줄고, 그 뒤로는 수당이 끝나요` : `한 달 ${won(c.flatZone.from)}까지는 전액, 넘으면 줄어요`; const amount = l ? l + '만 원' : won(c.impact.max); return ['down', 'red', state.result.summary.days ? `${state.result.timeline.start}월 구직촉진수당이 ${amount}쯤 줄어요` : `구직촉진수당이 월 ${amount}쯤 줄어요`, until, st]; }
     return ['same', 'gray', '구직촉진수당은 그대로예요', `한 달에 ${won(c.flatZone.from)}까지 벌면 전액 받아요`, st];
@@ -599,7 +776,7 @@ function cardLine(c) {
     return ['same', 'gray', '부모님 세금 공제는 그대로예요', '연 소득 기준을 넘지 않아요', st];
   }
   // 일수로 넣은 짧은 일은 4대보험 가입 여부를 확인 전이라 가입된다고 단정하지 않는다.
-  const shortPay = state.result && state.result.pay.days ? state.result.pay : null;
+  const shortPay = state.result && state.result.pay.shortJobDays ? state.result.pay : null;
   if (c.crossed && shortPay) {
     const ins = '4대보험은 일하는 기간이 짧아 가입하는지 확인이 필요해요';
     if (c.holidayIncluded) return ['same', 'gray', '주휴수당은 시급에 포함돼 있어요', ins, tag(STATUS.CHECK)];
@@ -654,7 +831,7 @@ function betterOptionBase() {
 function resultTitle(r, job) {
   const s = r.summary;
   if (s.net <= 0 && s.addedIncome > 0) {
-    return `<h1 class="t2">일해도 ${s.days ? '' : '한 달 '}수입이<br><mark class="rd">늘지 않아요</mark></h1>
+    return `<h1 class="t2">일해도 ${periodOf(s) ? '' : '한 달 '}수입이<br><mark class="rd">늘지 않아요</mark></h1>
       <p class="cut">버는 돈 <b class="num">${man(s.addedIncome)}</b>보다 빠지는 돈이 더 커요</p>`;
   }
   const mp = manParts(s);
@@ -662,7 +839,7 @@ function resultTitle(r, job) {
   if (job.incomeType === 'unknown') return `<h1 class="t2">${perLong(s)} <mark class="num">${mp.gross}만 원</mark>을<br>받아요</h1>`;
   if (s.allowanceLoss > 0) {
     const ended = state.result.cards.some((c) => c.ended);
-    return `<h1 class="t2">${s.days ? `${s.days}일 동안 ` : ''}<span class="num">${mp.gross}만 원</span>을 벌지만<br>실제로 늘어나는 돈은<br><mark class="num">${mp.kept}만 원</mark>이에요</h1>
+    return `<h1 class="t2">${periodOf(s) ? `${periodOf(s)} 동안<br>` : ''}<span class="num">${mp.gross}만 원</span>을 벌지만<br>실제로 늘어나는 돈은<br><mark class="num">${mp.kept}만 원</mark>이에요</h1>
       <p class="cut">${mp.deduct ? '보험료와 ' : ''}${ended ? '끊기는' : '줄어드는'} 정부 지원으로 <mark class="rd"><b class="num">${mp.deduct + mp.loss}만 원</b></mark>이 빠져요</p>`;
   }
   return `<h1 class="t2">${perLong(s)} <mark class="num">${mp.kept}만 원</mark><br>더 생겨요</h1>`;
@@ -677,11 +854,17 @@ function periodLabel(p) { return p.from === p.to ? `${p.from}월` : `${p.from}~$
 function periodsCard(r) {
   const ps = r.summary.periods;
   if (ps.length < 2) return '';
-  return `<p class="sec">달마다 늘어나는 돈</p><div class="rows kvs">${ps.map((p) => `<div class="kv col2"><span class="k"><b>${periodLabel(p)}</b><small>${p.allowancePaid === null ? '수당 끝남' : p.allowancePaid > 0 ? `수당 ${won(p.allowancePaid)} 받음` : '수당 0원'}</small></span><span class="v num">한 달 ${man(p.net)}</span></div>`).join('')}</div>`;
+  // 수당을 받는 사람만 수당 상태를 보이고, 아니면 날짜로 넣은 기간의 일한 날 수를 보인다.
+  const hasAllowance = r.cards.some((c) => c.id === 'jobSeekerAllowance');
+  const small = (p) => (hasAllowance
+    ? (p.allowancePaid === null ? '수당 끝남' : p.allowancePaid > 0 ? `수당 ${won(p.allowancePaid)} 받음` : '수당 0원')
+    : r.pay.byMonth && p.from === p.to && r.pay.byMonth[p.from] ? `${r.pay.byMonth[p.from].workDays}일 일함` : '');
+  return `<p class="sec">달마다 늘어나는 돈</p><div class="rows kvs">${ps.map((p) => `<div class="kv col2"><span class="k"><b>${periodLabel(p)}</b><small>${small(p)}</small></span><span class="v num">${r.summary.span ? '' : '한 달 '}${man(p.net)}</span></div>`).join('')}</div>`;
 }
 function nextPeriodLine(r) {
   const ps = r.summary.periods;
-  if (ps.length < 2) return '';
+  // 수당이 끝나 구간이 나뉜 경우에만 쓴다. 날짜로 넣은 기간은 달마다 금액이 달라 아래 목록으로 보여 준다.
+  if (ps.length < 2 || r.summary.span) return '';
   const later = ps[ps.length - 1];
   return `<p class="cut">${later.from}월부터는 수당이 끝나서 한 달에 <mark><b class="num">${man(later.net)}</b></mark>이 늘어나요</p>`;
 }
@@ -702,16 +885,17 @@ function viewResult() {
     ? `<p class="cut">${unknownPay ? `급여를 어떻게 받는지 몰라 ${holds.length}가지는 아직 계산하지 못했어요` : `${holds.length}가지는 확인이 필요해요`}${tag(STATUS.CHECK)}</p>` : '';
   const multi = state.offers.length > 1;
   return {
-    html: `<p class="pre">${esc(josa(offer.name, '을', '를'))} 시작하면</p>
+    // 제안이 하나뿐이면 "제안 1" 같은 이름을 본 적이 없으니 조건으로 부른다.
+    html: `<p class="pre">${state.offers.length > 1 ? `${esc(josa(offer.name, '을', '를'))} 시작하면` : '이 조건으로 일을 시작하면'}</p>
       ${resultTitle(r, job)}
       ${nextPeriodLine(r)}
       ${pendingLine}
-      <div class="card bcard"><div class="hd"><span>버는 돈</span><b class="num">${man(s.addedIncome)}</b></div>${moneyBar(s, { height: 18 })}</div>
+      <div class="card bcard"><div class="hd"><span>버는 돈</span><b class="num">${man(s.addedIncome)}</b></div>${moneyBar(s, { height: 18, keptName: unknownPay ? '받는 돈 (떼기 전)' : '남는 돈' })}</div>
       ${better ? `<button type="button" class="better" data-action="${better.hours ? 'altsAt' : 'go'}" ${better.hours ? `data-hours="${better.hours}"` : 'data-step="alts"'}>
         <span class="tx"><small>근무시간을 바꾸면</small><b>${esc(better.title)}</b><span>${esc(better.sub)}</span></span>${icon('ch')}</button>` : ''}
       ${shown.length || reports.length ? `<p class="sec">달라지는 것</p><div class="rows">${shown.map(rowOf).join('')}${reports.join('')}</div>` : holds.length ? '' : '<p class="gline">지금 조건에서는 지원이나 자격에 달라지는 것이 없어요</p>'}
       ${holds.length ? `<p class="sec">${unknownPay ? '아직 계산하지 못한 것' : '확인이 필요한 것'}</p><div class="rows">${holds.map(rowOf).join('')}</div>
-        ${unknownPay ? '<p class="gline">급여를 어떻게 받는지 공고에 없어서예요. 사장님께 물어보면 계산할 수 있어요</p>' : ''}` : ''}
+        ${unknownPay ? `<p class="gline">급여를 어떻게 받는지 ${offer.rawText ? '공고에 없어서' : '몰라서'}예요. 4대보험을 떼는지, 3.3%를 떼는지 사장님께 물어보면 계산할 수 있어요</p>` : ''}` : ''}
       ${r.outOfScope.length ? `<p class="sec">계산하지 않는 지원</p><div class="rows">${r.outOfScope.map((o) => row({ title: esc(o.title), sub: esc(o.note ? `${polite(o.note)} · ${o.contact}` : o.contact) })).join('')}</div>` : ''}
       ${r.warnings.map((w) => `<p class="gline warn" role="alert">${esc(polite(w))}</p>`).join('')}
       ${periodsCard(r)}
@@ -721,7 +905,8 @@ function viewResult() {
       ${r.notices.map((n) => `<p class="gline">${esc(polite(n))}</p>`).join('')}
       ${multi ? linkBtn(`다른 제안과 비교하기`, 'go', 'data-step="compare"') : ''}
       ${DISCLAIMER}`,
-    bottom: unknownPay ? two(weak('근무시간 바꿔 보기', 'go', 'data-step="alts"').replace('cta weak', 'cta weak eq'), cta('물어볼 말 보기', 'go', 'data-step="basis"'))
+    bottom: !state.alts ? cta(unknownPay ? '물어볼 말 보기' : '준비물 보기', 'go', 'data-step="basis"')
+      : unknownPay ? two(weak('근무시간 바꿔 보기', 'go', 'data-step="alts"').replace('cta weak', 'cta weak eq'), cta('물어볼 말 보기', 'go', 'data-step="basis"'))
       : two(weak('준비물 보기', 'go', 'data-step="basis"'), cta('근무시간 바꿔 보기', 'go', 'data-step="alts"')),
   };
 }
@@ -740,7 +925,7 @@ function viewCompare() {
   const rows = c.rows;
   const scale = Math.max(...rows.map((r) => r.gross));
   const h = c.highlights;
-  const anyDays = rows.some((r) => r.days);
+  const anyDays = rows.some((r) => r.days || r.span);
   const title = rows.length > 1 && h.net !== -1 && h.netPerHour !== -1 && h.net !== h.netPerHour
     ? (anyDays ? '더 남는 제안과<br><mark>시간당</mark> 더 남는 제안이 달라요' : '<mark>한 달</mark>에 더 남는 제안과<br><mark>시간당</mark> 더 남는 제안이 달라요')
     : `제안 ${rows.length}개를<br><mark>같은 기준</mark>으로 계산했어요`;
@@ -748,12 +933,12 @@ function viewCompare() {
   return {
     html: `<h1 class="t2">${title}</h1>
       ${rows.map((r, i) => `<button type="button" class="cmp" data-action="detail" data-i="${i}">
-        <span class="top"><span class="nm"><b>${esc(r.name)}</b>일주일에 ${r.job.weeklyHours}시간 · ${r.days ? `${r.days}일` : `${r.workedMonths}개월`}</span><span class="amt2 num">${man(r.net)}</span></span>
+        <span class="top"><span class="nm"><b>${esc(r.name)}</b>일주일에 ${r.job.weeklyHours}시간 · ${r.span ? r.span.label : r.days ? `${r.days}일` : `${r.workedMonths}개월`}</span><span class="amt2 num">${man(r.net)}</span></span>
         ${moneyBar(r.result.summary, { scale, height: 12, legend: false })}
         <span class="meta"><span class="num">시간당 ${won(r.netPerHour)}</span>${lead(i)}${r.allowanceLoss ? '<span class="tagm need">정부 지원 줄어듦</span>' : ''}${r.result.summary.pendingIds.length ? `<span class="tagm need">확인 필요 ${r.result.summary.pendingIds.length}</span>` : ''}${r.withinHours ? '' : '<span class="tagm hold">할 수 있는 시간 초과</span>'}</span>
       </button>`).join('')}
       <div class="lg"><span>남는 돈</span><span class="o">보험료·세금</span><span class="r">줄어드는 정부 지원</span></div>
-      <p class="gline">금액은 한 달에 늘어나는 돈이에요${anyDays ? '. 일수로 넣은 제안은 그 기간 동안 늘어나는 돈이라 한 달 금액과 바로 비교하기 어려워요' : ''}. 고르는 건 내 몫이에요. 카드를 누르면 자세히 볼 수 있어요</p>`,
+      <p class="gline">금액은 한 달에 늘어나는 돈이에요${anyDays ? '. 일수나 날짜로 넣은 제안은 그 기간 동안 늘어나는 돈이라 한 달 금액과 바로 비교하기 어려워요' : ''}. 고르는 건 내 몫이에요. 카드를 누르면 자세히 볼 수 있어요</p>`,
     bottom: two(weak('제안 더하기', 'addOffer', state.offers.length < MAX_OFFERS ? '' : 'disabled'), cta('내 상황 바꾸기', 'go', 'data-step="profile"')),
   };
 }
@@ -926,16 +1111,25 @@ function sheetEdit(key) {
   if (key === 'weeklyHours') body = stepper('e-val', f.value, '시간', 1, 52) + `<div class="chips center">${[15, 20, 24, 30].map((h) => `<button type="button" data-action="setNum" data-target="e-val" data-value="${h}">${h}시간</button>`).join('')}</div>`;
   else if (key === 'hourlyWage') body = `<div class="form"><label for="e-val">시급</label><div class="unit"><input id="e-val" type="number" inputmode="numeric" min="0" value="${f.value ?? ''}"><span>원</span></div></div>`;
   else if (key === 'months') {
-    const day = f.unit === 'day';
-    body = `<div class="grid3">${Array.from({ length: 12 }, (_, i) => `<button type="button" class="opt c ${!day && f.value === i + 1 ? 'on' : ''}" data-action="sheetPick" data-value="${i + 1}">${i + 1}개월</button>`).join('')}</div>
-      <div class="form"><label for="e-days">한 달보다 짧으면 일수로 (최대 ${MAX_SHORT_DAYS}일)</label>
-      <div class="unit"><input id="e-days" type="number" inputmode="numeric" min="1" max="${MAX_SHORT_DAYS}" value="${day ? f.value : ''}" placeholder="예: 5"><span>일</span></div></div>`;
+    // 개월은 바로 고르고, 일수나 날짜는 아래에서 골라 넣는다.
+    const sub = state.sheet.unit || (f.unit === 'date' ? 'date' : 'day');
+    const year = state.rules.appliesToYear;
+    const segB = (v, l) => `<button type="button" class="seg-b ${sub === v ? 'on' : ''}" data-action="sheetUnit" data-value="${v}" aria-pressed="${sub === v}">${l}</button>`;
+    body = `<div class="grid3">${Array.from({ length: 12 }, (_, i) => `<button type="button" class="opt c ${!f.unit && f.value === i + 1 ? 'on' : ''}" data-action="sheetPick" data-value="${i + 1}">${i + 1}개월</button>`).join('')}</div>
+      <p class="lbl">개월이 아니면</p>
+      <div class="seg2 unit-seg" role="group" aria-label="기간을 넣는 방법">${segB('day', '일수로')}${segB('date', '날짜로')}</div>
+      ${sub === 'date'
+        ? `<div class="form grid2 pair"><div><label for="e-sdate">시작일</label><input id="e-sdate" class="field" type="date" min="${year}-01-01" max="${year}-12-31" value="${f.unit === 'date' ? f.start : ''}"></div>
+          <div><label for="e-edate">끝나는 날</label><input id="e-edate" class="field" type="date" min="${f.unit === 'date' ? f.start : `${year}-01-01`}" max="${year + 1}-12-31" value="${f.unit === 'date' ? f.end : ''}"></div></div>`
+        : `<div class="form"><label for="e-days">한 달보다 짧은 일 (최대 ${MAX_SHORT_DAYS}일)</label>
+          <div class="unit"><input id="e-days" type="number" inputmode="numeric" min="1" max="${MAX_SHORT_DAYS}" value="${f.unit === 'day' ? f.value : ''}" placeholder="예: 5"><span>일</span></div></div>`}`;
   }
   else if (key === 'startMonth') body = `<div class="grid3">${Array.from({ length: 12 }, (_, i) => `<button type="button" class="opt c ${f.value === i + 1 ? 'on' : ''}" data-action="sheetPick" data-value="${i + 1}">${i + 1}월</button>`).join('')}</div>`;
   else if (key === 'incomeType') body = `<div class="opts">${Object.entries(PAY_LABEL).map(([v, l]) => `<button type="button" class="opt ${f.value === v ? 'on' : ''}" data-action="sheetPick" data-value="${v}">${esc(l)}<i aria-hidden="true"></i></button>`).join('')}</div>`;
   else body = `<div class="opts"><button type="button" class="opt ${f.value ? '' : 'on'}" data-action="sheetPick" data-value="false">시급과 따로 받아요<i aria-hidden="true"></i></button><button type="button" class="opt ${f.value ? 'on' : ''}" data-action="sheetPick" data-value="true">시급에 포함돼 있어요<i aria-hidden="true"></i></button></div>`;
   const numeric = ['weeklyHours', 'hourlyWage'].includes(key);
-  const save = numeric ? cta('이 값으로 바꾸기', 'saveEdit', `data-key="${key}"`) : key === 'months' ? cta('이 일수로 바꾸기', 'saveDays') : '';
+  const dateSheet = key === 'months' && (state.sheet.unit || (f.unit === 'date' ? 'date' : 'day')) === 'date';
+  const save = numeric ? cta('이 값으로 바꾸기', 'saveEdit', `data-key="${key}"`) : key === 'months' ? (dateSheet ? cta('이 날짜로 바꾸기', 'saveDates') : cta('이 일수로 바꾸기', 'saveDays')) : '';
   return `<h2 id="sheet-title">${FIELD_NAME[key]}을 고쳐 주세요</h2>${body}
     ${two(weak('닫기', 'closeSheet'), save)}`;
 }
@@ -944,8 +1138,9 @@ function sheetAmounts() {
   const s = state.result.summary;
   const rows = s.parts.map((x) => `<div class="amt"><span class="k">${esc(x.label === '4대보험 근로자 부담분' ? '보험료 (4대보험)' : x.label)}${tag(x.status)}</span><span class="n ${x.amount < 0 ? 'minus' : ''}">${x.amount < 0 ? '−' : '+'}${won(Math.abs(x.amount))}</span></div>`).join('');
   return `<h2 id="sheet-title">이렇게 계산했어요</h2>${rows}
-    <div class="sum"><span>${perLong(s)} 늘어나는 돈${s.periods.length > 1 ? ` (${periodLabel(s.periods[0])})` : ''}</span><span class="n">${won(s.net)}</span></div>
-    ${s.periods.length > 1 ? s.periods.slice(1).map((p) => `<div class="amt"><span class="k">${periodLabel(p)} (수당 끝난 뒤)</span><span class="n">${won(p.net)}</span></div>`).join('') : ''}
+    <div class="sum"><span>${perLong(s)} 늘어나는 돈${s.periods.length > 1 && !s.span ? ` (${periodLabel(s.periods[0])})` : ''}</span><span class="n">${won(s.net)}</span></div>
+    ${s.span && s.months.length > 1 ? s.months.map((m) => `<div class="amt"><span class="k">${m.month}월</span><span class="n">${won(m.net)}</span></div>`).join('')
+      : s.periods.length > 1 ? s.periods.slice(1).map((p) => `<div class="amt"><span class="k">${periodLabel(p)} (수당 끝난 뒤)</span><span class="n">${won(p.net)}</span></div>`).join('') : ''}
     ${s.estimatedParts.length ? `<p class="gline">어림값: ${s.estimatedParts.map((x) => `${esc(x.label)} (${esc(polite(x.reason || '2차 자료 기준'))})`).join(', ')}</p>` : ''}
     <p class="gline">넣지 않은 것: ${esc(s.excluded.join(', '))}</p>
     ${cta('닫기', 'closeSheet')}`;
@@ -958,7 +1153,9 @@ function sheetCard(id) {
   const kv = (k, v) => `<div class="amt"><span class="k">${k}</span><span class="n">${v}</span></div>`;
   let body = '';
   if (c.id === 'jobSeekerAllowance') {
-    body = kv('지금 받는 수당', won(rules.jobSeekerAllowance.monthlyAllowance)) + kv('일을 시작하면', won(c.paid)) + (c.impact.max ? `<div class="amt"><span class="k">${esc(c.impact.text)}</span><span class="n minus">−${won(c.impact.max)}</span></div>` : '');
+    body = kv('지금 받는 수당', won(rules.jobSeekerAllowance.monthlyAllowance)) + (c.paidByMonth
+      ? Object.entries(c.paidByMonth).map(([m, p]) => kv(`${m}월에 받는 수당`, won(p))).join('') + (c.totalLoss ? `<div class="amt"><span class="k">기간 동안 줄어드는 수당</span><span class="n minus">−${won(c.totalLoss)}</span></div>` : '')
+      : kv('일을 시작하면', won(c.paid)) + (c.impact.max ? `<div class="amt"><span class="k">${esc(c.impact.text)}</span><span class="n minus">−${won(c.impact.max)}</span></div>` : ''));
   }
   if (c.proposed) body += kv('지금 기준', esc(c.limitText)) + kv('개정안 (국회 미확정)', esc(c.proposed.limitText));
   else if (c.limitText) body += `<p class="sec">기준</p><p class="gline">${esc(c.limitText)}</p>`;
@@ -1025,7 +1222,7 @@ function renderSheet() {
   sheetEl.hidden = false;
   sheetEl.innerHTML = `<div class="dim" data-action="closeSheet"></div><div class="panel" role="dialog" aria-modal="true" aria-labelledby="sheet-title" tabindex="-1"><div class="hdl" aria-hidden="true"></div>${body}</div>`;
   // 기간 창은 개월 버튼이 먼저라 일수 칸에 바로 커서를 두지 않는다. "한 달보다 짧아요"로 열었거나 이미 일수면 일수 칸에 둔다.
-  const monthsFirst = sh.type === 'edit' && sh.key === 'months' && sh.unit !== 'day' && state.fields.months.unit !== 'day';
+  const monthsFirst = sh.type === 'edit' && sh.key === 'months' && !sh.unit && !state.fields.months.unit;
   ((monthsFirst ? null : sheetEl.querySelector('.panel input')) || sheetEl.querySelector('.panel'))?.focus({ preventScroll: true });
 }
 
@@ -1033,7 +1230,7 @@ function renderSheet() {
 
 // 새로고침해도 입력이 남도록 이 탭의 세션 저장소에 둔다. 탭을 닫으면 지워지고 서버로는 보내지 않는다.
 const STORE_KEY = 'munteok-state-v2';
-const SAVED_KEYS = ['step', 'mode', 'rawText', 'fields', 'profile', 'offers', 'editing', 'active', 'sample', 'extractedBy', 'manualType', 'manualUnit', 'reviewed', 'reviewTotal', 'profileQ', 'chosenHours', 'requestAction'];
+const SAVED_KEYS = ['step', 'mode', 'rawText', 'fields', 'profile', 'offers', 'editing', 'active', 'sample', 'extractedBy', 'manual', 'returnToConfirm', 'reviewed', 'reviewTotal', 'profileQ', 'chosenHours', 'requestAction'];
 
 function persist() {
   try {
@@ -1067,7 +1264,8 @@ function openOffer(i, keepChoice = false) {
   const job = jobOf(state.offers[i].fields);
   state.active = i;
   state.result = state.comparison.rows[i].result;
-  state.alts = searchAlternatives(job, state.profile, state.rules, { maxHours: state.profile.maxHours || 40 });
+  // 날짜를 하나씩 고른 제안은 "주 N시간이면?" 비교가 맞지 않아 근무시간 바꿔 보기를 쓰지 않는다.
+  state.alts = job.workDates ? null : searchAlternatives(job, state.profile, state.rules, { maxHours: state.profile.maxHours || 40 });
   if (!keepChoice) { state.chosenHours = null; state.requestAction = null; }
 }
 
@@ -1077,7 +1275,7 @@ function topHtml(v) {
   if (v.top === 'logo') return `<span class="logo">${LOGO}<span>문턱</span></span>`;
   const group = STEP_GROUP[state.step];
   const seg = group === undefined ? '' : `<div class="seg" role="progressbar" aria-label="진행 단계" aria-valuemin="1" aria-valuemax="6" aria-valuenow="${group + 1}">${Array.from({ length: 6 }, (_, i) => `<i class="${i <= group ? 'on' : ''}"></i>`).join('')}</div>`;
-  return `<button type="button" class="backb" data-action="back" aria-label="뒤로 가기">${icon('back')}</button>${seg}`;
+  return `<button type="button" class="backb" data-action="back">${icon('back')}<span>뒤로</span></button>${seg}`;
 }
 
 function render(keepScroll = false) {
@@ -1110,6 +1308,7 @@ function back() {
   state.aiError = null; state.inputHint = null; state.profileError = null;
   if (s === 'privacy') state.step = state.returnStep || 'start';
   else if (s === 'upload') state.step = state.offers.length ? 'offers' : 'start';
+  else if (s === 'input' && state.returnToConfirm && state.fields) { state.step = 'confirm'; state.returnToConfirm = false; }
   else if (s === 'samples' || s === 'input') state.step = 'upload';
   else if (s === 'confirm') {
     if (state.reviewed.length && reviewQueue().length + missingFields().length < state.reviewTotal) state.reviewed.pop();
@@ -1124,7 +1323,7 @@ function back() {
 }
 
 function resetAll() {
-  Object.assign(state, { step: 'start', sample: null, rawText: '', fields: null, profile: clone(EMPTY_PROFILE), result: null, alts: null, aiError: null, offers: [], editing: null, comparison: null, reviewed: [], reviewTotal: 0, profileQ: 0, ytdOpen: false, chosenHours: null, requestAction: null, sheet: null, photoFile: null, photoName: null, manualType: null });
+  Object.assign(state, { step: 'start', sample: null, rawText: '', fields: null, profile: clone(EMPTY_PROFILE), result: null, alts: null, aiError: null, offers: [], editing: null, comparison: null, reviewed: [], reviewTotal: 0, profileQ: 0, ytdOpen: false, chosenHours: null, requestAction: null, sheet: null, photoFile: null, photoName: null, manual: null, returnToConfirm: false });
   try { sessionStorage.removeItem(STORE_KEY); } catch (e) { /* 무시 */ }
 }
 
@@ -1196,15 +1395,39 @@ app.addEventListener('submit', (e) => {
   if (e.target.id !== 'manual') return;
   e.preventDefault();
   const set = (v) => ({ value: v, status: STATUS.CONFIRMED, evidence: '직접 입력' });
-  const type = state.manualType || 'unknown';
+  const g = (id) => document.getElementById(id);
+  const m = manual();
+  m.wage = g('m-wage').value;
+  const calc = g('m-calc');
+  const stop = (msg) => { calc.innerHTML = `<span class="warn">${msg}</span>`; calc.scrollIntoView({ block: 'center' }); };
+  const daily = dailyHoursOf(m);
+  if (!daily) return stop('출근·퇴근 시간을 넣어 주세요');
+  const sched = { start: m.start, end: m.end, breakMin: m.breakMin };
+  let weeklyHours;
+  let months;
+  let first;
+  if (m.how === 'pattern') {
+    if (!m.days.length) return stop('일하는 요일을 골라 주세요');
+    if (m.edate < m.sdate) { g('m-edate').setCustomValidity('끝나는 날이 시작일보다 앞서요'); g('m-edate').reportValidity(); return; }
+    weeklyHours = { ...set(Math.round(daily * m.days.length * 100) / 100), how: 'pattern', sched: { ...sched, days: [...m.days] } };
+    months = { ...set(daysBetween(m.sdate, m.edate)), unit: 'date', start: m.sdate, end: m.edate };
+    first = m.sdate;
+  } else {
+    if (!m.dates.length) return stop('달력에서 일하는 날을 골라 주세요');
+    const dates = [...m.dates].sort();
+    weeklyHours = { ...set(pickedWeekHours(dates, daily)), how: 'picked', daily, sched };
+    months = { ...set(dates.length), unit: 'picked', dates };
+    first = dates[0];
+  }
   state.fields = withDefaults({
-    hourlyWage: set(Number(document.getElementById('m-wage').value)),
-    weeklyHours: set(Number(document.getElementById('m-hours').value)),
-    startMonth: set(Number(document.getElementById('m-start').value)),
-    months: state.manualUnit === 'day' ? { ...set(Number(document.getElementById('m-months').value)), unit: 'day' } : set(Number(document.getElementById('m-months').value)),
-    incomeType: type === 'unknown' ? { value: 'unknown', status: STATUS.CHECK, evidence: '모른다고 답함' } : set(type),
+    hourlyWage: set(Number(m.wage)),
+    weeklyHours,
+    startMonth: set(Number(first.slice(5, 7))),
+    months,
+    incomeType: m.type === 'unknown' ? { value: 'unknown', status: STATUS.CHECK, evidence: '모른다고 답함' } : set(m.type),
+    holidayIncluded: set(m.type === 'wage' && m.holiday === true),
   });
-  Object.assign(state, { rawText: '', sample: null, extractedBy: null, step: 'confirm' });
+  Object.assign(state, { rawText: '', sample: null, extractedBy: null, step: 'confirm', returnToConfirm: false });
   beginReview();
   render();
 });
@@ -1224,8 +1447,31 @@ document.addEventListener('change', (e) => {
     if (o) { o.name = t.value.trim() || o.name; persist(); }
     return;
   }
+  if (onManualInput(t)) return;
   if (state.step === 'profile') { saveProfileInputs(); persist(); }
 });
+// 시간을 고르는 동안에도 계산이 바로 바뀌게 한다.
+document.addEventListener('input', (e) => { onManualInput(e.target); });
+
+// 직접 입력 화면의 글자 칸과, 기간 고치기 창의 날짜. 다시 그리지 않아 커서가 그대로 남는다.
+function onManualInput(t) {
+  const fields = { 'm-wage': 'wage', 'm-tstart': 'start', 'm-tend': 'end', 'm-break': 'breakMin', 'm-sdate': 'sdate', 'm-edate': 'edate' };
+  if (fields[t.id]) {
+    const m = manual();
+    m[fields[t.id]] = t.id === 'm-break' ? Number(t.value) : t.value;
+    const calc = document.getElementById('m-calc');
+    if (calc && ['m-tstart', 'm-tend', 'm-break'].includes(t.id)) calc.innerHTML = manualCalcHtml();
+  }
+  if (t.id === 'm-sdate' || t.id === 'e-sdate') {
+    // 끝나는 날은 시작일보다 앞설 수 없다.
+    const end = document.getElementById(t.id === 'm-sdate' ? 'm-edate' : 'e-edate');
+    if (end) { end.min = t.value || end.min; end.setCustomValidity(''); }
+    return true;
+  }
+  if (t.id === 'm-edate' || t.id === 'e-edate') { t.setCustomValidity(''); return true; }
+  if (fields[t.id]) { persist(); return true; }
+  return false;
+}
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && state.sheet) { state.sheet = null; renderSheet(); }
@@ -1267,23 +1513,59 @@ document.addEventListener('click', (e) => {
       break;
     }
     case 'extract': tryExtract(); return;
-    case 'manualType':
-      state.manualType = el.dataset.value;
-      el.parentElement.querySelectorAll('.seg-b').forEach((b) => { b.classList.toggle('on', b === el); b.setAttribute('aria-pressed', b === el); });
+    // 직접 입력: 고를 때마다 state.manual을 바꾸고 화면을 그 자리에서 다시 그린다.
+    case 'mHow': manual().how = el.dataset.value; keep(); return;
+    case 'mType': manual().type = el.dataset.value; keep(); return;
+    case 'mHoliday': manual().holiday = el.dataset.value === 'true'; keep(); return;
+    case 'mDay': {
+      const m = manual();
+      const d = Number(el.dataset.value);
+      m.days = m.days.includes(d) ? m.days.filter((x) => x !== d) : [...m.days, d];
+      keep();
       return;
-    case 'manualUnit': {
-      // 다시 그리지 않고 기간 칸만 바꿔, 이미 넣은 시급과 시간이 지워지지 않게 한다.
-      const day = el.dataset.value === 'day';
-      if ((state.manualUnit === 'day') === day) return;
-      state.manualUnit = day ? 'day' : 'month';
-      el.parentElement.querySelectorAll('.seg-b').forEach((b) => { b.classList.toggle('on', b === el); b.setAttribute('aria-pressed', b === el); });
-      const input = document.getElementById('m-months');
-      input.max = day ? MAX_SHORT_DAYS : 12;
-      input.value = day ? 5 : 12;
-      document.getElementById('m-unit').textContent = day ? '일' : '개월';
-      document.getElementById('m-unit-hint').textContent = day ? `한 달보다 짧은 일은 일수로 넣어요 (최대 ${MAX_SHORT_DAYS}일)` : '한 달보다 짧게 일하면 일수로 넣을 수 있어요';
-      input.focus();
-      input.select();
+    }
+    case 'calDay': {
+      const m = manual();
+      const v = el.dataset.value;
+      m.dates = m.dates.includes(v) ? m.dates.filter((x) => x !== v) : [...m.dates, v].sort();
+      keep();
+      return;
+    }
+    case 'calMove': {
+      const m = manual();
+      m.calMonth = Math.min(12, Math.max(1, m.calMonth + Number(el.dataset.value)));
+      keep();
+      return;
+    }
+    case 'calQuick': {
+      const m = manual();
+      const year = state.rules.appliesToYear;
+      const prefix = `${year}-${pad2(m.calMonth)}-`;
+      const daysIn = new Date(Date.UTC(year, m.calMonth, 0)).getUTCDate();
+      const kind = el.dataset.value;
+      const keepOthers = m.dates.filter((x) => !x.startsWith(prefix));
+      const inMonth = m.dates.filter((x) => x.startsWith(prefix));
+      const pick = [];
+      for (let d = 1; d <= daysIn; d++) {
+        const wd = new Date(Date.UTC(year, m.calMonth - 1, d)).getUTCDay();
+        if ((kind === 'weekdays' && wd >= 1 && wd <= 5) || (kind === 'weekend' && (wd === 0 || wd === 6))) pick.push(isoDate(year, m.calMonth, d));
+      }
+      m.dates = kind === 'clear' ? keepOthers : [...new Set([...keepOthers, ...inMonth, ...pick])].sort();
+      keep();
+      return;
+    }
+    case 'mPeriod': {
+      const m = manual();
+      const year = state.rules.appliesToYear;
+      if (!m.sdate) m.sdate = manualDefaults().sdate;
+      if (el.dataset.value === 'end') m.edate = `${year}-12-31`;
+      else {
+        // 시작일에서 n개월 뒤 같은 날의 전날 (예: 11월 20일부터 1개월 → 12월 19일)
+        const [y, mo, d] = m.sdate.split('-').map(Number);
+        const t = new Date(Date.UTC(y, mo - 1 + Number(el.dataset.value), d) - 86400000);
+        m.edate = isoDate(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate());
+      }
+      keep();
       return;
     }
     case 'sample': {
@@ -1304,11 +1586,22 @@ document.addEventListener('click', (e) => {
       if (key === 'months' && value === 'day') { state.sheet = { type: 'edit', key: 'months', unit: 'day' }; renderSheet(); return; }
       if (key === 'incomeType') state.fields.incomeType = value === 'unknown' ? { value: 'unknown', status: STATUS.CHECK, evidence: '모른다고 답함' } : { value, status: STATUS.CONFIRMED, evidence: '직접 답함' };
       else if (key === 'months' && value === '0') state.fields.months = { value: 12, status: STATUS.ESTIMATED, evidence: '모른다고 답해 연말까지로 가정' };
+      else if (key === 'holidayIncluded') { state.fields.holidayIncluded = { value: value === 'true', status: STATUS.CONFIRMED, evidence: '직접 답함' }; state.reviewed.push(key); }
       else state.fields[key] = { value: Number(value), status: STATUS.CONFIRMED, evidence: '직접 답함' };
       if (key === 'months' && value === '0') state.reviewed.push('months');
       break;
     }
-    case 'editField': state.sheet = { type: 'edit', key: el.dataset.key }; renderSheet(); return;
+    case 'editField': {
+      const key = el.dataset.key;
+      // 직접 입력한 시간·기간은 직접 입력 화면으로 돌아가 고친다. 그 밖에는 아래 창에서 고친다.
+      if ((key === 'weeklyHours' || key === 'months') && state.fields.weeklyHours.how) {
+        Object.assign(state, { manual: fieldsToManual(state.fields), mode: 'manual', step: 'input', returnToConfirm: true });
+        break;
+      }
+      state.sheet = { type: 'edit', key };
+      renderSheet();
+      return;
+    }
     case 'sheetPick': {
       const key = state.sheet.key; const raw = el.dataset.value;
       const value = key === 'incomeType' ? raw : key === 'holidayIncluded' ? raw === 'true' : Number(raw);
@@ -1338,6 +1631,22 @@ document.addEventListener('click', (e) => {
       keep();
       return;
     }
+    case 'saveDates': {
+      const s = document.getElementById('e-sdate');
+      const e2 = document.getElementById('e-edate');
+      if (!s.value || !s.checkValidity()) { s.reportValidity(); s.focus(); return; }
+      if (!e2.value || e2.value < s.value || !e2.checkValidity()) {
+        if (e2.value && e2.value < s.value) e2.setCustomValidity('끝나는 날이 시작일보다 앞서요');
+        e2.reportValidity(); e2.focus(); return;
+      }
+      state.fields.months = { value: daysBetween(s.value, e2.value), unit: 'date', start: s.value, end: e2.value, status: STATUS.CONFIRMED, evidence: '직접 수정' };
+      state.fields.startMonth = { value: Number(s.value.slice(5, 7)), status: STATUS.CONFIRMED, evidence: '시작일에서 정함' };
+      for (const k of ['months', 'startMonth']) if (!state.reviewed.includes(k)) state.reviewed.push(k);
+      state.sheet = null;
+      keep();
+      return;
+    }
+    case 'sheetUnit': state.sheet.unit = el.dataset.value; renderSheet(); return;
     case 'closeSheet': state.sheet = null; renderSheet(); return;
     case 'saveDraft': {
       const wasEditing = state.editing !== null;
@@ -1346,8 +1655,8 @@ document.addEventListener('click', (e) => {
       state.profileQ = 0;
       break;
     }
-    case 'saveAndAdd': saveDraft(); Object.assign(state, { fields: emptyFields(), step: 'upload' }); break;
-    case 'addOffer': Object.assign(state, { editing: null, fields: emptyFields(), rawText: '', sample: null, extractedBy: null, aiError: null, step: 'upload' }); break;
+    case 'saveAndAdd': saveDraft(); Object.assign(state, { fields: emptyFields(), step: 'upload', manual: null }); break;
+    case 'addOffer': Object.assign(state, { editing: null, fields: emptyFields(), rawText: '', sample: null, extractedBy: null, aiError: null, step: 'upload', manual: null }); break;
     case 'newOffer': {
       const profile = clone(state.profile);
       resetAll();
