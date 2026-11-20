@@ -3,7 +3,7 @@
 // 계산은 전부 engine.js가 한다. 이 파일은 입력을 모으고 결과를 그리기만 한다.
 import { evaluate, searchAlternatives, compareOffers, buildRequestMessage, REQUEST_ACTIONS, STATUS, MAX_SHORT_DAYS } from './engine.js';
 import { SAMPLES, EMPTY_PROFILE } from './samples.js';
-import { API_BASE, AI_AVAILABLE } from './config.js';
+import { API_BASE, AI_AVAILABLE, AI_OFF, CLARITY_ID } from './config.js';
 
 const app = document.getElementById('app');
 const topEl = document.getElementById('top');
@@ -35,6 +35,7 @@ const LINKS = {
   nhisHealth: 'https://www.nhis.or.kr/static/html/guide/sub2_010101.html',
   repo: 'https://github.com/JIHOSW/Hackathon',
   anthropicPrivacy: 'https://www.anthropic.com/legal/privacy',
+  microsoftPrivacy: 'https://privacy.microsoft.com/ko-kr/privacystatement',
 };
 
 // ---------------- 아이콘 (선 아이콘, 화면 낭독기는 읽지 않음) ----------------
@@ -165,7 +166,7 @@ function viewStart() {
     top: 'logo',
     html: `<div class="hero">
       <h1 class="t1">일하기 전에<br><mark>내 돈</mark>부터 확인해요</h1>
-      <p class="sub">알바 공고만 올리면 3분이면 돼요</p>
+      <p class="sub">${AI_OFF ? '시급과 일하는 시간만 넣으면 3분이면 돼요' : '알바 공고만 올리면 3분이면 돼요'}</p>
     </div>
     <div class="card pv">
       <span class="chip">예시</span>
@@ -174,13 +175,24 @@ function viewStart() {
     </div>
     <p class="gline center">로그인 없이 바로 써요 · 입력한 내용은 저장하지 않아요</p>
     <p class="gline center"><button type="button" class="inline" data-action="privacy">개인정보 처리 안내</button></p>`,
-    bottom: `${cta('공고 올리기', 'go', 'data-step="upload"')}${linkBtn('예시로 먼저 해 보기', 'go', 'data-step="samples"')}`,
+    bottom: `${cta(AI_OFF ? '조건 넣기' : '공고 올리기', 'go', 'data-step="upload"')}${linkBtn('예시로 먼저 해 보기', 'go', 'data-step="samples"')}`,
   };
 }
 
 // ---------------- 공고 올리기 ----------------
 
 function viewUpload() {
+  // 공개 체험 주소에서는 AI 공고 읽기를 끄고 직접 입력과 예시만 보여 준다.
+  if (AI_OFF) {
+    return {
+      html: `<h1 class="t2">조건을 어떻게<br>넣을까요?</h1>
+      <div class="rows">
+        ${row({ ic: 'pen', title: '직접 입력하기', sub: '시급과 시간만 알아도 돼요', action: 'mode', attrs: 'data-mode="manual"' })}
+        ${row({ title: '예시 공고로 해 보기', sub: '카페 알바, 학원 보조, 두 제안 비교', action: 'go', attrs: 'data-step="samples"' })}
+      </div>
+      <p class="gline">이 체험 주소에서는 AI 공고 읽기를 쓰지 않아요. 공고 사진이나 글은 보내지 않아요. <button type="button" class="inline" data-action="privacy">개인정보 처리 안내</button></p>`,
+    };
+  }
   return {
     html: `<h1 class="t2">공고를 어떻게<br>올릴까요?</h1>
     <div class="rows">
@@ -877,21 +889,28 @@ function viewBasis() {
 // ---------------- 개인정보 처리 안내 ----------------
 
 function viewPrivacy() {
+  const kv = (k, v) => `<div class="kv col"><span class="k">${k}</span><span class="v small">${v}</span></div>`;
+  const agreed = consentChoice() === 'yes';
   return {
     top: 'back',
     html: `<h1 class="t2">개인정보 처리 안내</h1>
       <p class="sec">무엇을 어디로 보내나요</p>
       <div class="rows kvs">
-        <div class="kv col"><span class="k">공고 사진과 글</span><span class="v small">문턱 서버를 거쳐 Anthropic(미국)의 AI가 읽어요. 문턱 서버는 저장하지 않아요</span></div>
-        <div class="kv col"><span class="k">내 상황 (나이, 근무 시간, 번 돈, 받는 지원)</span><span class="v small">이 브라우저 안에서만 계산에 써요. 서버로 보내지 않아요</span></div>
-        <div class="kv col"><span class="k">로그인 · 쿠키 · 분석 도구</span><span class="v small">쓰지 않아요</span></div>
-        <div class="kv col"><span class="k">글꼴</span><span class="v small">Pretendard 글꼴을 공개 서비스 jsDelivr에서 불러와요</span></div>
+        ${AI_OFF ? kv('공고 사진과 글', '이 체험 주소에서는 AI 공고 읽기를 쓰지 않아 보내지 않아요') : kv('공고 사진과 글', '문턱 서버를 거쳐 Anthropic(미국)의 AI가 읽어요. 문턱 서버는 저장하지 않아요')}
+        ${kv('내 상황 (나이, 근무 시간, 번 돈, 받는 지원)', '이 브라우저 안에서만 계산에 써요. 서버로 보내지 않아요')}
+        ${CLARITY_ID
+          ? kv('사용 기록 (Microsoft Clarity)', '동의한 경우에만 어느 화면에서 무엇을 눌렀는지, 스크롤과 화면 이동을 Microsoft(미국)로 보내요. 입력한 값과 계산 금액은 가려서 보내지 않아요. 이를 위해 쿠키를 써요') + kv('로그인', '쓰지 않아요')
+          : kv('로그인 · 쿠키 · 분석 도구', '쓰지 않아요')}
+        ${kv('글꼴', 'Pretendard 글꼴을 공개 서비스 jsDelivr에서 불러와요')}
       </div>
-      <p class="sec">꼭 지켜 주세요</p>
-      <p class="gline">공고에 있는 이름, 전화번호, 주소는 지우거나 가리고 올려 주세요. AI로 보내는 내용에는 개인정보가 없어야 해요</p>
+      ${CLARITY_ID ? `<p class="sec">사용 기록 동의</p>
+      <p class="gline">지금은 <b>${agreed ? '동의함' : '동의하지 않음'}</b>이에요. 동의하지 않아도 모든 기능을 똑같이 쓸 수 있어요 <button type="button" class="inline" data-action="${agreed ? 'consentWithdraw' : 'consentAsk'}">${agreed ? '동의 거두기' : '다시 고르기'}</button></p>
+      <p class="gline">Microsoft가 사용 기록을 처리하는 방식은 <a href="${LINKS.microsoftPrivacy}" target="_blank" rel="noopener">Microsoft 개인정보처리방침</a>을 따라요</p>` : ''}
+      ${AI_OFF ? '' : `<p class="sec">꼭 지켜 주세요</p>
+      <p class="gline">공고에 있는 이름, 전화번호, 주소는 지우거나 가리고 올려 주세요. AI로 보내는 내용에는 개인정보가 없어야 해요</p>`}
       <p class="sec">보관과 지우기</p>
       <p class="gline">입력한 내용은 이 탭에만 임시로 남고, 탭을 닫으면 사라져요. 지금 바로 지우려면 아래 버튼을 눌러 주세요</p>
-      <p class="gline">AI 회사가 받은 내용을 처리하는 방식은 <a href="${LINKS.anthropicPrivacy}" target="_blank" rel="noopener">Anthropic 개인정보 처리방침</a>을 따라요</p>
+      ${AI_OFF ? '' : `<p class="gline">AI 회사가 받은 내용을 처리하는 방식은 <a href="${LINKS.anthropicPrivacy}" target="_blank" rel="noopener">Anthropic 개인정보 처리방침</a>을 따라요</p>`}
       <p class="sec">만든 사람 · 문의</p>
       <p class="gline">문턱 팀 · 2026 대한민국 청년 CAREER FAIR AI 해커톤 출품작<br><a href="${LINKS.repo}" target="_blank" rel="noopener">GitHub 저장소</a>의 Issues로 문의해 주세요</p>
       ${DISCLAIMER}`,
@@ -951,10 +970,58 @@ function sheetCard(id) {
     ${cta('닫기', 'closeSheet')}`;
 }
 
+// ---------------- 사용 기록 (공개 체험 주소에서만) ----------------
+// CLARITY_ID가 있을 때만 쓴다. 동의한 사람에게만 Clarity를 불러오고, 화면 본문(입력값·금액)은 가려서 보낸다.
+// 동의 여부는 이 브라우저에만 저장한다. 저장소를 못 쓰면 매번 묻고, 동의 전에는 아무것도 보내지 않는다.
+const CONSENT_KEY = 'munteok-clarity-consent';
+function consentChoice() { try { return localStorage.getItem(CONSENT_KEY); } catch (e) { return null; } }
+function saveConsent(v) { try { localStorage.setItem(CONSENT_KEY, v); } catch (e) { /* 저장하지 못해도 이번 방문에는 고른 대로 동작한다 */ } }
+let clarityOn = false;
+let trackedStep = null;
+function startClarity() {
+  if (!CLARITY_ID || clarityOn) return;
+  // 본문과 아래 창은 글자를 가린다. 위쪽 단계 표시와 아래 버튼 이름만 보인다.
+  app.setAttribute('data-clarity-mask', 'True');
+  sheetEl.setAttribute('data-clarity-mask', 'True');
+  window.clarity = window.clarity || function () { (window.clarity.q = window.clarity.q || []).push(arguments); };
+  const s = document.createElement('script');
+  s.async = true;
+  s.src = `https://www.clarity.ms/tag/${encodeURIComponent(CLARITY_ID)}`;
+  document.head.appendChild(s);
+  window.clarity('consent');
+  clarityOn = true;
+  trackedStep = null;
+}
+// 한 주소 안에서 화면만 바뀌므로, 화면이 바뀔 때마다 단계 이름을 이벤트로 남겨 어디서 멈추는지 본다.
+function trackStep() {
+  if (!clarityOn || state.step === trackedStep) return;
+  trackedStep = state.step;
+  window.clarity('event', `step_${state.step}`);
+  window.clarity('set', 'step', state.step);
+}
+function withdrawConsent() {
+  saveConsent('no');
+  // Clarity 쿠키를 지우고 새로 불러 기록을 멈춘다.
+  for (const name of ['_clck', '_clsk']) {
+    document.cookie = `${name}=; Max-Age=0; path=/`;
+    document.cookie = `${name}=; Max-Age=0; path=/; domain=.${location.hostname}`;
+  }
+  location.reload();
+}
+function sheetConsent() {
+  // 두 버튼을 같은 모양으로 둬서 어느 쪽도 떠밀지 않는다.
+  const btn = (label, value) => `<button type="button" class="cta weak eq" data-action="consent" data-value="${value}">${label}</button>`;
+  return `<h2 id="sheet-title">사용 기록을 모아도 될까요?</h2>
+    <p class="gline">문턱을 더 쉽게 고치려고, 어느 화면에서 무엇을 눌렀는지와 스크롤을 Microsoft Clarity로 모아요.</p>
+    <p class="gline">입력한 값과 계산 금액은 가려서 보내지 않아요. 쿠키를 쓰고, 기록은 Microsoft(미국) 서버에 보관돼요. 동의하지 않아도 모든 기능을 똑같이 쓸 수 있어요.</p>
+    <p class="gline"><button type="button" class="inline" data-action="consentPrivacy">개인정보 처리 안내</button>에서 언제든 바꿀 수 있어요.</p>
+    ${two(btn('동의하지 않아요', 'no'), btn('동의해요', 'yes'))}`;
+}
+
 function renderSheet() {
   const sh = state.sheet;
   if (!sh) { sheetEl.hidden = true; sheetEl.innerHTML = ''; return; }
-  const body = sh.type === 'edit' ? sheetEdit(sh.key) : sh.type === 'amounts' ? sheetAmounts() : sheetCard(sh.id);
+  const body = sh.type === 'consent' ? sheetConsent() : sh.type === 'edit' ? sheetEdit(sh.key) : sh.type === 'amounts' ? sheetAmounts() : sheetCard(sh.id);
   sheetEl.hidden = false;
   sheetEl.innerHTML = `<div class="dim" data-action="closeSheet"></div><div class="panel" role="dialog" aria-modal="true" aria-labelledby="sheet-title" tabindex="-1"><div class="hdl" aria-hidden="true"></div>${body}</div>`;
   // 기간 창은 개월 버튼이 먼저라 일수 칸에 바로 커서를 두지 않는다. "한 달보다 짧아요"로 열었거나 이미 일수면 일수 칸에 둔다.
@@ -1024,6 +1091,7 @@ function render(keepScroll = false) {
   renderSheet();
   window.scrollTo(0, keepScroll ? y : 0);
   persist();
+  trackStep();
 }
 
 // ---------------- 동작 ----------------
@@ -1352,6 +1420,16 @@ document.addEventListener('click', (e) => {
       return;
     }
     case 'restart': resetAll(); break;
+    case 'consent': {
+      const yes = el.dataset.value === 'yes';
+      saveConsent(yes ? 'yes' : 'no');
+      state.sheet = null;
+      if (yes) startClarity();
+      break;
+    }
+    case 'consentAsk': state.sheet = { type: 'consent' }; renderSheet(); return;
+    case 'consentWithdraw': withdrawConsent(); return;
+    case 'consentPrivacy': state.sheet = null; state.returnStep = state.step; state.step = 'privacy'; break;
     default: return;
   }
   render();
@@ -1361,6 +1439,12 @@ fetch('data/rules.json').then((r) => r.json()).then((rules) => {
   state.rules = rules;
   window.__munteok = state; // 점검용
   restore();
+  // 공개 체험 주소에서만: 동의했으면 사용 기록을 켜고, 아직 고르지 않았으면 묻는다.
+  if (CLARITY_ID) {
+    const choice = consentChoice();
+    if (choice === 'yes') startClarity();
+    else if (choice !== 'no') state.sheet = { type: 'consent' };
+  }
   render();
 }).catch(() => {
   app.innerHTML = '<p class="gline warn" role="alert">계산 규칙을 불러오지 못했어요. 새로고침해 주세요</p>';
