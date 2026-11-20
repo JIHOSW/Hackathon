@@ -6,6 +6,7 @@
 //   ANTHROPIC_API_KEY   Claude API 키 (필수, 절대 코드에 넣지 않는다)
 //   ALLOWED_ORIGINS     다른 주소에서 이 API를 부를 수 있게 허용할 주소 목록, 쉼표로 구분
 //                       예: https://jihosw.github.io
+//   ANTHROPIC_WORKSPACE_ID  작업 공간에 묶이지 않은 조직 키를 쓸 때 사용할 작업 공간 ID (wrkspc_...)
 import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
@@ -104,7 +105,13 @@ export default async function handler(req, res) {
   if (!content.length) return send(res, 400, { error: '텍스트나 사진이 필요합니다.' }, cors);
   content.push({ type: 'text', text: '위 공고에서 근무 조건을 뽑아 주세요.' });
 
-  const client = new Anthropic();
+  // 키를 붙여 넣을 때 섞인 앞뒤 공백·줄바꿈 때문에 인증이 실패하지 않도록 잘라 낸다.
+  // 작업 공간에 묶이지 않은 조직 키는 어느 작업 공간을 쓸지 헤더로 알려야 한다(ANTHROPIC_WORKSPACE_ID).
+  const workspace = (process.env.ANTHROPIC_WORKSPACE_ID || '').trim();
+  const client = new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY.trim(),
+    ...(workspace ? { defaultHeaders: { 'anthropic-workspace-id': workspace } } : {}),
+  });
   try {
     const response = await client.messages.parse({
       model: MODEL,
@@ -122,7 +129,11 @@ export default async function handler(req, res) {
   } catch (error) {
     if (error instanceof Anthropic.RateLimitError) return send(res, 429, { error: 'AI 사용 한도에 걸렸습니다. 잠시 뒤 다시 시도해 주세요.' }, cors);
     if (error instanceof Anthropic.AuthenticationError) return send(res, 503, { error: 'AI 서버의 API 키가 올바르지 않습니다.' }, cors);
-    if (error instanceof Anthropic.BadRequestError) return send(res, 400, { error: 'AI 요청 형식에 문제가 있습니다.' }, cors);
+    if (error instanceof Anthropic.BadRequestError) {
+      // 원인 파악용. 입력 내용은 남기지 않고 API가 돌려준 오류 문구만 기록한다.
+      console.log('bad-request', error.message);
+      return send(res, 400, { error: 'AI 요청 형식에 문제가 있습니다.' }, cors);
+    }
     if (error instanceof Anthropic.APIError) return send(res, 502, { error: 'AI 서버가 응답하지 않습니다. 잠시 뒤 다시 시도해 주세요.' }, cors);
     return send(res, 500, { error: '알 수 없는 오류가 발생했습니다.' }, cors);
   }

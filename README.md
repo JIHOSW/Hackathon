@@ -121,6 +121,8 @@ GitHub Pages는 정적 파일만 올릴 수 있어서, API 키가 필요한 AI �
 
 ## AI 서버 배포하기 (Vercel)
 
+지금 배포된 AI 서버: https://munteok-five.vercel.app (`munteok/js/config.js`의 `VERCEL_URL`에 연결됨). 가상 공고 7건 시험: `node munteok/tests/extract-eval.mjs`
+
 GitHub Pages는 API 키를 숨길 수 없어서, AI 추출 서버(`munteok/api/extract.js`)는 Vercel에 올립니다.
 Vercel은 화면과 AI 서버를 함께 올리므로, **AI까지 동작하는 주소는 Vercel 주소**입니다. 심사 제출에도 이 주소를 씁니다.
 
@@ -132,6 +134,7 @@ Vercel은 화면과 AI 서버를 함께 올리므로, **AI까지 동작하는 �
    - **Root Directory**: `munteok`
    - **Framework Preset**: Other
    - **Environment Variables**: `ANTHROPIC_API_KEY` = 1번에서 만든 키, `ALLOWED_ORIGINS` = `https://jihosw.github.io`
+   - 키가 특정 작업 공간에 묶이지 않은 조직 키라면 `ANTHROPIC_WORKSPACE_ID` = Console의 작업 공간 ID(`wrkspc_`로 시작)도 넣습니다. 넣지 않으면 "anthropic-workspace-id header" 오류가 납니다.
 4. Deploy를 누릅니다. 끝나면 `https://<프로젝트이름>.vercel.app` 주소가 나옵니다.
 5. GitHub Pages 주소에서도 AI를 쓰려면 `munteok/js/config.js`의 `VERCEL_URL`에 4번 주소를 넣고 PR로 합칩니다. 예: `'https://munteok.vercel.app/'` (끝에 `/` 포함)
 
