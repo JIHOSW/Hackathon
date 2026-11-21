@@ -80,6 +80,9 @@ export function runTests(rules) {
   const alt30 = searchAlternatives(jobA, profA, rules, { maxHours: 30 });
   eq('가장 많이 남는 시간: 30시간까지면 18시간이 아니라 30시간', [alt30.best, alt30.dip.peakHours, alt30.dip.to], [{ weeklyHours: 30, net: 882810 }, 18, 29]);
   eq('가장 많이 남는 시간: 28시간까지면 봉우리 18시간이 전체에서도 가장 많음', alt.best, { weeklyHours: 18, net: 842783 });
+  // 부모 공제(20세, 근로소득): 주 9시간이면 10,500×9×4.345×12 = 4,927,230원, 주 10시간이면 5,474,700원으로 총급여 500만 원을 넘음
+  const altDep = searchAlternatives(jobA, { ...base, age: 20, taxDependent: 'yes' }, rules, { maxHours: 12 });
+  eq('달라지는 지점: 연간 기준을 넘는 시간과 문구', altDep.changePoints.map((c) => [c.weeklyHours, c.changes.map((x) => x.text)]), [[10, ['부모 연말정산 부양가족 공제: 연간 기준을 넘음']]]);
   const alt20 = searchAlternatives(jobA, profA, rules, { maxHours: 20 });
   eq('최대 20시간: 받은 제안(24시간)은 범위 밖', [alt20.offeredOutOfRange, alt20.options.map((o) => o.kind)], [true, ['max']]);
   const altSame = searchAlternatives(jobA, profA, rules, { maxHours: 24 });

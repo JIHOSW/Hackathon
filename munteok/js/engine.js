@@ -591,7 +591,7 @@ export function evaluate(job, profile, rules) {
   const confirmedNet = sum(parts.filter((x) => x.status === STATUS.CONFIRMED));
   const estimatedParts = parts.filter((x) => x.status !== STATUS.CONFIRMED);
   const checks = cards.flatMap((c) => (c.checks || []).map((text) => ({ cardId: c.id, title: c.title, text })));
-  // 달마다 늘어나는 돈. 수당이 끝나는 달을 기준으로 구간을 나눈다.
+  // 달마다 남는 돈. 수당이 끝나는 달을 기준으로 구간을 나눈다.
   const endMonth = allowance ? allowance.endMonth : null;
   const months = [];
   for (let m = timeline.start; m <= timeline.end; m++) {
@@ -700,7 +700,7 @@ export function searchAlternatives(job, profile, rules, { minHours = 1, maxHours
     if (prev.allowancePaid > 0 && cur.allowancePaid === 0 && !cur.allowanceEnded) changes.push({ type: 'loss', text: `구직촉진수당이 지급되지 않음${mark}` });
     if (!prev.allowanceEnded && cur.allowanceEnded) changes.push({ type: 'loss', text: '취업으로 보아 구직촉진수당 지급이 끝남' });
     for (const id of cur.adverseIds) {
-      if (id !== 'jobSeekerAllowance' && !prev.adverseIds.includes(id)) changes.push({ type: 'check', text: `${titleOf(id)}: 연간 기준에 닿음` });
+      if (id !== 'jobSeekerAllowance' && !prev.adverseIds.includes(id)) changes.push({ type: 'check', text: `${titleOf(id)}: 연간 기준을 넘음` });
     }
     for (const id of cur.pendingIds) {
       if (!prev.pendingIds.includes(id)) changes.push({ type: 'pending', text: `${titleOf(id)}: 추가 확인이 필요해짐` });
@@ -710,7 +710,7 @@ export function searchAlternatives(job, profile, rules, { minHours = 1, maxHours
     if (changes.length) changePoints.push({ weeklyHours: cur.weeklyHours, beforeHours: prev.weeklyHours, beforeNet: prev.net, net: cur.net, gross: cur.gross, allowanceLoss: cur.allowanceLoss, changes });
   }
 
-  // 더 일해도 예상 추가수입이 직전 최고치보다 적은 구간을 찾는다.
+  // 더 일해도 남는 돈이 직전 최고치보다 적은 구간을 찾는다.
   // peak: 구간 직전의 최고치, recover: 그 최고치를 다시 넘는 최소 근무시간
   let dip = null;
   let peak = table[0];

@@ -822,8 +822,8 @@ function betterOptionAll() {
   }
   const diff = best.weeklyHours - a.offered;
   const support = best.allowanceEnded && !cur.allowanceEnded ? ' 구직촉진수당은 끝나요'
-    : best.allowanceLoss > cur.allowanceLoss ? ' 구직촉진수당은 더 줄어요'
-      : best.allowanceLoss < cur.allowanceLoss ? ' 구직촉진수당은 덜 줄어요' : '';
+    : best.allowanceLoss > cur.allowanceLoss ? (cur.allowanceLoss > 0 ? ' 구직촉진수당은 더 줄어요' : ' 구직촉진수당은 줄어요')
+      : best.allowanceLoss < cur.allowanceLoss ? (best.allowanceLoss === 0 ? ' 구직촉진수당은 줄지 않아요' : ' 구직촉진수당은 덜 줄어요') : '';
   const until = allowanceUntil();
   return {
     hours: best.weeklyHours,
@@ -870,6 +870,7 @@ function nextPeriodLine(r) {
   // 수당이 끝나 구간이 나뉜 경우에만 쓴다. 날짜로 넣은 기간은 달마다 금액이 달라 아래 목록으로 보여 준다.
   if (ps.length < 2 || r.summary.span) return '';
   const later = ps[ps.length - 1];
+  if (later.net === ps[0].net) return '';
   return `<p class="cut">${later.from}월부터는 수당이 끝나서 한 달에 <mark><b class="num">${man(later.net)}</b></mark>이 남아요</p>`;
 }
 
@@ -956,8 +957,13 @@ function altsTitle(a) {
     const what = x.text.includes('끝남') ? '정부 지원이 끊겨요' : x.text.includes('지급되지') ? '정부 지원을 받지 못해요' : '정부 지원이 줄기 시작해요';
     return `<mark class="num">주 ${loss.weeklyHours}시간</mark>부터<br>${what}`;
   }
+  const check = a.changePoints.find((c) => c.changes.some((x) => x.type === 'check'));
+  if (check) return `<mark class="num">주 ${check.weeklyHours}시간</mark>부터<br>연간 기준을 넘는 지원이 있어요`;
   const gain = a.changePoints.find((c) => c.changes.some((x) => x.type === 'gain'));
   if (gain) return `<mark class="num">주 ${gain.weeklyHours}시간</mark>부터<br>주휴수당과 4대보험이 생겨요`;
+  // 판단을 보류한 지점이 있으면 "달라지는 게 없다"고 하지 않는다.
+  const pending = a.changePoints.find((c) => c.changes.some((x) => x.type === 'pending'));
+  if (pending) return `<mark class="num">주 ${pending.weeklyHours}시간</mark>부터<br>확인할 것이 생겨요`;
   return '할 수 있는 시간 안에서는<br><mark>달라지는 게 없어요</mark>';
 }
 
@@ -1080,7 +1086,7 @@ function viewBasis() {
         <ul class="src">${sources}</ul></details>
       <p class="gline">신고를 피하는 방법은 알려 드리지 않아요</p>
       <p class="gline center"><button type="button" class="inline" data-action="restart">내 입력 모두 지우기</button></p>`,
-    bottom: two(weak('처음으로', 'restart'), cta('다른 공고 올리기', 'newOffer')),
+    bottom: two(weak('처음으로', 'restart'), cta(AI_OFF ? '다른 조건 넣기' : '다른 공고 올리기', 'newOffer')),
   };
 }
 
