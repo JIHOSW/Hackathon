@@ -11,7 +11,7 @@ export const SAMPLES = [
       hourlyWage: { value: 10500, status: '확정', evidence: '시급: 10,500원' },
       weeklyHours: { value: 24, status: '추정', evidence: '금·토·일 10:00~19:00 (휴게 1시간): 하루 8시간 × 3일로 계산' },
       startMonth: { value: 1, status: '확정', evidence: '기간: 1월부터' },
-      months: { value: 12, status: '추정', evidence: '6개월 이상: 연말까지 일한다고 가정' },
+      months: { value: 12, toYearEnd: true, status: '추정', evidence: '6개월 이상: 연말까지 일한다고 가정' },
       incomeType: { value: 'wage', status: '확정', evidence: '4대보험 가입, 주휴수당 별도 지급' },
       holidayIncluded: { value: false, status: '확정', evidence: '주휴수당 별도 지급' },
     },

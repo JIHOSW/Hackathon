@@ -443,6 +443,7 @@ function valueText(key, f) {
     return `일주일에 ${v}시간`;
   }
   if (key === 'startMonth') return v ? `${v}월` : '모름';
+  if (key === 'months' && f.toYearEnd) return '연말까지';
   if (key === 'months') return v ? (f.unit === 'picked' ? `${datesText(f.dates)} (${f.dates.length}일)` : f.unit === 'date' ? spanText(f.start, f.end) : f.unit === 'day' ? `${v}일` : `${v}개월`) : '모름';
   if (key === 'incomeType') return PAY_LABEL[v] || '모름';
   return v ? '시급에 포함' : '따로 받아요';
@@ -450,6 +451,7 @@ function valueText(key, f) {
 function askText(key, f) {
   const v = f.value;
   if (key === 'weeklyHours') return `일주일에 <mark class="num">${v}시간</mark><br>일하는 게 맞나요?`;
+  if (key === 'months' && f.toYearEnd) return '<mark>연말까지</mark><br>일하는 게 맞나요?';
   if (key === 'months') return f.unit === 'date' ? `<mark class="num">${spanText(f.start, f.end)}</mark><br>일하는 게 맞나요?` : `<mark class="num">${v}${f.unit === 'day' ? '일' : '개월'}</mark> 동안<br>일하는 게 맞나요?`;
   if (key === 'hourlyWage') return `시급이 <mark class="num">${won(v)}</mark>이<br>맞나요?`;
   if (key === 'startMonth') return `<mark class="num">${v}월</mark>부터<br>일하는 게 맞나요?`;
@@ -459,6 +461,9 @@ function askText(key, f) {
 
 // 날짜로 넣은 기간은 시작일이 시작하는 달을 정하므로 시작 달은 따로 보이지 않는다.
 // 날짜로 넣은 기간은 시작일이나 고른 날이 시작하는 달을 정하므로 시작 달은 따로 보이지 않는다.
+// 시작 달부터 12월까지의 개월 수 (3월 시작이면 10개월)
+function monthsToYearEnd() { return 13 - (Number(state.fields.startMonth && state.fields.startMonth.value) || 1); }
+function syncYearEnd() { if (state.fields.months && state.fields.months.toYearEnd) state.fields.months.value = monthsToYearEnd(); }
 function relevantKeys(f) { return FIELD_ORDER.filter((k) => f[k] && (k !== 'holidayIncluded' || f.incomeType.value === 'wage') && (k !== 'startMonth' || !['date', 'picked'].includes(f.months.unit))); }
 function reviewQueue() {
   const f = state.fields;
@@ -497,7 +502,7 @@ function evidenceHtml(f) {
 const QUESTIONS = {
   incomeType: { ask: '급여를 어떻게<br>받나요?', why: WHY.incomeType, options: [['wage', '4대보험 떼고 받아요'], ['business', '3.3% 떼고 받아요'], ['daily', '일당으로 그때그때 받아요'], ['unknown', '모르겠어요']] },
   startMonth: { ask: '몇 월부터<br>일하나요?', why: WHY.startMonth, options: Array.from({ length: 12 }, (_, i) => [String(i + 1), `${i + 1}월`]), grid: true },
-  months: { ask: '몇 개월<br>일할 예정인가요?', why: WHY.months, options: [['1', '1개월'], ['2', '2개월'], ['3', '3개월'], ['6', '6개월'], ['12', '연말까지'], ['0', '모르겠어요'], ['day', '한 달보다 짧아요']], grid: true },
+  months: { ask: '몇 개월<br>일할 예정인가요?', why: WHY.months, options: [['1', '1개월'], ['2', '2개월'], ['3', '3개월'], ['6', '6개월'], ['end', '연말까지'], ['0', '모르겠어요'], ['day', '한 달보다 짧아요']], grid: true },
 };
 
 function viewConfirm() {
@@ -558,7 +563,7 @@ function viewConfirm() {
 }
 
 function offerLine(f) {
-  const when = f.months.unit === 'date' ? spanText(f.months.start, f.months.end) : `${f.startMonth.value}월부터 ${valueText('months', f.months)}`;
+  const when = f.months.unit === 'date' ? spanText(f.months.start, f.months.end) : f.months.unit === 'picked' ? valueText('months', f.months) : `${f.startMonth.value}월부터 ${valueText('months', f.months)}`;
   return `시급 ${won(f.hourlyWage.value)} · ${valueText('weeklyHours', f.weeklyHours)} · ${when}`;
 }
 // 기간을 일수로 넣었으면 days로, 날짜로 넣었으면 startDate·endDate로 넘긴다. 계산은 그 기간 동안의 돈으로 한다.
@@ -570,7 +575,7 @@ function jobOf(f) {
     hourlyWage: Number(f.hourlyWage.value),
     weeklyHours: Number(w.value),
     startMonth: unit === 'date' ? Number(f.months.start.slice(5, 7)) : unit === 'picked' ? Number(f.months.dates[0].slice(5, 7)) : Number(f.startMonth.value),
-    months: unit === 'day' || unit === 'date' || unit === 'picked' ? 1 : Number(f.months.value),
+    months: unit === 'day' || unit === 'date' || unit === 'picked' ? 1 : f.months.toYearEnd ? 13 - (Number(f.startMonth.value) || 1) : Number(f.months.value),
     ...(unit === 'day' ? { days: Number(f.months.value) } : {}),
     ...(unit === 'date' ? { startDate: f.months.start, endDate: f.months.end } : {}),
     // 매주 같은 요일이면 요일로 실제 근무일을 세고, 날짜를 골랐으면 고른 날 × 하루 시간으로 계산한다.
@@ -1113,7 +1118,7 @@ function sheetEdit(key) {
     const sub = state.sheet.unit || (f.unit === 'date' ? 'date' : 'day');
     const year = state.rules.appliesToYear;
     const segB = (v, l) => `<button type="button" class="seg-b ${sub === v ? 'on' : ''}" data-action="sheetUnit" data-value="${v}" aria-pressed="${sub === v}">${l}</button>`;
-    body = `<div class="grid3">${Array.from({ length: 12 }, (_, i) => `<button type="button" class="opt c ${!f.unit && f.value === i + 1 ? 'on' : ''}" data-action="sheetPick" data-value="${i + 1}">${i + 1}개월</button>`).join('')}</div>
+    body = `<div class="grid3">${Array.from({ length: 12 }, (_, i) => `<button type="button" class="opt c ${!f.unit && !f.toYearEnd && f.value === i + 1 ? 'on' : ''}" data-action="sheetPick" data-value="${i + 1}">${i + 1}개월</button>`).join('')}</div>
       <p class="lbl">개월이 아니면</p>
       <div class="seg2 unit-seg" role="group" aria-label="기간을 넣는 방법">${segB('day', '일수로')}${segB('date', '날짜로')}</div>
       ${sub === 'date'
@@ -1584,9 +1589,12 @@ document.addEventListener('click', (e) => {
       // 한 달보다 짧으면 일수를 넣는 창을 연다.
       if (key === 'months' && value === 'day') { state.sheet = { type: 'edit', key: 'months', unit: 'day' }; renderSheet(); return; }
       if (key === 'incomeType') state.fields.incomeType = value === 'unknown' ? { value: 'unknown', status: STATUS.CHECK, evidence: '모른다고 답함' } : { value, status: STATUS.CONFIRMED, evidence: '직접 답함' };
-      else if (key === 'months' && value === '0') state.fields.months = { value: 12, status: STATUS.ESTIMATED, evidence: '모른다고 답해 연말까지로 가정' };
+      // "연말까지"와 "모르겠어요"는 시작 달에서 12월까지로 센다 (예: 3월 시작이면 10개월). 시작 달을 나중에 고쳐도 맞춰진다.
+      else if (key === 'months' && value === 'end') state.fields.months = { value: monthsToYearEnd(), toYearEnd: true, status: STATUS.CONFIRMED, evidence: '연말까지라고 답함' };
+      else if (key === 'months' && value === '0') state.fields.months = { value: monthsToYearEnd(), toYearEnd: true, status: STATUS.ESTIMATED, evidence: '모른다고 답해 연말까지로 가정' };
       else if (key === 'holidayIncluded') { state.fields.holidayIncluded = { value: value === 'true', status: STATUS.CONFIRMED, evidence: '직접 답함' }; state.reviewed.push(key); }
       else state.fields[key] = { value: Number(value), status: STATUS.CONFIRMED, evidence: '직접 답함' };
+      if (key === 'startMonth') syncYearEnd();
       if (key === 'months' && value === '0') state.reviewed.push('months');
       break;
     }
@@ -1605,6 +1613,7 @@ document.addEventListener('click', (e) => {
       const key = state.sheet.key; const raw = el.dataset.value;
       const value = key === 'incomeType' ? raw : key === 'holidayIncluded' ? raw === 'true' : Number(raw);
       state.fields[key] = { value, status: key === 'incomeType' && value === 'unknown' ? STATUS.CHECK : STATUS.CONFIRMED, evidence: key === 'incomeType' && value === 'unknown' ? '모른다고 답함' : '직접 수정' };
+      if (key === 'startMonth') syncYearEnd();
       if (!state.reviewed.includes(key)) state.reviewed.push(key);
       state.sheet = null;
       keep();
