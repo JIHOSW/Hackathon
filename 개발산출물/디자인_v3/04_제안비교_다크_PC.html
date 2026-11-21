@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>문턱 · 제안 비교 시안</title>
+<style>
+@import url("https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans@v1.0.3/packages/wanted-sans/fonts/webfonts/variable/split/WantedSansVariable.min.css");
+:root {
+  --bg: #060708; --s1: #0e1013; --s2: #15181c; --s3: #1c2026; --line: rgba(255,255,255,.08); --line2: rgba(255,255,255,.14);
+  --ink: #f5f6f8; --sub: #9aa1ad; --dim: #5f6672; --acc: #c8ff4d; --red: #ff6363; --amber: #ffc25c; --green: #5ee69a;
+  --max: 1840px; --pad: clamp(24px, 4.5vw, 96px);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: "Wanted Sans Variable", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  font-size: 16px; line-height: 1.6; letter-spacing: -.005em; -webkit-font-smoothing: antialiased; word-break: keep-all;
+  font-feature-settings: "tnum";
+}
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto 0; height: 900px; pointer-events: none; z-index: 0;
+  background: radial-gradient(800px 420px at 70% -80px, rgba(200,255,77,.09), transparent 70%), radial-gradient(900px 500px at 10% -120px, rgba(120,140,255,.08), transparent 70%);
+}
+a { color: inherit; text-decoration: none; }
+.wrap { position: relative; z-index: 1; max-width: var(--max); margin: 0 auto; padding: 0 var(--pad); }
+
+/* 내비게이션 */
+.nav { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding-top: 22px; padding-bottom: 22px; }
+.nav-l { display: flex; align-items: center; gap: clamp(32px, 3.4vw, 64px); }
+.brand { font-size: 22px; font-weight: 800; letter-spacing: -.04em; display: inline-flex; align-items: center; gap: 4px; }
+.brand i { width: 8px; height: 8px; border-radius: 50%; background: var(--acc); box-shadow: 0 0 12px var(--acc); }
+.links { display: flex; gap: clamp(24px, 2.2vw, 40px); font-size: 15px; color: var(--sub); }
+.links a:hover, .links a.on { color: var(--ink); }
+
+/* 진행 단계 */
+.flow { display: flex; align-items: center; gap: 6px; list-style: none; margin: 0; padding: 0; font-size: 13px; }
+.flow li { display: flex; align-items: center; gap: 8px; color: var(--dim); padding: 6px 12px 6px 8px; border-radius: 999px; }
+.flow li span { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; background: rgba(255,255,255,.06); }
+.flow li.done { color: var(--sub); }
+.flow li.done span { background: rgba(200,255,77,.14); color: var(--acc); }
+.flow li.on { color: var(--ink); background: rgba(255,255,255,.06); font-weight: 600; }
+.flow li.on span { background: var(--acc); color: #0a0b0c; }
+.flow i { width: 18px; height: 1px; background: var(--line2); }
+
+/* 버튼 */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px; font: inherit; font-size: 16px; font-weight: 600;
+  padding: 15px 26px; border-radius: 999px; border: 1px solid var(--acc); background: var(--acc); color: #0a0b0c; cursor: pointer;
+  transition: transform .15s ease, box-shadow .2s ease, background .2s ease; white-space: nowrap;
+}
+.btn:hover { transform: translateY(-1px); box-shadow: 0 10px 40px -8px rgba(200,255,77,.55); }
+.btn.line { background: rgba(255,255,255,.03); border-color: var(--line2); color: var(--ink); }
+.btn.line:hover { background: rgba(255,255,255,.07); box-shadow: none; }
+.btn.sm { padding: 10px 20px; font-size: 14px; }
+.btn:focus-visible, a:focus-visible, button:focus-visible { outline: 2px solid var(--acc); outline-offset: 3px; }
+
+/* 공통 조각 */
+.eyebrow { font-size: 13px; font-weight: 600; color: var(--acc); letter-spacing: .08em; text-transform: uppercase; }
+.panel { background: var(--s1); border: 1px solid var(--line); border-radius: 22px; }
+.k { font-size: 12px; color: var(--dim); }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; border-radius: 999px; padding: 5px 11px; white-space: nowrap; }
+.chip.red { color: var(--red); background: rgba(255,99,99,.12); }
+.chip.acc { color: var(--acc); background: rgba(200,255,77,.1); }
+.chip.amber { color: var(--amber); background: rgba(255,194,92,.12); }
+.chip.green { color: var(--green); background: rgba(94,230,154,.12); }
+.chip.gray { color: var(--sub); background: rgba(255,255,255,.06); }
+.chip.line { color: var(--ink); border: 1px solid var(--line2); background: rgba(255,255,255,.03); font-weight: 500; }
+.neg { color: var(--red); }
+.pos { color: var(--acc); }
+.mono { font-variant-numeric: tabular-nums; }
+.foot { position: relative; z-index: 1; max-width: var(--max); margin: 80px auto 0; padding: 32px var(--pad) 56px; border-top: 1px solid var(--line); color: var(--dim); font-size: 13px; line-height: 1.8; }
+.foot p { margin: 0; }
+
+@keyframes up { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes grow-x { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes grow-y { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.rise { animation: up .6s cubic-bezier(.2,.8,.2,1) both; animation-delay: var(--t, 0s); }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+@media (max-width: 900px) {
+  .links, .flow { display: none; }
+}
+
+
+:root { --a: var(--acc); --b: #a98bff; }
+.head { display: flex; justify-content: space-between; align-items: flex-end; gap: 32px; padding-top: clamp(8px, 2.4vh, 32px); }
+.head h1 { font-size: clamp(36px, 3.6vw, 64px); line-height: 1.08; letter-spacing: -.055em; font-weight: 800; margin: 10px 0 0; }
+.head h1 .a { color: var(--a); } .head h1 .b { color: var(--b); }
+.head-r { max-width: 480px; text-align: right; }
+.head-r p { margin: 0 0 10px; color: var(--sub); font-size: 15px; }
+
+/* 맞대결 머리 */
+.vs { display: grid; grid-template-columns: 1fr 96px 1fr; align-items: stretch; margin-top: clamp(24px, 4vh, 44px); }
+.offer { padding: 24px 26px; position: relative; overflow: hidden; }
+.offer::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--c); }
+.offer.right { text-align: right; }
+.offer.right::before { inset: 0 0 0 auto; }
+.offer .tag { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: var(--c); }
+.offer .tag i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px var(--c); }
+.offer h2 { margin: 8px 0 12px; font-size: clamp(22px, 1.7vw, 28px); letter-spacing: -.035em; }
+.conds { display: flex; flex-wrap: wrap; gap: 6px; }
+.offer.right .conds { justify-content: flex-end; }
+.offer .net { margin-top: 18px; }
+.offer .net small { display: block; font-size: 13px; color: var(--sub); }
+.offer .net strong { font-size: clamp(40px, 3.6vw, 64px); font-weight: 800; letter-spacing: -.05em; line-height: 1.05; color: var(--c); }
+.offer .net strong em { font-style: normal; font-size: .4em; color: var(--sub); margin-left: 4px; }
+.mid { display: grid; place-items: center; }
+.mid span { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 18px; letter-spacing: -.02em; background: var(--s2); border: 1px solid var(--line2); color: var(--sub); }
+
+/* 기준별 막대 */
+.board { margin-top: 16px; padding: 10px 26px; }
+.m { display: grid; grid-template-columns: 210px 1fr 220px 1fr 210px; align-items: center; gap: 16px; padding: 18px 0; border-bottom: 1px solid var(--line); }
+.m:last-child { border-bottom: 0; }
+.m .v { font-size: clamp(16px, 1.2vw, 20px); font-weight: 700; letter-spacing: -.03em; color: var(--sub); white-space: nowrap; }
+.m .v.l { text-align: right; }
+.m .v.win { color: var(--ink); }
+.m .v.win::after { content: "앞섬"; display: inline-block; margin-left: 8px; font-size: 11px; font-weight: 700; border-radius: 999px; padding: 2px 8px; vertical-align: 3px; }
+.m .v.l.win::after { content: none; }
+.m .v.l.win::before { content: "앞섬"; display: inline-block; margin-right: 8px; font-size: 11px; font-weight: 700; border-radius: 999px; padding: 2px 8px; vertical-align: 3px; color: var(--a); background: rgba(200,255,77,.12); }
+.m .v.r.win::after { color: var(--b); background: rgba(169,139,255,.14); }
+.track { height: 14px; display: flex; }
+.track.l { justify-content: flex-end; }
+.track i { height: 100%; width: var(--w); border-radius: 999px; animation: grow-x .9s cubic-bezier(.2,.8,.2,1) both; animation-delay: var(--t, .3s); }
+.track.l i { background: rgba(200,255,77,.28); transform-origin: right; }
+.track.r i { background: rgba(169,139,255,.3); transform-origin: left; }
+.track.l.win i { background: linear-gradient(270deg, #8fc436, var(--a)); box-shadow: 0 0 24px -4px rgba(200,255,77,.6); }
+.track.r.win i { background: linear-gradient(90deg, #7a5cf0, var(--b)); box-shadow: 0 0 24px -4px rgba(169,139,255,.6); }
+.track.bad i { background: repeating-linear-gradient(135deg, rgba(255,99,99,.85) 0 6px, rgba(255,99,99,.5) 6px 12px) !important; box-shadow: none !important; }
+.m .lab { text-align: center; }
+.m .lab b { display: block; font-size: 15px; }
+.m .lab span { font-size: 12px; color: var(--dim); }
+
+/* 세부 */
+.detail { display: grid; grid-template-columns: 1fr 1fr 260px; gap: 16px; margin-top: 16px; }
+.dcard { padding: 22px 24px; display: flex; flex-direction: column; gap: 14px; }
+.dcard h3 { margin: 0; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+.dcard h3 i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.dcard dl { display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; margin: 0; font-size: 14px; }
+.dcard dt { color: var(--sub); }
+.dcard dd { margin: 0; text-align: right; font-weight: 600; }
+.ask { font-size: 14px; padding: 12px 14px; border-radius: 12px; background: rgba(255,255,255,.04); color: var(--ink); }
+.ask small { display: block; color: var(--dim); font-size: 12px; margin-bottom: 2px; }
+.dcard .btn { align-self: flex-start; margin-top: auto; }
+.add { border: 1px dashed var(--line2); border-radius: 22px; display: grid; place-items: center; text-align: center; padding: 24px; color: var(--sub); transition: border-color .2s ease, color .2s ease; }
+.add:hover { border-color: var(--acc); color: var(--ink); }
+.add b { display: block; font-size: 32px; font-weight: 300; color: var(--acc); line-height: 1; margin-bottom: 8px; }
+.add span { font-size: 14px; }
+.add small { display: block; font-size: 12px; color: var(--dim); margin-top: 4px; }
+.scope { margin-top: 16px; font-size: 13px; color: var(--dim); }
+
+@media (max-width: 1200px) { .m { grid-template-columns: 110px 1fr 160px 1fr 110px; } .detail { grid-template-columns: 1fr 1fr; } .add { grid-column: 1 / -1; } }
+@media (max-width: 760px) { .head { flex-direction: column; align-items: flex-start; } .head-r { text-align: left; } .vs { grid-template-columns: 1fr; gap: 12px; } .mid span { width: 44px; height: 44px; font-size: 14px; } .offer.right { text-align: left; } .offer.right .conds { justify-content: flex-start; } .m { grid-template-columns: 1fr 1fr; } .m .lab { grid-column: 1 / -1; grid-row: 1; } .track { display: none; } .m .v.l { text-align: left; } .detail { grid-template-columns: 1fr; } }
+
+</style>
+</head>
+<body>
+<nav class="wrap nav">
+  <div class="nav-l"><a class="brand" href="01_시작_다크_PC.html">문턱<i></i></a><div class="links"><a href="01_시작_다크_PC.html#how">작동 방식</a><a href="01_시작_다크_PC.html#rules">계산하는 제도</a><a href="04_제안비교_다크_PC.html" class="on">제안 비교</a></div></div>
+  
+  <a class="btn sm" href="02_올리기_다크_PC.html">새 계산</a>
+</nav>
+<main class="wrap">
+  <header class="head">
+    <div>
+      <span class="eyebrow">제안 비교 · 같은 규칙으로 계산</span>
+      <h1><span class="a">카페</span>와 <span class="b">학원 보조</span>,<br>무엇이 더 남을까?</h1>
+    </div>
+    <div class="head-r">
+      <p>기준마다 앞서는 제안을 표시할 뿐이에요. 어느 쪽을 고를지는 직접 정하세요.</p>
+      <span class="chip line">내 상황 · 구직촉진수당을 받는 27세</span>
+    </div>
+  </header>
+
+  <div class="vs">
+    <article class="panel offer rise" style="--c: var(--a)">
+      <span class="tag"><i></i>제안 A · 근로소득</span>
+      <h2>주말 카페 알바 공고</h2>
+      <div class="conds"><span class="chip line">시급 10,500원</span><span class="chip line">주 24시간</span><span class="chip line">1~12월 · 12개월</span><span class="chip line">4대보험</span></div>
+      <div class="net"><small>한 달에 실제로 남는 돈</small><strong class="mono">810,863<em>원</em></strong></div>
+    </article>
+    <div class="mid" aria-hidden="true"><span>VS</span></div>
+    <article class="panel offer right rise" style="--c: var(--b); --t:.1s">
+      <span class="tag"><i></i>제안 B · 사업소득</span>
+      <h2>3.3% 떼는 학원 채점 보조</h2>
+      <div class="conds"><span class="chip line">시급 13,000원</span><span class="chip line">주 12시간</span><span class="chip line">3~12월 · 10개월</span><span class="chip line">3.3% 원천징수</span></div>
+      <div class="net"><small>한 달에 실제로 남는 돈</small><strong class="mono">655,452<em>원</em></strong></div>
+    </article>
+  </div>
+
+  <section class="panel board" aria-label="기준별 비교">
+    <div class="m"><span class="v l win mono">810,863원</span><div class="track l win"><i style="--w:100%"></i></div><div class="lab"><b>한 달에 남는 돈</b><span>클수록 좋음</span></div><div class="track r"><i style="--w:80.8%;--t:.4s"></i></div><span class="v r mono">655,452원</span></div>
+    <div class="m"><span class="v l mono">7,776원</span><div class="track l"><i style="--w:61.9%;--t:.45s"></i></div><div class="lab"><b>한 시간 일하고 남는 돈</b><span>클수록 좋음</span></div><div class="track r win"><i style="--w:100%;--t:.5s"></i></div><span class="v r win mono">12,571원</span></div>
+    <div class="m"><span class="v l win mono">9,730,356원</span><div class="track l win"><i style="--w:100%;--t:.55s"></i></div><div class="lab"><b>기간 전체로 남는 돈</b><span>12개월 vs 10개월</span></div><div class="track r"><i style="--w:67.4%;--t:.6s"></i></div><span class="v r mono">6,554,520원</span></div>
+    <div class="m"><span class="v l mono neg">−375,385원</span><div class="track l bad"><i style="--w:100%;--t:.65s"></i></div><div class="lab"><b>줄어드는 지원 (월)</b><span>적을수록 좋음</span></div><div class="track r win"><i style="--w:2%;--t:.7s"></i></div><span class="v r win mono">0원</span></div>
+    <div class="m"><span class="v l mono">주 24시간</span><div class="track l"><i style="--w:100%;--t:.75s;background:rgba(255,255,255,.14)"></i></div><div class="lab"><b>일하는 시간</b><span>내가 가능한 주 40시간 안</span></div><div class="track r"><i style="--w:50%;--t:.8s;background:rgba(255,255,255,.14)"></i></div><span class="v r mono">주 12시간</span></div>
+  </section>
+
+  <div class="detail">
+    <article class="panel dcard" style="--c: var(--a)">
+      <h3><i></i>제안 A에서 달라지는 것</h3>
+      <div class="chips" style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip red">구직촉진수당 감소</span><span class="chip acc">주휴수당·4대보험</span></div>
+      <dl><dt>급여 (월)</dt><dd class="mono">1,313,928원</dd><dt>4대보험 (월)</dt><dd class="mono neg">−127,680원</dd><dt>수당 (월)</dt><dd class="mono">600,000 → <span class="neg">224,615원</span></dd></dl>
+      <p class="ask"><small>시작 전에 고용주에게 물어볼 것</small>주휴수당은 시급과 별도로 지급되나요?</p>
+      <a class="btn line sm" href="03_결과_다크_PC.html">제안 A 자세히 보기 →</a>
+    </article>
+    <article class="panel dcard" style="--c: var(--b)">
+      <h3><i></i>제안 B에서 달라지는 것</h3>
+      <div class="chips" style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip green">구직촉진수당 유지</span><span class="chip gray">주 15시간 미만</span></div>
+      <dl><dt>급여 (월)</dt><dd class="mono">677,820원</dd><dt>3.3% 원천징수 (월)</dt><dd class="mono neg">−22,368원</dd><dt>수당 (월)</dt><dd class="mono">600,000원 전액</dd></dl>
+      <p class="ask"><small>시작 전에 고용주에게 물어볼 것</small>근로계약서를 쓰나요, 용역(프리랜서) 계약인가요?</p>
+      <a class="btn line sm" href="03_결과_다크_PC.html">제안 B 자세히 보기 →</a>
+    </article>
+    <a class="add" href="02_올리기_다크_PC.html"><div><b>+</b><span>비교할 제안 추가</span><small>최대 3개까지</small></div></a>
+  </div>
+  <p class="scope">2026년 규칙으로 한 해(1~12월)를 계산했어요. 남는 돈은 급여에서 4대보험이나 3.3%와 줄어드는 수당을 뺀 금액이고, 소득세와 부모님 세금 변화는 넣지 않았어요. 화면의 두 제안은 가상 예시예요.</p>
+</main>
+<footer class="foot">
+  <p>참고용 계산이며 세무·법률 자문과 행정기관의 최종 판단을 대체하지 않습니다.</p>
+  <p>AI가 생성한 내용이 포함될 수 있습니다. 입력값은 서버에 저장하지 않습니다. 화면의 사례는 가상 예시입니다.</p>
+</footer>
+
+</body>
+</html>
