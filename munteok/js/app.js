@@ -168,10 +168,11 @@ function viewStart() {
       <h1 class="t1">일하기 전에<br><mark>내 돈</mark>부터 확인해요</h1>
       <p class="sub">${AI_OFF ? '시급과 일하는 시간만 넣으면 3분이면 돼요' : '알바 공고만 올리면 3분이면 돼요'}</p>
     </div>
-    <div class="card pv">
+    <div class="card pv tap" role="button" tabindex="0" data-action="sample" data-id="cafe" aria-label="주말 카페 알바 예시로 해 보기">
       <span class="chip">예시</span>
       <p class="pvt">주말 카페 알바로 <span class="num">${man(s.addedIncome)}</span>을 벌면,<br>실제로 남는 돈은 <mark class="num">${man(s.net)}</mark>이에요</p>
       ${moneyBar(s)}
+      <span class="pv-go">이 예시로 해 보기${icon('ch')}</span>
     </div>
     <p class="gline center">로그인 없이 바로 써요 · 입력한 내용은 저장하지 않아요</p>
     <p class="gline center"><button type="button" class="inline" data-action="privacy">개인정보 처리 안내</button></p>`,
@@ -230,7 +231,7 @@ function manualDefaults() {
   const inYear = now.getFullYear() === year;
   return {
     how: 'pattern', wage: '', days: [1, 2, 3, 4, 5], dates: [], calMonth: inYear ? now.getMonth() + 1 : 1,
-    start: '09:00', end: '13:00', breakMin: 0,
+    start: '09:00', end: '13:00', breakMin: 0, openBreak: false, openHoliday: false,
     sdate: inYear ? isoDate(year, now.getMonth() + 1, now.getDate()) : `${year}-01-01`, edate: '',
     type: 'unknown', holiday: false,
   };
@@ -253,9 +254,14 @@ function fieldsToManual(f) {
     start: sc.start || base.start, end: sc.end || base.end, breakMin: sc.breakMin || 0,
     sdate: mo.unit === 'date' ? mo.start : base.sdate, edate: mo.unit === 'date' ? mo.end : '',
     type: f.incomeType.value, holiday: Boolean(f.holidayIncluded && f.holidayIncluded.value),
+    // 기본값이 아닌 값을 넣었던 칸은 펼쳐 둔다.
+    openBreak: (sc.breakMin || 0) > 0, openHoliday: Boolean(f.holidayIncluded && f.holidayIncluded.value),
   };
 }
 const fmtH = (h) => String(Math.round(h * 100) / 100);
+// 쉬는 시간과 주휴수당은 기본값(없음 / 따로 받아요)으로 한 줄만 보이고, "바꾸기"를 눌러야 펼친다.
+const BREAKS = [[0, '없음'], [30, '30분'], [60, '1시간'], [90, '1시간 30분'], [120, '2시간']];
+const breakLabel = (min) => (BREAKS.find(([v]) => v === min) || [0, `${min}분`])[1];
 /** 출근·퇴근·쉬는 시간으로 하루 근무시간을 계산한다. 퇴근이 출근보다 이르면 밤을 넘기는 근무로 본다. */
 function dailyHoursOf(m) {
   const toMin = (t) => { const x = /^(\d{1,2}):(\d{2})/.exec(t || ''); return x ? Number(x[1]) * 60 + Number(x[2]) : null; };
@@ -401,8 +407,10 @@ function viewInput() {
         <div><label for="m-tstart">출근</label><input id="m-tstart" class="field" type="time" value="${m.start}" required></div>
         <div><label for="m-tend">퇴근</label><input id="m-tend" class="field" type="time" value="${m.end}" required></div>
       </div>
-      <label for="m-break">쉬는 시간</label>
-      <select id="m-break">${[[0, '없음'], [30, '30분'], [60, '1시간'], [90, '1시간 30분'], [120, '2시간']].map(([v, l]) => `<option value="${v}" ${m.breakMin === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      ${m.openBreak
+        ? `<label for="m-break">쉬는 시간</label>
+          <select id="m-break">${BREAKS.map(([v, l]) => `<option value="${v}" ${m.breakMin === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`
+        : `<p class="fold">쉬는 시간 <b>${breakLabel(m.breakMin)}</b>으로 계산해요<button type="button" class="inline" data-action="mOpen" data-value="break" aria-label="쉬는 시간 바꾸기">바꾸기</button></p>`}
       <div class="calc" id="m-calc" aria-live="polite">${manualCalcHtml()}</div>
       ${m.how === 'pattern' ? `<p class="lbl">언제부터 언제까지 일하나요?</p>
         <div class="grid2 pair">
@@ -412,9 +420,11 @@ function viewInput() {
         <div class="chips" role="group" aria-label="시작일부터 기간 고르기">${[['1', '1개월'], ['3', '3개월'], ['6', '6개월'], ['end', '연말까지']].map(([v, l]) => `<button type="button" data-action="mPeriod" data-value="${v}">${l}</button>`).join('')}</div>` : ''}
       <p class="lbl">급여를 어떻게 받나요?</p>
       <div class="seg2">${seg('mType', m.type, 'wage', '4대보험 떼고')}${seg('mType', m.type, 'business', '3.3% 떼고')}${seg('mType', m.type, 'daily', '일당으로')}${seg('mType', m.type, 'unknown', '모르겠어요')}</div>
-      ${m.type === 'wage' ? `<p class="lbl">주휴수당은 어떻게 받나요?</p>
-        <div class="seg2">${seg('mHoliday', String(m.holiday), 'false', '시급과 따로 받아요')}${seg('mHoliday', String(m.holiday), 'true', '시급에 포함돼 있어요')}</div>
-        <p class="gline">일주일에 15시간 이상 일하면 받는 수당이에요. 모르면 '따로 받아요'로 계산해요</p>` : ''}
+      ${m.type !== 'wage' ? '' : m.openHoliday
+        ? `<p class="lbl">주휴수당은 어떻게 받나요?</p>
+          <div class="seg2">${seg('mHoliday', String(m.holiday), 'false', '시급과 따로 받아요')}${seg('mHoliday', String(m.holiday), 'true', '시급에 포함돼 있어요')}</div>
+          <p class="gline">일주일에 15시간 이상 일하면 받는 수당이에요. 모르면 '따로 받아요'로 계산해요</p>`
+        : `<p class="fold">주휴수당은 <b>${m.holiday ? '시급에 포함된' : '시급과 따로 받는'}</b> 것으로 계산해요<button type="button" class="inline" data-action="mOpen" data-value="holiday" aria-label="주휴수당 받는 방식 바꾸기">바꾸기</button></p>`}
     </form>
     <p class="gline">${year}년 최저임금은 시급 ${won(state.rules.minimumWage.hourly)}이에요</p>`,
     bottom: `<button type="submit" form="manual" class="cta">조건 확인하기</button>`,
@@ -1276,7 +1286,7 @@ function openOffer(i, keepChoice = false) {
 const VIEWS = { start: viewStart, upload: viewUpload, samples: viewSamples, input: viewInput, confirm: viewConfirm, offers: viewOffers, profile: viewProfile, compare: viewCompare, result: viewResult, alts: viewAlts, message: viewMessage, basis: viewBasis, privacy: viewPrivacy };
 
 function topHtml(v) {
-  if (v.top === 'logo') return `<span class="logo">${LOGO}<span>문턱</span></span>`;
+  if (v.top === 'logo') return `<button type="button" class="logo" data-action="home" aria-label="문턱 처음 화면">${LOGO}<span>문턱</span></button>`;
   const group = STEP_GROUP[state.step];
   const seg = group === undefined ? '' : `<div class="seg" role="progressbar" aria-label="진행 단계" aria-valuemin="1" aria-valuemax="6" aria-valuenow="${group + 1}">${Array.from({ length: 6 }, (_, i) => `<i class="${i <= group ? 'on' : ''}"></i>`).join('')}</div>`;
   return `<button type="button" class="backb" data-action="back">${icon('back')}<span>뒤로</span></button>${seg}`;
@@ -1478,6 +1488,7 @@ function onManualInput(t) {
 }
 
 document.addEventListener('keydown', (e) => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[role="button"][data-action]')) { e.preventDefault(); e.target.click(); return; }
   if (e.key === 'Escape' && state.sheet) { state.sheet = null; renderSheet(); }
   // 아래에서 올라오는 창 안에서만 Tab이 돌게 한다.
   if (e.key === 'Tab' && state.sheet) {
@@ -1521,6 +1532,13 @@ document.addEventListener('click', (e) => {
     case 'mHow': manual().how = el.dataset.value; keep(); return;
     case 'mType': manual().type = el.dataset.value; keep(); return;
     case 'mHoliday': manual().holiday = el.dataset.value === 'true'; keep(); return;
+    case 'mOpen': {
+      const which = el.dataset.value;
+      manual()[which === 'break' ? 'openBreak' : 'openHoliday'] = true;
+      keep();
+      (which === 'break' ? document.getElementById('m-break') : document.querySelector('[data-action="mHoliday"].on'))?.focus();
+      return;
+    }
     case 'mDay': {
       const m = manual();
       const d = Number(el.dataset.value);
@@ -1737,6 +1755,7 @@ document.addEventListener('click', (e) => {
       return;
     }
     case 'restart': resetAll(); break;
+    case 'home': state.step = 'start'; state.sheet = null; break;
     case 'consent': {
       const yes = el.dataset.value === 'yes';
       saveConsent(yes ? 'yes' : 'no');
