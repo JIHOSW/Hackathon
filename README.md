@@ -10,6 +10,19 @@
 `main`에 변경이 합쳐지면 위 페이지가 자동으로 다시 배포됩니다. 반영까지 보통 1~2분 걸리며, 진행 상황은 [Actions 탭](https://github.com/JIHOSW/Hackathon/actions)에서 볼 수 있습니다. 바뀌지 않아 보이면 새로고침하세요.
 아직 열리지 않으면 [배포하기](#배포하기-github-pages)의 첫 설정이 필요합니다.
 
+### 디자인 시안 바로 보기 (다크 테마)
+
+`ui/design-system` 브랜치의 디자인 시안입니다. 계산 기능 없이 화면만 담은 HTML이며, 페이지 안의 버튼으로 서로 이어집니다. 숫자는 계산 엔진으로 가상 샘플을 계산한 값입니다. 넓은 PC 화면에서 보는 것을 기준으로 만들었습니다.
+
+| # | 화면 | 바로 보기 |
+|---|---|---|
+| 01 | 시작 (문턱 그래프, 근무시간 슬라이더) | [열기](https://htmlpreview.github.io/?https://github.com/JIHOSW/Hackathon/blob/ui/design-system/%EA%B0%9C%EB%B0%9C%EC%82%B0%EC%B6%9C%EB%AC%BC/%EB%94%94%EC%9E%90%EC%9D%B8_v3/01_%EC%8B%9C%EC%9E%91_%EB%8B%A4%ED%81%AC_PC.html) |
+| 02 | 올리기와 조건 확인 | [열기](https://htmlpreview.github.io/?https://github.com/JIHOSW/Hackathon/blob/ui/design-system/%EA%B0%9C%EB%B0%9C%EC%82%B0%EC%B6%9C%EB%AC%BC/%EB%94%94%EC%9E%90%EC%9D%B8_v3/02_%EC%98%AC%EB%A6%AC%EA%B8%B0_%EB%8B%A4%ED%81%AC_PC.html) |
+| 03 | 결과 (제도별 변화, 근무조건 대안) | [열기](https://htmlpreview.github.io/?https://github.com/JIHOSW/Hackathon/blob/ui/design-system/%EA%B0%9C%EB%B0%9C%EC%82%B0%EC%B6%9C%EB%AC%BC/%EB%94%94%EC%9E%90%EC%9D%B8_v3/03_%EA%B2%B0%EA%B3%BC_%EB%8B%A4%ED%81%AC_PC.html) |
+| 04 | 제안 비교 | [열기](https://htmlpreview.github.io/?https://github.com/JIHOSW/Hackathon/blob/ui/design-system/%EA%B0%9C%EB%B0%9C%EC%82%B0%EC%B6%9C%EB%AC%BC/%EB%94%94%EC%9E%90%EC%9D%B8_v3/04_%EC%A0%9C%EC%95%88%EB%B9%84%EA%B5%90_%EB%8B%A4%ED%81%AC_PC.html) |
+
+링크는 외부 미리보기 서비스(htmlpreview.github.io)로 브랜치의 HTML 파일을 그대로 열어 줍니다. 파일은 [`개발산출물/디자인_v3/`](./개발산출물/디자인_v3)에 있고, 내려받아 브라우저로 바로 열어도 됩니다.
+
 청년이 알바·프리랜서 일자리 제안을 받았을 때, 그 일이 **부모 연말정산 부양가족 공제**, **건강보험 피부양자 자격**, **구직촉진수당**, **주 15시간 기준(주휴수당·4대보험)** 에 어떤 영향을 주는지 한 번에 계산해 주는 서비스입니다. 단순히 기준선을 넘는지만 알려주지 않고, 지원 감소까지 반영한 **실질 순소득**으로 더 유리한 근무 조건을 함께 제안합니다.
 
 ## 왜 필요한가
@@ -82,6 +95,7 @@
 | [`munteok/`](./munteok) | 프로토타입. 규칙표(`data/rules.json`), 계산 엔진, 화면, 엔진 기대값 테스트. 실행 방법과 원문 확인이 남은 규칙은 [munteok/README.md](./munteok/README.md) 참고 |
 | [`기획/`](./기획) | 최신 기획 문서. PRD 수정본, 기능명세서 확정본, 유저플로우 수정본(11화면), 매니패스트 요청문 |
 | [`개발산출물/와이어프레임/`](./개발산출물/와이어프레임) | 화면별 와이어프레임 17장 |
+| [`개발산출물/디자인_v3/`](./개발산출물/디자인_v3) | 다크 테마 디자인 시안 HTML 4장 (`ui/design-system` 브랜치) |
 | [`.github/workflows/`](./.github/workflows) | GitHub Pages 자동 배포 설정 |
 | [`LICENSE`](./LICENSE) | MIT 라이선스 |
 
