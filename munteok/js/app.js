@@ -871,14 +871,16 @@ function resultTitle(r, job) {
       <p class="cut">버는 돈 <b class="num">${man(s.addedIncome)}</b>보다 빠지는 돈이 더 커요</p>`;
   }
   const mp = manParts(s);
+  // 기간이 날짜로 길게 적히면 기간 뒤에서 줄을 바꿔, 큰 숫자가 두 줄로 갈라지지 않게 한다.
+  const lead = `${perLong(s)}${periodOf(s) ? '<br>' : ' '}`;
   // 급여를 어떻게 받는지 모르면 보험료·세금을 뺄 수 없어 "남아요"라고 하지 않는다.
-  if (job.incomeType === 'unknown') return `<h1 class="t2 res">${perLong(s)} <mark class="num kn">${countNum(mp.gross)}만 원</mark>을<br>받아요</h1>`;
+  if (job.incomeType === 'unknown') return `<h1 class="t2 res">${lead}<mark class="num kn">${countNum(mp.gross)}만 원</mark>을<br>받아요</h1>`;
   if (s.allowanceLoss > 0) {
     const ended = state.result.cards.some((c) => c.ended);
     return `<h1 class="t2 res">${periodOf(s) ? `${periodOf(s)} 동안<br>` : '한 달에<br>'}<span class="num">${mp.gross}만 원</span>을 벌지만<br>실제로 남는 돈은<br><mark class="num kn">${countNum(mp.kept)}만 원</mark>이에요</h1>
       <p class="cut">${mp.deduct ? '보험료와 ' : ''}${ended ? '끊기는' : '줄어드는'} 정부 지원으로 <mark class="rd"><b class="num">${mp.deduct + mp.loss}만 원</b></mark>이 빠져요</p>`;
   }
-  return `<h1 class="t2 res">${perLong(s)} <mark class="num kn">${countNum(mp.kept)}만 원</mark>이<br>남아요</h1>`;
+  return `<h1 class="t2 res">${lead}<mark class="num kn">${countNum(mp.kept)}만 원</mark>이<br>남아요</h1>`;
 }
 
 function reportText(t) {
@@ -1411,9 +1413,11 @@ function countUp() {
     if (!cv || !(to > 0)) continue;
     cv.style.minWidth = `${cv.getBoundingClientRect().width}px`;
     cv.textContent = '0';
-    const t0 = performance.now();
+    // 시작 시각은 첫 프레임에서 잡는다. 프레임 시각이 앞설 수 있어 미리 잡으면 음수가 잠깐 보인다.
+    let t0 = null;
     const tick = (now) => {
-      const p = Math.min(1, (now - t0) / 500);
+      if (t0 === null) t0 = now;
+      const p = Math.max(0, Math.min(1, (now - t0) / 500));
       if (p < 1 && cv.isConnected) {
         cv.textContent = Math.round(to * (1 - Math.pow(1 - p, 3))).toLocaleString('ko-KR');
         requestAnimationFrame(tick);

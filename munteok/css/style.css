@@ -68,7 +68,7 @@ a { color: var(--g); }
 .t2 { font-size: 30px; line-height: 38px; font-weight: 800; letter-spacing: -0.8px; margin: 16px 0 0; }
 /* 결과 제목: 문장은 작게, 남는 돈 숫자는 가장 크게 */
 .t2.res { font-size: 22px; line-height: 31px; letter-spacing: -0.5px; }
-.t2 .kn { font-size: 40px; line-height: 48px; letter-spacing: -1.2px; }
+.t2 .kn { font-size: 40px; line-height: 48px; letter-spacing: -1.2px; white-space: nowrap; }
 .t2.res mark.rd { font-size: 30px; line-height: 40px; letter-spacing: -0.8px; }
 .count { display: inline-block; }
 .count .cv { display: inline-block; text-align: right; }
@@ -130,7 +130,7 @@ div.kv { cursor: default; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .chips.center { justify-content: center; margin-top: 16px; }
 .chips span { background: var(--card); border-radius: 14px; padding: 8px 12px; font-size: 15px; font-weight: 600; }
-.chips button { background: var(--card); border: 0; border-radius: 14px; padding: 11px 16px; font-size: 15px; font-weight: 600; cursor: pointer; }
+.chips button { background: var(--card); border: 0; border-radius: 14px; padding: 11px 12px; font-size: 15px; font-weight: 600; cursor: pointer; }
 .chips.sel button.on { background: var(--g); color: #fff; }
 
 /* 상태 표시: 확실 / 어림값 / 확인 필요 / 계산 보류 / 신고 */
@@ -159,7 +159,8 @@ div.kv { cursor: default; }
 .lg span::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--g); }
 .lg .o::before { background: var(--o-bar); }
 .lg .r::before { background: var(--r-bar); }
-.mini .hd { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 15px; color: var(--sub); font-weight: 600; margin-bottom: 12px; }
+.mini .hd { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; font-size: 15px; color: var(--sub); font-weight: 600; margin-bottom: 12px; }
+.mini .hd b, .mini .hd span { white-space: nowrap; }
 .mini .hd b { color: var(--ink); font-size: 17px; }
 .mini .hd span { color: var(--g); font-weight: 700; font-size: 15px; }
 .bars { display: flex; align-items: flex-end; gap: 4px; height: 64px; }
