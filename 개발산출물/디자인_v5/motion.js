@@ -33,7 +33,7 @@
   });
 
   // 2) 스크롤 등장. 자주 쓰는 블록에는 자동으로 붙이고, 같은 부모 안에서는 차례로 늦게 나오게 한다.
-  var auto = '.sec-head, .cols3 > *, .ledger tbody tr, .cards > *, .rules > *, .basis > *, .alt tbody tr, .cmp tbody tr, .detail > *, .vs > *, .letter, .end, .close, .dipnote, .page-head > *, .up > *, .rows > li, .res-r, .hero > div:first-child > *, .fig, .receipt .ln, .receipt .total, .stamp';
+  var auto = '.sec-head, .tickets > *, .row2, .cards > *, .rules > *, .basis > *, .alt tbody tr, .cmp tbody tr, .detail > *, .vs > *, .letter, .end, .close > *, .dipnote, .page-head > *, .up > *, .rows > li, .res-r, .receipt .ln, .receipt .total, .stamp';
   document.querySelectorAll(auto).forEach(function (el) { el.setAttribute('data-reveal', ''); });
   var seen = new Map();
   document.querySelectorAll('[data-reveal]').forEach(function (el) {
