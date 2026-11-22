@@ -13,7 +13,8 @@
   --weak: #ECE8DF;
   --weak-hover: #E5E0D5;
   --weak-press: #DCD6C9;
-  --tap: #F6F4EF;
+  --edge: #CFC8BA;  /* 종이색 바탕 위 흰 버튼·카드: 마우스를 올리거나 누르면 테두리를 이 색으로 */
+  --fill: #EFEBE3;  /* 흰 카드 안의 줄: 마우스를 올리거나 누르면 안쪽 띠를 이 색으로(종이색보다 조금 진함) */
   --g: #0A6352;
   --g-hover: #085646;
   --g-press: #064438;
@@ -103,8 +104,9 @@ mark.rd { background: linear-gradient(transparent 56%, var(--mark-red) 56%); }
 .rows { background: var(--card); border-radius: 24px; padding: 8px 0; }
 .t2 + .rows, .t2 + .gline + .rows { margin-top: 24px; }
 .row { display: flex; align-items: center; gap: 16px; padding: 12px 24px; width: 100%; background: none; border: 0; text-align: left; cursor: default; }
-button.row { cursor: pointer; min-height: 64px; transition: background-color .12s; }
-button.row:active { background: var(--tap); }
+button.row { cursor: pointer; min-height: 64px; border-radius: 24px; transition: background-color .12s; }
+/* 흰 카드 안의 줄은 가장자리를 흰색으로 남긴 안쪽 띠로 보여 줘서 카드가 바탕과 이어져 보이지 않게 한다 */
+button.row:active, button.kv:active, a.kv:active { background: var(--fill); box-shadow: inset 0 0 0 4px var(--card); }
 .row .ic, .drop .ic, .big { display: flex; align-items: center; justify-content: center; border-radius: 14px; background: var(--g-soft); color: var(--g); flex: none; }
 .row .ic { width: 40px; height: 40px; }
 .ic.red { background: var(--r-soft); color: var(--r); }
@@ -117,7 +119,7 @@ button.row:active { background: var(--tap); }
 .row .ch .i, .kv .i { width: 16px; height: 16px; color: var(--muted); stroke-width: 2.2; }
 .kvs { padding: 8px 0; }
 .kv { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 24px; width: 100%; background: none; border: 0; text-align: left; font-size: 17px; color: var(--ink); text-decoration: none; cursor: pointer; transition: background-color .12s; }
-button.kv:active, a.kv:active { background: var(--tap); }
+button.kv, a.kv { border-radius: 24px; }
 div.kv { cursor: default; }
 .kv .k { color: var(--sub); display: flex; align-items: center; gap: 8px; }
 .kv .v { font-weight: 700; display: flex; align-items: center; gap: 8px; text-align: right; }
@@ -130,7 +132,7 @@ div.kv { cursor: default; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .chips.center { justify-content: center; margin-top: 16px; }
 .chips span { background: var(--card); border-radius: 14px; padding: 8px 12px; font-size: 15px; font-weight: 600; }
-.chips button { background: var(--card); border: 0; border-radius: 14px; padding: 11px 12px; font-size: 15px; font-weight: 600; cursor: pointer; }
+.chips button { background: var(--card); border: 2px solid transparent; border-radius: 14px; padding: 9px 10px; font-size: 15px; font-weight: 600; cursor: pointer; }
 .chips.sel button.on { background: var(--g); color: #fff; }
 
 /* 상태 표시: 확실 / 어림값 / 확인 필요 / 계산 보류 / 신고 */
@@ -353,7 +355,10 @@ select { min-height: 48px; }
 .cta:active:not(:disabled), .opt:active, .seg-b:active, .chips button:active, .sb:active, .acts button:active, .add:active, .better:active, .cmp:active, .opc:active, .pv.tap:active, .cal-d:active, .cal-nav:active:not(:disabled), .backb:active, .logo:active, .link:active { transform: scale(.97); }
 .cta:active:not(:disabled) { background: var(--g-press); }
 .cta.weak:active:not(:disabled), .sb:active, .acts button:active { background: var(--weak-press); }
-.opt:active, .seg-b:active:not(.on), .chips button:active:not(.on), .cmp:active, .opc:active, .pv.tap:active { background: var(--tap); }
+/* 종이색 바탕 위 흰 버튼·카드는 바탕색에 가까워지지 않게, 배경 대신 테두리 색을 진하게 한다 */
+.opt:active:not(.on), .seg-b:active:not(.on), .chips button:active:not(.on), .cmp:active, .opc:active:not(.on) { border-color: var(--edge); }
+/* 흰 창·흰 카드 안에서 종이색으로 칠한 버튼은 배경을 한 단계 진하게 */
+.panel .opt:active:not(.on), .panel .seg-b:active:not(.on), .panel .chips button:active:not(.on), .cal .chips button:active { background: var(--weak); border-color: transparent; }
 .chips.sel button.on:active { background: var(--g-press); }
 .better:active { background: var(--g-soft-press); }
 .add:active, .backb:active, .cal-nav:active:not(:disabled), .link:active { background: var(--weak); }
@@ -362,7 +367,11 @@ select { min-height: 48px; }
 @media (hover: hover) and (pointer: fine) {
   .cta:hover:not(:disabled) { background: var(--g-hover); }
   .cta.weak:hover:not(:disabled), .sb:hover, .acts button:hover { background: var(--weak-hover); }
-  .opt:hover:not(.on), .seg-b:hover:not(.on), .chips button:hover:not(.on), .cmp:hover, .opc:hover:not(.on), .pv.tap:hover, button.row:hover, button.kv:hover, a.kv:hover { background: var(--tap); }
+  .opt:hover:not(.on), .seg-b:hover:not(.on), .chips button:hover:not(.on), .cmp:hover, .opc:hover:not(.on) { border-color: var(--edge); }
+  .panel .opt:hover:not(.on), .panel .seg-b:hover:not(.on), .panel .chips button:hover:not(.on), .cal .chips button:hover { background: var(--weak); border-color: transparent; }
+  button.row:hover, button.kv:hover, a.kv:hover { background: var(--fill); box-shadow: inset 0 0 0 4px var(--card); }
+  /* 예시 영수증은 종이 모양을 그대로 두고 '이 예시로 해 보기'만 진하게 */
+  .pv.tap:hover .pv-go { color: var(--g-press); text-decoration: underline; text-underline-offset: 3px; }
   .chips.sel button.on:hover { background: var(--g-hover); }
   .better:hover { background: var(--g-soft-press); }
   .add:hover, .backb:hover, .cal-nav:hover:not(:disabled), .link:hover, .logo:hover { background: var(--weak); }
@@ -380,7 +389,6 @@ select { min-height: 48px; }
 .panel .two, .panel > .cta { margin-top: 24px; }
 .panel .stepper, .panel .unit, .panel .opt:not(.on), .panel .chips button { background: var(--bg); }
 .panel .sb { background: var(--card); }
-.panel .opt:not(.on):active, .panel .chips button:not(.on):active { background: var(--weak); }
 .sheet.opening .panel { animation: sheet-up .25s var(--ease) backwards; }
 .sheet.opening .dim { animation: fade-in .25s linear backwards; }
 .sheet.closing { pointer-events: none; }
