@@ -69,7 +69,9 @@ a { color: var(--p); }
 .tagline { display: none; font-size: 15px; color: var(--sub); }
 .backb { min-width: 44px; height: 44px; border: 0; background: none; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 0 8px 0 4px; cursor: pointer; border-radius: 14px; flex: none; font: inherit; font-size: 15px; font-weight: 600; color: var(--ink); }
 .backb .i { width: 24px; height: 24px; stroke-width: 2; }
-.seg { flex: 1; display: flex; gap: 4px; margin-right: 8px; }
+.seg-wrap { flex: 1; margin-right: 8px; position: relative; }
+.seg { display: flex; gap: 4px; }
+.seg-names { display: none; }
 .seg i { flex: 1; height: 4px; border-radius: 8px; background: var(--track); }
 .seg i.on { background: var(--p); }
 
@@ -480,6 +482,24 @@ select { min-height: 48px; }
   /* 글자: 휴대폰의 13px 글(단계 표시, 상태 표시, 설명 글, 범례, 그래프 숫자)은 PC에서 14px로 */
   .small, .step, .chip, .legend, .tagm, .lg, .bars-x span, .stamp, .better small, .quote .cap, .form .gline, .help .gline, .cal-g .dow, .meta, .kv.col2 .k small, .steps3 li::before { font-size: 14px; }
   .disc { font-size: 14px; line-height: 21px; }
+
+  /* 진행 막대 아래 단계 이름: 지금 단계는 진하고 굵게, 나머지는 보조 글자색(대비 6.6:1).
+     막대 높이 자리는 그대로 두고 이름 줄만 아래에 걸어 둬서, 위쪽 막대 높이(56px)와 막대 위치가 바뀌지 않는다 */
+  .seg-names { display: flex; gap: 4px; position: absolute; left: 0; right: 0; top: 10px; font-size: 14px; line-height: 18px; color: var(--sub); }
+  .seg-names span { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .seg-names .on { color: var(--ink); font-weight: 700; }
+
+  /* 질문 화면 왼쪽 칸 아래 '계산할 조건': 지금 계산하는 조건을 작게. 조건 확인 중이면 묻고 있는 줄을 굵게 */
+  .cond-card { margin-top: 24px; background: var(--card); border-radius: 24px; padding: 20px 24px; }
+  .cc-title { margin: 0 0 10px; font-size: 14px; font-weight: 700; color: var(--sub); }
+  .cc-rows { margin: 0; display: grid; gap: 6px; }
+  .cc-rows > div { display: grid; grid-template-columns: 5.5em minmax(0, 1fr); gap: 12px; font-size: 15px; line-height: 22px; }
+  .cc-rows dt { color: var(--sub); }
+  .cc-rows dd { margin: 0; color: var(--ink); }
+  .cc-rows > .on dt, .cc-rows > .on dd { color: var(--ink); font-weight: 700; }
+  .cc-offer { margin: 0; font-size: 15px; line-height: 22px; color: var(--ink-2); }
+  .cc-offer + .cc-offer { margin-top: 10px; }
+  .cc-offer b { display: block; color: var(--ink); }
 
   /* 크기: 휴대폰 크기 그대로면 PC 화면이 허전해서 제목과 질문 화면의 답하는 칸을 키운다(결과 화면 제목은 그대로) */
   .t2:not(.res) { font-size: 36px; line-height: 46px; letter-spacing: -1px; }

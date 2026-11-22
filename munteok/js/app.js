@@ -24,6 +24,8 @@ const MAX_TEXT = 4000; // AI 서버(api/extract.js)가 받는 글자 수와 같�
 
 // 단계 막대: 6칸. 시작 화면과 안내 화면에는 막대 대신 로고를 보인다.
 const STEP_GROUP = { upload: 0, input: 0, samples: 0, confirm: 1, offers: 1, profile: 2, compare: 3, result: 3, alts: 4, message: 4, basis: 5 };
+// 진행 막대 6칸의 이름. PC에서만 막대 아래에 보인다. 첫 단계는 시작 화면의 3단계와 같은 말을 쓴다.
+const STEP_NAMES = [AI_OFF ? '조건 넣기' : '공고 올리기', '조건 확인', '내 상황', '결과', '근무조건 비교', '시작 전 준비'];
 const STATUS_LABEL = { [STATUS.CONFIRMED]: '확실', [STATUS.ESTIMATED]: '어림값', [STATUS.CHECK]: '확인 필요' };
 const PAY_LABEL = { wage: '4대보험 떼고 받음', business: '3.3% 떼고 받음', daily: '일당으로 받음', unknown: '모름' };
 const PAY_ASK = { wage: '4대보험 떼고 받는', business: '3.3% 떼고 받는', daily: '일당으로 받는' };
@@ -601,7 +603,8 @@ function viewConfirm() {
           <h1 class="t2">주휴수당은<br>어떻게 받나요?</h1>
           <p class="sub">공고에 없어서 물어봐요. 모르면 '따로 받아요'로 계산해요</p>
           <div class="cb"><div class="opts">${opt(false, '시급과 따로 받아요')}${opt(true, '시급에 포함돼 있어요')}</div></div>
-          ${why(WHY[key])}`,
+          ${why(WHY[key])}
+          ${conditionsCard(key)}`,
       };
     }
     return {
@@ -609,7 +612,8 @@ function viewConfirm() {
       html: `<span class="step">확인 ${n} / ${total}</span>
         <h1 class="t2">${askText(key, f[key])}</h1>
         <div class="cb">${evidenceHtml(f[key])}</div>
-        ${why(WHY[key])}`,
+        ${why(WHY[key])}
+        ${conditionsCard(key)}`,
       bottom: two(weak('고칠게요', 'editField', `data-key="${key}"`), cta('맞아요', 'reviewOk', `data-key="${key}"`)),
     };
   }
@@ -622,7 +626,8 @@ function viewConfirm() {
         <h1 class="t2">${q.ask}</h1>
         <p class="sub">공고에 적혀 있지 않아서 물어봐요</p>
         <div class="cb"><div class="${q.grid ? 'grid3' : 'opts'}">${q.options.map(([v, l]) => `<button type="button" class="opt" data-action="answer" data-key="${key}" data-value="${v}">${esc(l)}</button>`).join('')}</div></div>
-        ${why(q.why)}`,
+        ${why(q.why)}
+        ${conditionsCard(key)}`,
     };
   }
   const keys = relevantKeys(f);
@@ -652,6 +657,20 @@ function offerLine(f) {
   const when = f.months.unit === 'date' ? spanText(f.months.start, f.months.end) : f.months.unit === 'picked' ? valueText('months', f.months) : `${f.startMonth.value}월부터 ${valueText('months', f.months)}`;
   return `시급 ${won(f.hourlyWage.value)} · ${valueText('weeklyHours', f.weeklyHours)} · ${when}`;
 }
+// PC 질문 화면 왼쪽 칸 아래 '계산할 조건'(휴대폰에서는 숨김). 내 상황 질문은 저장한 제안(offerLine, 여러 개면 이름과 함께 3개까지),
+// 조건 확인 질문은 지금 고치는 값(FIELD_NAME + valueText, 모르는 값은 '모름')을 보인다. 묻고 있는 줄(askingKey)은 굵게.
+function conditionsCard(askingKey = null) {
+  let body = '';
+  if (state.step === 'profile') {
+    const list = state.offers.slice(0, MAX_OFFERS);
+    body = list.map((o) => `<p class="cc-offer">${list.length > 1 ? `<b>${esc(o.name)}</b>` : ''}<span class="num">${esc(offerLine(o.fields))}</span></p>`).join('');
+  } else if (state.fields) {
+    const f = state.fields;
+    body = `<dl class="cc-rows">${relevantKeys(f).map((k) => `<div class="${k === askingKey ? 'on' : ''}"><dt>${FIELD_NAME[k]}</dt><dd class="num">${esc(valueText(k, f[k]))}</dd></div>`).join('')}</dl>`;
+  }
+  return body ? `<section class="cond-card pc-only" aria-label="계산할 조건"><p class="cc-title" aria-hidden="true">계산할 조건</p>${body}</section>` : '';
+}
+
 // 기간을 일수로 넣었으면 days로, 날짜로 넣었으면 startDate·endDate로 넘긴다. 계산은 그 기간 동안의 돈으로 한다.
 // 요일을 넣었으면 workDays로 넘겨, 날짜로 넣은 기간에서 실제 근무일을 센다.
 function jobOf(f) {
@@ -750,6 +769,7 @@ function viewProfile() {
   const i = Math.min(state.profileQ, qs.length - 1);
   const { q, askTax } = qs[i];
   const head = `<span class="step">질문 ${i + 1} / ${qs.length}</span>`;
+  const card = conditionsCard();
   const next = i === qs.length - 1 ? cta('결과 보기', 'calculate') : cta('다음', 'nextQ');
   // PC에서는 왼쪽에 단계·질문·'왜 물어보나요?', 오른쪽(.cb)에 답하는 칸. 휴대폰은 마크업 순서 그대로 위에서 아래로.
   if (q === 'maxHours') {
@@ -764,7 +784,8 @@ function viewProfile() {
         ${state.profileError ? `<p class="gline warn" role="alert">${esc(state.profileError)}</p>` : ''}
         ${over ? `<p class="gline">받은 제안(주 ${longest}시간)이 이 시간을 넘어요. 그 제안은 "할 수 있는 시간 초과"로 표시돼요</p>` : ''}
         </div>
-        ${why('이 시간 안에서만 근무조건을 비교해요. 수업이나 훈련 시간은 빼고 알려 주세요.')}`,
+        ${why('이 시간 안에서만 근무조건을 비교해요. 수업이나 훈련 시간은 빼고 알려 주세요.')}
+        ${card}`,
       bottom: next,
     };
   }
@@ -777,7 +798,8 @@ function viewProfile() {
         ${p.allowance !== 'no' ? `<p class="lbl">몇 월까지 받나요?</p>${monthGrid('allowanceEndMonth', p.allowanceEndMonth)}
           <p class="gline">구직촉진수당은 최대 6개월 받아요. 끝나는 달은 고용24나 고용센터(1350)에서 확인할 수 있어요</p>` : ''}
         </div>
-        ${why('수당을 받는 동안 돈을 벌면 수당이 줄 수 있어요. 끝나는 달을 알면 그 뒤로는 줄어드는 돈 없이 계산해요.')}`,
+        ${why('수당을 받는 동안 돈을 벌면 수당이 줄 수 있어요. 끝나는 달을 알면 그 뒤로는 줄어드는 돈 없이 계산해요.')}
+        ${card}`,
       bottom: next,
     };
   }
@@ -789,7 +811,8 @@ function viewProfile() {
         ${stepper('p-age', p.age, '살', 15, 99, 99)}
         ${state.profileError ? `<p class="gline warn" role="alert">${esc(state.profileError)}</p>` : ''}
         </div>
-        ${why('부모님 세금 공제는 자녀가 만 20세 이하일 때만 받을 수 있어요. 21세 이상이면 다음 질문에서 세금은 묻지 않고 건강보험만 물어봐요.')}`,
+        ${why('부모님 세금 공제는 자녀가 만 20세 이하일 때만 받을 수 있어요. 21세 이상이면 다음 질문에서 세금은 묻지 않고 건강보험만 물어봐요.')}
+        ${card}`,
       bottom: next,
     };
   }
@@ -812,7 +835,8 @@ function viewProfile() {
         ${p.taxDependent === 'unknown' ? '<p class="gline">부모님 연말정산 서류에 나와요. 부모님께 여쭤보세요</p>' : ''}`
         : `<p class="gline">만 ${maxAge}세를 넘어서 부모님 세금 공제는 묻지 않아요. 건강보험 피부양자는 나이가 아니라 소득으로 정해져서 물어봐요</p>`}
         </div>
-        ${why('돈을 벌면 부모님 보험이나 세금이 달라질 수 있어요. 모르면 올라 있다고 보고 계산하고 "확인 필요"로 표시해요.')}`,
+        ${why('돈을 벌면 부모님 보험이나 세금이 달라질 수 있어요. 모르면 올라 있다고 보고 계산하고 "확인 필요"로 표시해요.')}
+        ${card}`,
       bottom: next,
     };
   }
@@ -829,7 +853,8 @@ function viewProfile() {
           <label for="y-daily">일당으로 받은 돈</label><div class="unit"><input id="y-daily" type="number" inputmode="numeric" min="0" value="${p.ytdIncome.daily || ''}" placeholder="0"><span>원</span></div>
         </div>` : ''}
         </div>
-        ${why('1년 기준은 올해 번 돈을 모두 더해서 봐요.')}`,
+        ${why('1년 기준은 올해 번 돈을 모두 더해서 봐요.')}
+        ${card}`,
       bottom: next,
     };
   }
@@ -845,7 +870,8 @@ function viewProfile() {
       ${(p.otherSupports || []).includes('unemploymentBenefit') ? `<p class="lbl">실업급여는 몇 월까지 받나요?</p>${monthGrid('unemploymentEndMonth', p.unemploymentEndMonth ?? 'unknown')}
         <p class="gline">끝나는 달을 알면, 그 뒤로는 줄어들 실업급여가 없다는 것까지 알려 드려요</p>` : ''}
       </div>
-      <p class="gline">여러 개 고를 수 있어요. 이 지원들은 계산하지 않고 물어볼 곳만 알려 드려요</p>`,
+      <p class="gline">여러 개 고를 수 있어요. 이 지원들은 계산하지 않고 물어볼 곳만 알려 드려요</p>
+      ${card}`,
     bottom: next,
   };
 }
@@ -1490,7 +1516,8 @@ const VIEWS = { start: viewStart, upload: viewUpload, samples: viewSamples, inpu
 function topHtml(v) {
   if (v.top === 'logo') return `<button type="button" class="logo" data-action="home" aria-label="한끗 처음 화면">${LOGO}</button><span class="tagline">한 끗 차이로 달라지는 내 돈, 일하기 전에 확인해요</span>`;
   const group = STEP_GROUP[state.step];
-  const seg = group === undefined ? '' : `<div class="seg" role="progressbar" aria-label="진행 단계" aria-valuemin="1" aria-valuemax="6" aria-valuenow="${group + 1}">${Array.from({ length: 6 }, (_, i) => `<i class="${i <= group ? 'on' : ''}"></i>`).join('')}</div>`;
+  // 단계 이름 줄은 화면 읽기 프로그램이 두 번 읽지 않게 숨기고, 막대의 aria-valuetext로 지금 단계 이름을 알린다.
+  const seg = group === undefined ? '' : `<div class="seg-wrap"><div class="seg" role="progressbar" aria-label="진행 단계" aria-valuemin="1" aria-valuemax="6" aria-valuenow="${group + 1}" aria-valuetext="${STEP_NAMES[group]} (6단계 중 ${group + 1}단계)">${Array.from({ length: 6 }, (_, i) => `<i class="${i <= group ? 'on' : ''}"></i>`).join('')}</div><div class="seg-names" aria-hidden="true">${STEP_NAMES.map((n, i) => `<span class="${i === group ? 'on' : ''}">${n}</span>`).join('')}</div></div>`;
   return `<button type="button" class="backb" data-action="back">${icon('back')}<span>뒤로</span></button>${seg}`;
 }
 
