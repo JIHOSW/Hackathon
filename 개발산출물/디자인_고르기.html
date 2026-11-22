@@ -26,6 +26,10 @@
   .v5 b { font-weight: 800; }
   .v5 b em { font-style: normal; color: #d33a25; }
   .v5::after { content: ""; position: absolute; right: 22px; top: 0; width: 64px; height: 96px; background: #fffefb; border-top: 10px solid #1c1b19; box-shadow: 0 8px 18px -8px rgba(0,0,0,.3); -webkit-mask: radial-gradient(5px at 50% 100%, transparent 98%, #000) 50% 100% / 10px 100% repeat-x; mask: radial-gradient(5px at 50% 100%, transparent 98%, #000) 50% 100% / 10px 100% repeat-x; }
+  .v7 { background: #e7ebe4; color: #17211c; border-bottom: 1px solid var(--line); }
+  .v7 b { font-weight: 300; }
+  .v7 b em { font-style: normal; font-weight: 700; }
+  .v7::after { content: "810,863"; position: absolute; right: 22px; top: 16px; font-size: 30px; font-weight: 200; letter-spacing: -.05em; color: #2347d9; }
   .body { padding: 22px; flex: 1; display: flex; flex-direction: column; }
   .body h2 { font-size: 20px; margin: 0 0 4px; letter-spacing: -.02em; }
   .body p { margin: 0 0 14px; color: var(--sub); font-size: 15px; }
@@ -40,7 +44,7 @@
 <body>
 <main>
   <h1>문턱 디자인 시안 고르기</h1>
-  <p class="lead">세 시안 모두 같은 화면 4장(시작 · 올리기 · 결과 · 제안 비교)과 같은 가상 숫자를 담았습니다. 분위기만 비교해서 하나를 골라 주세요.</p>
+  <p class="lead">네 시안 모두 같은 화면 4장(시작 · 올리기 · 결과 · 제안 비교)과 같은 가상 숫자를 담았습니다. 분위기만 비교해서 하나를 골라 주세요.</p>
   <div class="grid">
     <section class="opt">
       <div class="sw v3"><small>v3 · 기존</small><b>일을 늘리기 전,<br><em>지원이 바뀌는</em> 지점</b></div>
@@ -67,6 +71,15 @@
         <p>크라프트지 바탕에 검정 무대, 흰 영수증 한 장. 검정 잉크에 빼는 금액만 빨간 잉크.</p>
         <ul><li>첫 화면을 켜자마자 검정 무대 위로 영수증이 출력되고, 급여·4대보험·지원 조정분이 한 줄씩 찍힘</li><li>근무시간을 바꾸면 영수증 금액이 바로 바뀌고, 지원 조정 구간엔 도장이 찍힘</li><li>개성이 강해 기억에 남는 대신, 정보가 많은 화면은 단조로울 수 있음</li></ul>
         <div class="links"><a href="디자인_v5/01_시작_페이퍼_PC.html">01 시작</a><a href="디자인_v5/02_올리기_페이퍼_PC.html">02 올리기</a><a href="디자인_v5/03_결과_페이퍼_PC.html">03 결과</a><a href="디자인_v5/04_제안비교_페이퍼_PC.html">04 비교</a></div>
+      </div>
+    </section>
+    <section class="opt">
+      <div class="sw v7"><small>v7 · 새 시안 C</small><b>일을 늘리기 전,<br><em>지원이 바뀌는 지점</em></b></div>
+      <div class="body">
+        <h2>미니멀</h2>
+        <p>컨셉보다 완성도. 세이지(회녹색) 바탕에 아주 가는 큰 숫자와 가는 선, 강조색은 코발트 파랑 하나.</p>
+        <ul><li>첫 화면 가운데 큰 숫자 하나: 가는 선 위 점을 움직이면 월 실질 소득이 부드럽게 바뀜</li><li>첫 화면 뒤에 실질 소득 곡선을 설계도처럼 연하게 깔고, 기준선마다 작은 주석을 담</li><li>지원이 줄어드는 구간에서만 숫자가 파랑으로 바뀜 (우리 금융 화면에서 파랑은 줄어듦)</li><li>고급스럽고 차분한 대신, 첫인상의 개성은 v5보다 약함</li></ul>
+        <div class="links"><a href="디자인_v7/01_시작_미니멀_PC.html">01 시작</a><a href="디자인_v7/02_올리기_미니멀_PC.html">02 올리기</a><a href="디자인_v7/03_결과_미니멀_PC.html">03 결과</a><a href="디자인_v7/04_제안비교_미니멀_PC.html">04 비교</a></div>
       </div>
     </section>
   </div>

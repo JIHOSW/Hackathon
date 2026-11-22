@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>문턱 · 시작 (시안 v7 미니멀)</title>
+<link rel="stylesheet" href="style.css?v=2">
+</head>
+<body class="home">
+<header class="wrap mast">
+  <div class="mast-main">
+    <a class="brand" href="01_시작_미니멀_PC.html">문턱</a>
+    <nav class="links"><a href="#how">작동 방식</a><a href="#rules">계산하는 제도</a><a href="#samples">샘플</a><a href="04_제안비교_미니멀_PC.html">제안 비교</a></nav>
+    <a class="btn sm" href="02_올리기_미니멀_PC.html">계산 시작</a>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <div class="backdrop" aria-hidden="true">
+      <svg></svg>
+      <span class="bd-note" data-at="15" data-x="5" data-y="44" style="--d:1.6s"><b>주 15시간 · +218,988원</b>주휴수당이 붙고 4대보험이 시작돼요</span>
+      <span class="bd-note acc" data-at="24" data-x="83" data-y="16" style="--d:2s"><b>주 18~29시간 · −375,385원</b>구직촉진수당이 줄어드는 구간</span>
+      <span class="bd-note" data-at="30" data-x="85" data-y="50" style="--d:2.4s"><b>주 30시간부터</b>실질 소득이 다시 늘어요</span>
+    </div>
+    <p class="eyebrow" data-reveal>2026년 규칙 · <b>제도 4개</b>를 한 번에 계산</p>
+    <h1 data-split>일을 늘리기 전,<br><b>지원이 바뀌는 지점</b>을<br>먼저 보세요.</h1>
+    <p class="lead" data-reveal style="--i:3">근무시간이 늘면 급여와 함께 공제와 지원도 달라집니다. 문턱은 일 제안마다 넘게 되는 기준선과, 그걸 다 반영한 월 실질 소득을 보여 줍니다.</p>
+    <div class="cta" data-reveal style="--i:4">
+      <a class="btn" href="02_올리기_미니멀_PC.html">공고 올리고 계산하기 <span class="ar">→</span></a>
+      <a class="btn line" href="03_결과_미니멀_PC.html">예시 결과 보기</a>
+    </div>
+
+    <div class="dial" data-reveal style="--i:5" data-start="24" data-series="[[1,45623,0,0,45623],[2,91245,0,0,91245],[3,136868,0,0,136868],[4,182490,0,0,182490],[5,228113,0,0,228113],[6,273735,0,0,273735],[7,319358,0,0,319358],[8,364980,0,0,364980],[9,410603,0,0,410603],[10,456225,0,0,456225],[11,501848,0,0,501848],[12,547470,0,0,547470],[13,593093,0,0,593093],[14,638715,0,0,638715],[15,821206,79800,0,741406],[16,875952,85120,0,790832],[17,930700,90440,0,840260],[18,985446,95760,46903,842783],[19,1040194,101080,101651,837463],[20,1094940,106400,156397,832143],[21,1149688,111720,211145,826823],[22,1204434,117040,265891,821503],[23,1259181,122360,320638,816183],[24,1313928,127680,375385,810863],[25,1368676,133000,430133,805543],[26,1423422,138320,484879,800223],[27,1478170,143640,539627,794903],[28,1532916,148960,594373,789583],[29,1587664,154280,600000,833384],[30,1642410,159600,600000,882810],[31,1697158,164920,600000,932238],[32,1751904,170240,600000,981664],[33,1806652,175560,600000,1031092],[34,1861398,180879,600000,1080519],[35,1916146,186200,600000,1129946],[36,1970892,191519,600000,1179373],[37,2025640,196840,600000,1228800],[38,2080386,202159,600000,1278227],[39,2135134,207480,600000,1327654],[40,2189880,212799,600000,1377081]]">
+      <div class="dial-cap"><output class="out">주 1시간</output><span>일할 때 월 실질 소득</span></div>
+      <span class="big" aria-live="polite"><span class="big-n">0</span><small>원</small></span>
+      <div class="delta"><span class="r-note"></span></div>
+      <div class="curve" aria-hidden="true">
+        <svg></svg>
+        <span class="zlbl">실질 소득이 줄어드는 구간</span>
+        <i class="vline"></i><i class="knob"></i>
+      </div>
+      <input class="scrub" type="range" min="1" max="40" value="1" aria-label="주당 근무시간">
+      <div class="ticks" aria-hidden="true"><span style="left:0">1시간</span><span style="left:35.9%">15</span><span style="left:43.6%">18</span><span style="left:71.8%">29</span><span style="left:100%">40시간</span></div>
+      <div class="split">
+        <div><small>급여 · 주휴수당 포함</small><b class="r-gross">0원</b></div>
+        <div><small>4대보험</small><b class="r-cut">없음</b></div>
+        <div><small>구직촉진수당 조정</small><b class="r-loss">없음</b></div>
+      </div>
+      <p class="dial-foot">주말 카페 알바 · 시급 10,500원 · 구직촉진수당 월 60만 원을 받는 경우 (가상 예시). 선을 따라 움직여 보세요.</p>
+    </div>
+  </section>
+
+  <section class="sec" id="how">
+    <div class="sec-head"><div><span class="no">01</span><h2>공고 한 장이면<br>충분합니다.</h2></div><p>사진이든 메시지든, 받은 그대로 올리세요. 읽고, 확인하고, 계산하는 세 단계입니다.</p></div>
+    <div class="steps">
+      <div data-reveal><span class="n">01</span><h3>제안을 올립니다</h3><p>공고 사진, 메시지 붙여넣기, 직접 입력 중 편한 방식으로. AI가 시급·시간·기간·지급 방식을 읽습니다.</p></div>
+      <div data-reveal><span class="n">02</span><h3>조건을 확인합니다</h3><p>읽은 값마다 원문 근거를 붙이고, 확실하지 않은 값은 따로 표시합니다. 틀린 값은 바로 고칩니다.</p></div>
+      <div data-reveal><span class="n">03</span><h3>지점을 확인합니다</h3><p>어느 달에 어떤 기준선을 넘는지, 늘어난 급여와 달라지는 지원을 함께 계산합니다.</p></div>
+    </div>
+  </section>
+
+  <section class="sec" id="rules">
+    <div class="sec-head"><div><span class="no">02</span><h2>계산하는 제도</h2></div><p>원문을 확인한 제도만 계산합니다. 그 밖의 제도는 문의처만 안내합니다.</p></div>
+    <div class="list">
+      <div class="item" data-reveal><span class="n">01</span><b>부모 연말정산</b><small>부양가족 기본공제</small><em>연간 소득 기준</em></div>
+      <div class="item" data-reveal><span class="n">02</span><b>건강보험</b><small>피부양자 자격</small><em>연간 소득 기준</em></div>
+      <div class="item" data-reveal><span class="n">03</span><b>구직촉진수당</b><small>감액·중단</small><em>월 소득 기준</em></div>
+      <div class="item" data-reveal><span class="n">04</span><b>주 15시간 기준</b><small>주휴수당·4대보험</small><em>주당 근무시간</em></div>
+    </div>
+  </section>
+
+  <section class="sec" id="samples">
+    <div class="sec-head"><div><span class="no">03</span><h2>샘플로 바로<br>체험하기</h2></div><p>샘플은 지어낸 공고와 인물입니다.</p></div>
+    <div class="list">
+      <a class="item" href="03_결과_미니멀_PC.html" data-reveal><span class="n">A</span><b>주말 카페 알바 공고</b><small>구직촉진수당을 받는 훈련생</small><em>결과 보기 →</em></a>
+      <a class="item" href="04_제안비교_미니멀_PC.html" data-reveal><span class="n">B</span><b>3.3% 떼는 제안 메시지</b><small>부모의 피부양자인 대학생</small><em>결과 보기 →</em></a>
+      <a class="item" href="02_올리기_미니멀_PC.html" data-reveal><span class="n">C</span><b>지급 방식이 없는 공고</b><small>조건이 모호한 공고</small><em>조건 확인 →</em></a>
+      <a class="item" href="04_제안비교_미니멀_PC.html" data-reveal><span class="n">D</span><b>두 제안 나란히 비교하기</b><small>비교 모드</small><em>나란히 보기 →</em></a>
+    </div>
+  </section>
+
+  <section class="close">
+    <h2 data-reveal>다음 일, 시작하기 전에<br><b>먼저 계산해 보세요.</b></h2>
+    <a class="btn" href="02_올리기_미니멀_PC.html" data-reveal>새 계산 시작 <span class="ar">→</span></a>
+  </section>
+
+  <footer class="foot">
+    <span class="brand">문턱</span>
+    <div><p>참고용 계산이며 세무·법률 자문과 행정기관의 최종 판단을 대체하지 않습니다.</p><p>AI가 생성한 내용이 포함될 수 있습니다. 입력값은 서버에 저장하지 않습니다.</p></div>
+  </footer>
+</main>
+<script src="motion.js?v=1"></script>
+<script src="dial.js?v=2"></script>
+</body>
+</html>
