@@ -789,7 +789,7 @@ function viewProfile() {
         ${stepper('p-age', p.age, '살', 15, 99, 99)}
         ${state.profileError ? `<p class="gline warn" role="alert">${esc(state.profileError)}</p>` : ''}
         </div>
-        ${why('부모님 세금 공제는 자녀가 만 20세 이하일 때만 받을 수 있어요. 21세 이상이면 그 질문은 건너뛰어요.')}`,
+        ${why('부모님 세금 공제는 자녀가 만 20세 이하일 때만 받을 수 있어요. 21세 이상이면 다음 질문에서 세금은 묻지 않고 건강보험만 물어봐요.')}`,
       bottom: next,
     };
   }
@@ -810,7 +810,7 @@ function viewProfile() {
         ${askTax ? `<p class="lbl">부모님 연말정산에 부양가족으로 올라 있어요</p>
         <div class="seg3">${segBtn('taxDependent', 'yes', '네', p.taxDependent)}${segBtn('taxDependent', 'no', '아니요', p.taxDependent)}${segBtn('taxDependent', 'unknown', '모르겠어요', p.taxDependent)}</div>
         ${p.taxDependent === 'unknown' ? '<p class="gline">부모님 연말정산 서류에 나와요. 부모님께 여쭤보세요</p>' : ''}`
-        : `<p class="gline">만 ${maxAge}세를 넘으면 부모님 세금 공제 대상이 아니라서 묻지 않아요</p>`}
+        : `<p class="gline">만 ${maxAge}세를 넘어서 부모님 세금 공제는 묻지 않아요. 건강보험 피부양자는 나이가 아니라 소득으로 정해져서 물어봐요</p>`}
         </div>
         ${why('돈을 벌면 부모님 보험이나 세금이 달라질 수 있어요. 모르면 올라 있다고 보고 계산하고 "확인 필요"로 표시해요.')}`,
       bottom: next,
