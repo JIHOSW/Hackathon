@@ -190,14 +190,15 @@ function sampleSummary(id) {
 function viewStart() {
   const s = sampleSummary('cafe');
   const first = AI_OFF ? '조건 넣기' : '공고 올리기';
-  // PC에서는 왼쪽에 제목·대상·3단계·주 버튼, 오른쪽에 예시 영수증을 둔다. 휴대폰은 배치를 그대로 둔다(pc-only는 숨김).
+  // PC에서는 왼쪽에 제목·대상·3단계·주 버튼, 오른쪽에 예시 영수증을 둔다. 휴대폰은 배치를 그대로 두고(pc-only는 숨김), 대상 문장만 부제 아래에 작게 보인다.
+  // 부제는 첫 화면에서 AI가 하는 일(공고 읽기)과 계산은 공식 기준으로 한다는 것을 알린다. AI를 끈 체험 주소는 예전 부제 그대로다.
   return {
     top: 'logo',
     html: `<div class="hero">
       <h1 class="t1">일하기 전에<br><mark>내 돈</mark>부터 확인해요</h1>
-      <p class="sub">${AI_OFF ? '시급과 일하는 시간만 넣으면 3분 만에 끝나요' : '알바 공고 하나면 3분 만에 끝나요'}</p>
+      <p class="sub">${AI_OFF ? '시급과 일하는 시간만 넣으면 3분 만에 끝나요' : '알바 공고를 올리면 AI가 조건을 읽고, 계산은 공식 기준으로 해요'}</p>
     </div>
-    <p class="who pc-only">정부 지원을 받으면서 알바를 시작하려는 청년을 위해 만들었어요</p>
+    <p class="who">정부 지원을 받으면서 알바를 시작하려는 청년을 위해 만들었어요</p>
     <ol class="steps3 pc-only"><li>${first}</li><li>조건 확인</li><li>남는 돈</li></ol>
     <div class="start-cta pc-only">${cta(first, 'go', 'data-step="upload"')}${weak('예시로 먼저 해 보기', 'go', 'data-step="samples"')}</div>
     <div class="card pv tap rcpt" role="button" tabindex="0" data-action="sample" data-id="cafe" aria-label="주말 카페 알바 예시로 해 보기">
