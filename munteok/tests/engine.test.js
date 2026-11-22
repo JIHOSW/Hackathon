@@ -313,7 +313,9 @@ export function runTests(rules) {
   eq('날짜: 3개월이 안 되면 고용보험 없음', [r.pay.employmentIns, r.pay.insurance], [false, 0]);
   // 12월 20일~2027년 1월 10일: 2026년 안의 12일만 계산 (12,000×20×12/7 = 411,429원 + 다 채운 1주 48,000원)
   r = evaluate({ ...jobSpan, startDate: '2026-12-20', endDate: '2027-01-10' }, base, rules);
-  eq('날짜: 해를 넘기면 12월 31일까지만', [r.summary.addedIncome, r.summary.span.countedDays, r.summary.span.label], [459429, 12, '12월 20일~2027년 1월 10일']);
+  // 고른 날짜도 해를 넘기면 결과 제목에는 올해 안의 날만 쓴다 (금액이 올해 부분만이라서)
+  const pickCross = dateSpan({ workDates: ['2026-12-30', '2026-12-31', '2027-01-02'], dailyHours: 4 }, 2026);
+  eq('날짜: 해를 넘기면 12월 31일까지만 계산하고 제목도 올해 부분만', [r.summary.addedIncome, r.summary.span.countedDays, r.summary.span.label, r.summary.span.countedLabel, pickCross.label, pickCross.countedLabel], [459429, 12, '12월 20일~2027년 1월 10일', '12월 20일~31일', '12월 30일~2027년 1월 2일 중 3일', '12월 30일~31일 중 2일']);
   eq('날짜: 해를 넘기는 날 안내', r.notices.some((n) => n.includes('해를 넘기는 10일')), true);
   eq('날짜: 끝나는 날이 시작일보다 앞서면 날짜로 계산하지 않음', dateSpan({ startDate: '2026-04-10', endDate: '2026-03-25' }, 2026), null);
   // 11. 일하는 날을 하나씩 고른 경우 (하루 시간 × 고른 날)

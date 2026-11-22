@@ -125,6 +125,12 @@ export function dateSpan(job, year) {
   const md = (t, short = false) => { const d = new Date(t); return `${d.getUTCFullYear() !== year ? `${d.getUTCFullYear()}년 ` : ''}${short ? '' : `${d.getUTCMonth() + 1}월 `}${d.getUTCDate()}일`; };
   const sameMonth = monthOf(s) === monthOf(e) && new Date(s).getUTCFullYear() === new Date(e).getUTCFullYear();
   const underOneMonth = e < monthsLater(s, 1);
+  const label = picked ? `${md(s)}~${sameMonth ? md(e, true) : md(e)} 중 ${workDayCount}일` : `${md(s)}~${md(e)}`;
+  // 해를 넘기면 금액은 올해 안의 날만 계산하므로, 결과 제목에는 올해 안의 기간을 따로 쓴다.
+  const inYear = [...hoursByDay.keys()].filter((t) => t <= last);
+  const lastIn = picked ? inYear[inYear.length - 1] : last;
+  const crosses = picked ? uncountedWorkDays > 0 : e > last;
+  const countedLabel = crosses ? `${md(s)}~${monthOf(s) === monthOf(lastIn) ? md(lastIn, true) : md(lastIn)}${picked ? ` 중 ${inYear.length}일` : ''}` : label;
   return {
     picked,
     startMonth: monthOf(s),
@@ -140,7 +146,8 @@ export function dateSpan(job, year) {
     threeMonthsOrMore: e >= monthsLater(s, 3),
     // 한 달이 안 되는 일이면 며칠 일하는지 (고른 날짜는 일하는 날 수, 기간은 달력 날 수)
     shortJobDays: underOneMonth ? (picked ? workDayCount : totalDays) : null,
-    label: picked ? `${md(s)}~${sameMonth ? md(e, true) : md(e)} 중 ${workDayCount}일` : `${md(s)}~${md(e)}`,
+    label,
+    countedLabel,
   };
 }
 
@@ -632,7 +639,7 @@ export function evaluate(job, profile, rules) {
       allowanceLoss,
       net: pay.takeHome - allowanceLoss,
       // 날짜로 넣은 기간이면 위 금액은 기간 전체의 합계다.
-      span: span ? { label: span.label, totalDays: span.totalDays, countedDays: span.countedDays, workDays: span.workDays, picked: span.picked, workDayCount: span.workDayCount, maxWeekHours: span.maxWeekHours } : null,
+      span: span ? { label: span.label, countedLabel: span.countedLabel, uncountedDays: span.uncountedDays, totalDays: span.totalDays, countedDays: span.countedDays, workDays: span.workDays, picked: span.picked, workDayCount: span.workDayCount, maxWeekHours: span.maxWeekHours } : null,
       // 계산에 넣은 것과 넣지 않은 것. 화면에서 그대로 밝힌다.
       parts,
       confirmedNet,

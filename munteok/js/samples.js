@@ -15,7 +15,7 @@ export const SAMPLES = [
       incomeType: { value: 'wage', status: '확정', evidence: '4대보험 가입, 주휴수당 별도 지급' },
       holidayIncluded: { value: false, status: '확정', evidence: '주휴수당 별도 지급' },
     },
-    profile: { age: 27, maxHours: 28, allowance: 'yes', allowanceEndMonth: 6, healthDependent: 'no', taxDependent: 'no', ytdIncome: { wage: 0, daily: 0, business: 0 }, otherSupports: [] },
+    profile: { age: 27, maxHours: 30, allowance: 'yes', allowanceEndMonth: 6, healthDependent: 'no', taxDependent: 'no', ytdIncome: { wage: 0, daily: 0, business: 0 }, otherSupports: [] },
   },
   {
     id: 'tutor',
@@ -24,7 +24,7 @@ export const SAMPLES = [
     text: '[가상 샘플] 안녕하세요, 학원 채점 보조 구합니다. 주 3회(월·수·금) 저녁 6시~10시, 시급 13,000원이고 급여는 3.3% 떼고 월말에 입금해 드려요. 3월부터 12월까지 가능하실까요?',
     extraction: {
       hourlyWage: { value: 13000, status: '확정', evidence: '시급 13,000원' },
-      weeklyHours: { value: 12, status: '추정', evidence: '주 3회 저녁 6시~10시: 하루 4시간 × 3일로 계산' },
+      weeklyHours: { value: 12, status: '추정', evidence: '주 3회(월·수·금) 저녁 6시~10시: 하루 4시간 × 3일로 계산' },
       startMonth: { value: 3, status: '확정', evidence: '3월부터 12월까지' },
       months: { value: 10, status: '확정', evidence: '3월부터 12월까지' },
       incomeType: { value: 'business', status: '확정', evidence: '급여는 3.3% 떼고' },

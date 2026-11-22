@@ -24,7 +24,8 @@ const MAX_OFFERS = 3;
 // 단계 막대: 6칸. 시작 화면과 안내 화면에는 막대 대신 로고를 보인다.
 const STEP_GROUP = { upload: 0, input: 0, samples: 0, confirm: 1, offers: 1, profile: 2, compare: 3, result: 3, alts: 4, message: 4, basis: 5 };
 const STATUS_LABEL = { [STATUS.CONFIRMED]: '확실', [STATUS.ESTIMATED]: '어림값', [STATUS.CHECK]: '확인 필요' };
-const PAY_LABEL = { wage: '월급 · 4대보험', business: '3.3% 떼고 받음', daily: '일당으로 받음', unknown: '모름' };
+const PAY_LABEL = { wage: '4대보험 떼고 받음', business: '3.3% 떼고 받음', daily: '일당으로 받음', unknown: '모름' };
+const PAY_ASK = { wage: '4대보험 떼고 받는', business: '3.3% 떼고 받는', daily: '일당으로 받는' };
 const SAMPLE_TEXT = {
   cafe: ['주말 카페 알바', '정부 수당을 받는 훈련생'],
   tutor: ['3.3% 떼는 학원 보조', '부모님 보험에 올라 있는 대학생'],
@@ -465,7 +466,7 @@ function askText(key, f) {
   if (key === 'months') return f.unit === 'date' ? `<mark class="num">${spanText(f.start, f.end)}</mark><br>일하는 게 맞나요?` : `<mark class="num">${v}${f.unit === 'day' ? '일' : '개월'}</mark> 동안<br>일하는 게 맞나요?`;
   if (key === 'hourlyWage') return `시급이 <mark class="num">${won(v)}</mark>이<br>맞나요?`;
   if (key === 'startMonth') return `<mark class="num">${v}월</mark>부터<br>일하는 게 맞나요?`;
-  if (key === 'incomeType') return `급여는 <mark>${esc(PAY_LABEL[v])}</mark>가<br>맞나요?`;
+  if (key === 'incomeType') return `급여를 <mark>${esc(PAY_ASK[v] || PAY_LABEL[v])}</mark> 게<br>맞나요?`;
   return `주휴수당을 <mark>${v ? '시급에 포함해' : '따로'}</mark><br>받는 게 맞나요?`;
 }
 
@@ -596,7 +597,8 @@ function jobOf(f) {
   };
 }
 // 금액 앞에 붙이는 기간 말. 일수나 날짜로 넣은 제안은 한 달이 아니라 그 기간 동안의 돈이다.
-function periodOf(s) { return s && s.days ? `${s.days}일` : s && s.span ? s.span.label : null; }
+// 해를 넘기는 기간은 금액이 올해 부분만이라 올해 안의 기간(countedLabel)을 쓴다.
+function periodOf(s) { return s && s.days ? `${s.days}일` : s && s.span ? (s.span.countedLabel || s.span.label) : null; }
 function perLong(s) { const p = periodOf(s); return p ? `${p} 동안` : '한 달에'; }
 function perShort(s) { const p = periodOf(s); return p ? `${p} 동안` : '한 달'; }
 // 주휴수당 항목은 근로소득일 때만 의미가 있어, 그 밖에는 확인 안 된 조건으로 세지 않는다.
@@ -938,7 +940,7 @@ function viewCompare() {
   return {
     html: `<h1 class="t2">${title}</h1>
       ${rows.map((r, i) => `<button type="button" class="cmp" data-action="detail" data-i="${i}">
-        <span class="top"><span class="nm"><b>${esc(r.name)}</b>일주일에 ${r.job.weeklyHours}시간 · ${r.span ? r.span.label : r.days ? `${r.days}일` : `${r.workedMonths}개월`}</span><span class="amt2 num">${man(r.net)}</span></span>
+        <span class="top"><span class="nm"><b>${esc(r.name)}</b>일주일에 ${r.job.weeklyHours}시간 · ${r.span ? (r.span.countedLabel || r.span.label) : r.days ? `${r.days}일` : `${r.workedMonths}개월`}</span><span class="amt2 num">${man(r.net)}</span></span>
         ${moneyBar(r.result.summary, { scale, height: 12, legend: false })}
         <span class="meta"><span class="num">시간당 ${won(r.netPerHour)}</span>${lead(i)}${r.allowanceLoss ? '<span class="tagm need">정부 지원 줄어듦</span>' : ''}${r.result.summary.pendingIds.length ? `<span class="tagm need">확인 필요 ${r.result.summary.pendingIds.length}</span>` : ''}${r.withinHours ? '' : '<span class="tagm hold">할 수 있는 시간 초과</span>'}</span>
       </button>`).join('')}
