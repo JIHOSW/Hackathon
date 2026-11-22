@@ -249,8 +249,12 @@ function viewUpload() {
 
 function viewSamples() {
   const r = (id) => row({ title: SAMPLE_TEXT[id][0], sub: SAMPLE_TEXT[id][1], action: 'sample', attrs: `data-id="${id}"` });
+  // '제안 더하기'로 왔다면 예시를 고르는 순간 저장한 제안이 예시로 바뀌어 사라진다. 고르기 전에 알린다.
+  const n = state.offers.length;
+  const warn = n ? `<p class="gline warn">예시를 고르면 저장한 제안 ${n}개가 지워져요. 두 제안 비교는 '두 제안 비교하기' 예시로 볼 수 있어요</p>` : '';
   return {
     html: `<h1 class="t2">어떤 <mark>예시</mark>로<br>해 볼까요?</h1>
+    ${warn}
     <div class="rows">${r('cafe')}${r('tutor')}${r('store')}
       ${row({ title: '두 제안 비교하기', sub: '카페와 학원을 나란히', action: 'samplePair' })}</div>
     <p class="gline">예시는 지어낸 공고와 인물이에요</p>`,
@@ -1294,7 +1298,8 @@ function viewBasis() {
       <p class="gline">신고를 피하는 방법은 알려 드리지 않아요</p>
       <p class="gline center"><button type="button" class="inline" data-action="restart">내 입력 모두 지우기</button></p>
       </div>`,
-    bottom: two(weak('처음으로', 'restart'), cta(AI_OFF ? '다른 조건 넣기' : '다른 공고 올리기', 'newOffer')),
+    // 왼쪽 버튼은 결과로 돌아간다. 전에는 '처음으로'가 확인 없이 입력을 모두 지웠다(지우기는 가운데 '내 입력 모두 지우기'로만).
+    bottom: two(weak('결과 보기', 'back'), cta(AI_OFF ? '다른 조건 넣기' : '다른 공고 올리기', 'newOffer')),
   };
 }
 
@@ -1534,6 +1539,7 @@ function topHtml(v) {
 // 화면이 바뀔 때만 움직인다. 같은 화면을 다시 그릴 때(고르기, 입력)는 움직이지 않는다. 동작 줄이기 설정이면 모두 끈다.
 const reduceMotion = () => Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 let shownScreen = null;
+let screenChangedAt = 0; // 화면이 바뀐 시각. 빠르게 두 번 누를 때 두 번째 누르기를 막는 데 쓴다
 let countedKey = null;
 function screenKey() {
   const s = state.step;
@@ -1546,6 +1552,7 @@ function animateScreen() {
   const key = screenKey();
   const changed = key !== shownScreen;
   shownScreen = key;
+  if (changed) screenChangedAt = performance.now();
   app.classList.remove('enter', 'stagger');
   if (changed && !reduceMotion()) {
     void app.offsetWidth; // 애니메이션을 처음부터 다시 시작한다
@@ -1888,6 +1895,10 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('click', (e) => {
   const el = e.target.closest('[data-action]');
   if (!el || el.disabled) return;
+  // 화면이 바뀐 직후 0.35초 동안은 사람이 누른 것을 받지 않는다. 빠르게 두 번 누르면(PC 더블클릭 포함) 두 번째 누르기가
+  // 새 화면의 같은 자리 버튼(맞아요·다음·고르는 버튼)을 눌러, 보지 않은 질문을 건너뛰거나 답이 저절로 들어가기 때문이다.
+  // 같은 화면 안에서 다시 그릴 때(−/+ 버튼 등)는 화면이 바뀌지 않아 막지 않는다. 코드가 부른 클릭(isTrusted 아님)도 막지 않는다.
+  if (e.isTrusted && performance.now() - screenChangedAt < 350 && el.closest('#app, #bar')) { e.preventDefault(); return; }
   const a = el.dataset.action;
   const keep = () => render(true);
   switch (a) {
