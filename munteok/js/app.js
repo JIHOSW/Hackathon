@@ -167,11 +167,11 @@ function viewStart() {
     top: 'logo',
     html: `<div class="hero">
       <h1 class="t1">일하기 전에<br><mark>내 돈</mark>부터 확인해요</h1>
-      <p class="sub">${AI_OFF ? '시급과 일하는 시간만 넣으면 3분이면 돼요' : '알바 공고만 올리면 3분이면 돼요'}</p>
+      <p class="sub">${AI_OFF ? '시급과 일하는 시간만 넣으면 3분 만에 끝나요' : '알바 공고 하나면 3분 만에 끝나요'}</p>
     </div>
     <div class="card pv tap" role="button" tabindex="0" data-action="sample" data-id="cafe" aria-label="주말 카페 알바 예시로 해 보기">
       <span class="chip">예시</span>
-      <p class="pvt">주말 카페 알바로 <span class="num">${man(s.addedIncome)}</span>을 벌면,<br>실제로 남는 돈은 <mark class="num">${man(s.net)}</mark>이에요</p>
+      <p class="pvt">주말 카페 알바로 한 달에 <span class="num">${man(s.addedIncome)}</span>을 벌면,<br>실제로 남는 돈은 <mark class="num">${man(s.net)}</mark>이에요</p>
       ${moneyBar(s)}
       <span class="pv-go">이 예시로 해 보기${icon('ch')}</span>
     </div>
@@ -437,7 +437,7 @@ function viewInput() {
 const FIELD_NAME = { hourlyWage: '시급', weeklyHours: '일하는 시간', startMonth: '시작', months: '기간', incomeType: '급여', holidayIncluded: '주휴수당' };
 const FIELD_ORDER = ['weeklyHours', 'months', 'hourlyWage', 'startMonth', 'incomeType', 'holidayIncluded'];
 const WHY = {
-  weeklyHours: '일주일에 15시간이 넘으면 주휴수당과 4대보험이 달라져요. 그래서 시간이 가장 중요해요.',
+  weeklyHours: '일주일에 15시간 이상이면 주휴수당과 4대보험이 달라져요. 그래서 시간이 가장 중요해요.',
   months: '부모님 세금 공제 같은 기준은 1년 동안 번 돈으로 봐요. 그래서 몇 달 일하는지가 필요해요.',
   hourlyWage: '모든 금액이 시급에서 시작해요.',
   startMonth: '1년 기준은 1월부터 12월까지 번 돈을 더해서 봐요.',
@@ -548,7 +548,7 @@ function viewConfirm() {
     const key = missing[0];
     const q = QUESTIONS[key];
     return {
-      html: `<span class="step">질문 ${n} / ${total}</span>
+      html: `<span class="step">확인 ${n} / ${total}</span>
         <h1 class="t2">${q.ask}</h1>
         <p class="sub">공고에 적혀 있지 않아서 물어봐요</p>
         <div class="${q.grid ? 'grid3' : 'opts'}">${q.options.map(([v, l]) => `<button type="button" class="opt" data-action="answer" data-key="${key}" data-value="${v}">${esc(l)}</button>`).join('')}</div>
@@ -697,7 +697,8 @@ function viewProfile() {
   if (q === 'age') {
     return {
       html: `${head}<h1 class="t2"><mark>만 나이</mark>가<br>어떻게 되나요?</h1>
-        ${stepper('p-age', p.age, '살', 15, 45)}
+        ${stepper('p-age', p.age, '살', 15, 99)}
+        ${state.profileError ? `<p class="gline warn" role="alert">${esc(state.profileError)}</p>` : ''}
         ${why('부모님 세금 공제는 자녀가 만 20세 이하일 때만 받을 수 있어요. 21세 이상이면 그 질문은 건너뛰어요.')}`,
       bottom: next,
     };
@@ -845,7 +846,7 @@ function resultTitle(r, job) {
   if (job.incomeType === 'unknown') return `<h1 class="t2">${perLong(s)} <mark class="num">${mp.gross}만 원</mark>을<br>받아요</h1>`;
   if (s.allowanceLoss > 0) {
     const ended = state.result.cards.some((c) => c.ended);
-    return `<h1 class="t2">${periodOf(s) ? `${periodOf(s)} 동안<br>` : ''}<span class="num">${mp.gross}만 원</span>을 벌지만<br>실제로 남는 돈은<br><mark class="num">${mp.kept}만 원</mark>이에요</h1>
+    return `<h1 class="t2">${periodOf(s) ? `${periodOf(s)} 동안<br>` : '한 달에<br>'}<span class="num">${mp.gross}만 원</span>을 벌지만<br>실제로 남는 돈은<br><mark class="num">${mp.kept}만 원</mark>이에요</h1>
       <p class="cut">${mp.deduct ? '보험료와 ' : ''}${ended ? '끊기는' : '줄어드는'} 정부 지원으로 <mark class="rd"><b class="num">${mp.deduct + mp.loss}만 원</b></mark>이 빠져요</p>`;
   }
   return `<h1 class="t2">${perLong(s)} <mark class="num">${mp.kept}만 원</mark>이<br>남아요</h1>`;
@@ -863,7 +864,7 @@ function periodsCard(r) {
   // 수당을 받는 사람만 수당 상태를 보이고, 아니면 날짜로 넣은 기간의 일한 날 수를 보인다.
   const hasAllowance = r.cards.some((c) => c.id === 'jobSeekerAllowance');
   const small = (p) => (hasAllowance
-    ? (p.allowancePaid === null ? '수당 끝남' : p.allowancePaid > 0 ? `수당 ${won(p.allowancePaid)} 받음` : '수당 0원')
+    ? (p.allowancePaid === null ? '수당 끝남' : p.allowancePaid > 0 ? `수당 ${man(p.allowancePaid)} 받음` : '수당 0원')
     : r.pay.byMonth && p.from === p.to && r.pay.byMonth[p.from] ? `${r.pay.byMonth[p.from].workDays}일 일함` : '');
   return `<p class="sec">달마다 남는 돈</p><div class="rows kvs">${ps.map((p) => `<div class="kv col2"><span class="k"><b>${periodLabel(p)}</b><small>${small(p)}</small></span><span class="v num">${r.summary.span ? '' : '한 달 '}${man(p.net)}</span></div>`).join('')}</div>`;
 }
@@ -906,10 +907,11 @@ function viewResult() {
       ${r.outOfScope.length ? `<p class="sec">계산하지 않는 지원</p><div class="rows">${r.outOfScope.map((o) => row({ title: esc(o.title), sub: esc(o.note ? `${polite(o.note)} · ${o.contact}` : o.contact) })).join('')}</div>` : ''}
       ${r.warnings.map((w) => `<p class="gline warn" role="alert">${esc(polite(w))}</p>`).join('')}
       ${periodsCard(r)}
-      <div class="card mini"><div class="hd"><b>1년 동안 버는 돈</b><span class="num">12월까지 ${man(r.timeline.rows[11].cumulative.total)}</span></div>${yearBars(r)}</div>
+      <div class="card mini"><div class="hd"><b>1년 동안 버는 돈 (떼기 전)</b><span class="num">12월까지 ${man(r.timeline.rows[11].cumulative.total)}</span></div>${yearBars(r)}</div>
       ${linkBtn('금액 자세히 보기', 'amountSheet')}
       ${r.notApplicable.length ? `<details class="raw-box"><summary>해당 없어 계산하지 않은 것 ${r.notApplicable.length}가지</summary><ul>${r.notApplicable.map((n) => `<li><b>${esc(n.title)}</b> ${esc(polite(n.reason))}</li>`).join('')}</ul></details>` : ''}
       ${r.notices.map((n) => `<p class="gline">${esc(polite(n))}</p>`).join('')}
+      ${job.incomeType !== 'business' ? '<p class="gline">밤 10시~아침 6시, 하루 8시간을 넘는 시간, 휴일에 일해서 더 받는 수당(5명 이상 사업장)은 계산하지 않았어요</p>' : ''}
       ${multi ? linkBtn(`다른 제안과 비교하기`, 'go', 'data-step="compare"') : ''}
       ${DISCLAIMER}`,
     bottom: !state.alts ? cta(unknownPay ? '물어볼 말 보기' : '준비물 보기', 'go', 'data-step="basis"')
@@ -927,6 +929,15 @@ function yearBars(r) {
 
 // ---------------- 제안 비교 ----------------
 
+// 수당이 끝나 금액이 바뀌는 제안은 카드 금액이 언제까지의 금액인지 밝힌다 (결과 화면의 "N월까지 기준"과 같게).
+function laterNote(res) {
+  const ps = res.summary.periods;
+  if (!ps || ps.length < 2 || res.summary.span) return '';
+  const later = ps[ps.length - 1];
+  if (later.net === ps[0].net) return '';
+  return `<span class="gl2">${ps[0].to}월까지 기준 · ${later.from}월부터 한 달 ${man(later.net)}</span>`;
+}
+
 function viewCompare() {
   const c = state.comparison;
   const rows = c.rows;
@@ -943,6 +954,7 @@ function viewCompare() {
         <span class="top"><span class="nm"><b>${esc(r.name)}</b>일주일에 ${r.job.weeklyHours}시간 · ${r.span ? (r.span.countedLabel || r.span.label) : r.days ? `${r.days}일` : `${r.workedMonths}개월`}</span><span class="amt2 num">${man(r.net)}</span></span>
         ${moneyBar(r.result.summary, { scale, height: 12, legend: false })}
         <span class="meta"><span class="num">시간당 ${won(r.netPerHour)}</span>${lead(i)}${r.allowanceLoss ? '<span class="tagm need">정부 지원 줄어듦</span>' : ''}${r.result.summary.pendingIds.length ? `<span class="tagm need">확인 필요 ${r.result.summary.pendingIds.length}</span>` : ''}${r.withinHours ? '' : '<span class="tagm hold">할 수 있는 시간 초과</span>'}</span>
+        ${laterNote(r.result)}
       </button>`).join('')}
       <div class="lg"><span>남는 돈</span><span class="o">보험료·세금</span><span class="r">줄어드는 정부 지원</span></div>
       <p class="gline">금액은 한 달에 남는 돈이에요. 번 돈에서 보험료와 줄어드는 정부 지원을 뺀 돈이에요${anyDays ? '. 일수나 날짜로 넣은 제안은 그 기간 동안 남는 돈이라 한 달 금액과 바로 비교하기 어려워요' : ''}. 고르는 건 내 몫이에요. 카드를 누르면 자세히 볼 수 있어요</p>`,
@@ -993,6 +1005,9 @@ function altOptions(a) {
 function viewAlts() {
   const a = state.alts;
   const opts = altOptions(a);
+  // 만 원 단위로 같아 보이는 카드가 있으면 원 단위로 보여 준다 (예: 840,260원과 842,783원).
+  const mans = opts.map((o) => man(o.net));
+  const exact = new Set(mans).size < mans.length;
   const chosen = state.chosenHours ?? (a.offeredOutOfRange ? a.trace.to : a.offered);
   const scale = Math.max(...opts.map((o) => o.gross));
   const sumOf = (o) => ({ addedIncome: o.gross, insurance: o.gross - o.takeHome, withholding: 0, allowanceLoss: o.allowanceLoss });
@@ -1001,7 +1016,7 @@ function viewAlts() {
     html: `<h1 class="t2">${altsTitle(a)}</h1>
       ${a.offeredOutOfRange ? `<p class="gline warn">받은 제안(주 ${a.offered}시간)은 할 수 있는 시간을 넘어 비교에서 뺐어요</p>` : ''}
       <div role="radiogroup" aria-label="비교할 근무시간">${opts.map((o) => `<button type="button" role="radio" aria-checked="${o.weeklyHours === chosen}" class="opc ${o.weeklyHours === chosen ? 'on' : ''}" data-action="chooseHours" data-hours="${o.weeklyHours}">
-        <span class="top"><span class="nm num">주 ${o.weeklyHours}시간</span><span class="am">남는 돈 <b class="num">${man(o.net)}</b></span></span>
+        <span class="top"><span class="nm num">주 ${o.weeklyHours}시간</span><span class="am">남는 돈 <b class="num">${exact ? won(o.net) : man(o.net)}</b></span></span>
         <span class="gl2">${esc(o.name)}</span>
         ${moneyBar(sumOf(o), { scale, height: 12, legend: false })}
       </button>`).join('')}</div>
@@ -1713,6 +1728,12 @@ document.addEventListener('click', (e) => {
     case 'removeOffer': state.offers.splice(Number(el.dataset.i), 1); keep(); return;
     case 'detail': openOffer(Number(el.dataset.i)); state.step = 'result'; break;
     case 'nextQ': {
+      // 직접 친 숫자가 범위를 벗어나면 넘어가지 않고 알려 준다 (−/+ 버튼만 범위를 지키므로).
+      const cur = profileQuestions()[state.profileQ].q;
+      const typed = (id) => { const x = document.getElementById(id); return x && x.value !== '' ? Number(x.value) : null; };
+      const bad = cur === 'maxHours' && typed('p-max') !== null && !(typed('p-max') >= 1 && typed('p-max') <= 52) ? ['p-max', '일주일에 1~52시간 사이로 넣어 주세요']
+        : cur === 'age' && typed('p-age') !== null && !(typed('p-age') >= 15 && typed('p-age') <= 99) ? ['p-age', '만 나이는 15~99세 사이로 넣어 주세요'] : null;
+      if (bad) { state.profileError = bad[1]; keep(); document.getElementById(bad[0])?.focus(); return; }
       saveProfileInputs();
       if (profileQuestions()[state.profileQ].q === 'maxHours' && !state.profile.maxHours) {
         state.profileError = '일할 수 있는 최대 시간을 넣어 주세요. 비교는 이 시간 안에서만 해요';
