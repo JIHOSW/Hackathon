@@ -28,7 +28,7 @@ const PHOTO_BUDGET = 3_800_000; // 사진 base64 합계. Vercel 요청 한도(4.
 // 단계 막대: 6칸. 시작 화면과 안내 화면에는 막대 대신 로고를 보인다.
 const STEP_GROUP = { upload: 0, input: 0, samples: 0, confirm: 1, offers: 1, profile: 2, compare: 3, result: 3, alts: 4, message: 4, basis: 5 };
 // 진행 막대 6칸의 이름. PC에서만 막대 아래에 보인다. 첫 단계는 시작 화면의 3단계와 같은 말을 쓴다.
-const STEP_NAMES = [AI_OFF ? '조건 넣기' : '공고 올리기', '조건 확인', '내 상황', '결과', '근무조건 비교', '시작 전 준비'];
+const STEP_NAMES = [AI_OFF ? '조건 넣기' : '공고 올리기', '조건 확인', '내 상황', '결과', '근무시간 비교', '시작 전 준비'];
 const STATUS_LABEL = { [STATUS.CONFIRMED]: '확실', [STATUS.ESTIMATED]: '어림값', [STATUS.CHECK]: '확인 필요' };
 const PAY_LABEL = { wage: '4대보험 떼고 받음', business: '3.3% 떼고 받음', daily: '일당으로 받음', unknown: '모름' };
 const PAY_ASK = { wage: '4대보험 떼고 받는', business: '3.3% 떼고 받는', daily: '일당으로 받는' };
@@ -407,7 +407,8 @@ function viewInput() {
       html: `<div class="big">${icon(e.kind === 'notPosting' ? 'file' : 'noread')}</div>
         <h1 class="t2" role="alert">${title}</h1><p class="sub">${esc(sub)}</p>${tips}
         ${e.detail ? `<p class="gline">${esc(e.detail)}</p>` : ''}`,
-      bottom: two(weak(e.kind === 'tooLong' ? '다시 붙여 넣기' : '다시 읽기', 'retry'), cta('직접 입력하기', 'mode', 'data-mode="manual"')),
+      // '다시 읽기'는 서버 문제로 같은 공고를 다시 읽을 때만. 공고가 아니거나 사진을 못 읽었으면 입력 화면으로 돌아가므로 그 일을 버튼 이름으로 쓴다.
+      bottom: two(weak(e.kind === 'tooLong' ? '다시 붙여 넣기' : e.kind === 'server' ? '다시 읽기' : e.kind === 'photo' || state.mode === 'photo' ? '사진 다시 고르기' : '글 고치기', 'retry'), cta('직접 입력하기', 'mode', 'data-mode="manual"')),
     };
   }
   const hint = state.inputHint ? `<p class="gline warn" role="alert">${esc(state.inputHint)}</p>` : '';
@@ -663,7 +664,7 @@ function viewConfirm() {
       </div>`,
     bottom: state.editing !== null
       ? cta('이 조건으로 저장하기', 'saveDraft', ready ? '' : 'disabled')
-      : two(weak('제안 더하기', 'saveAndAdd', ready && state.offers.length < MAX_OFFERS - 0 ? '' : 'disabled'), cta('내 상황 입력하기', 'saveDraft', ready ? '' : 'disabled')),
+      : two(weak('제안 더하기', 'saveAndAdd', ready && state.offers.length < MAX_OFFERS - 1 ? '' : 'disabled'), cta('내 상황 입력하기', 'saveDraft', ready ? '' : 'disabled')),
   };
 }
 
@@ -964,7 +965,7 @@ function betterOptionAll() {
     return { hours: null, title: '할 수 있는 시간 안에서는 지금 조건이 가장 많이 남아요', sub: '근무시간을 바꾸면 어떻게 달라지는지 볼 수 있어요' };
   }
   const diff = best.weeklyHours - a.offered;
-  const support = best.allowanceEnded && !cur.allowanceEnded ? ' 구직촉진수당은 끝나요'
+  const support = best.allowanceEnded && !cur.allowanceEnded ? ' 구직촉진수당이 끊겨요'
     : best.allowanceLoss > cur.allowanceLoss ? (cur.allowanceLoss > 0 ? ' 구직촉진수당은 더 줄어요' : ' 구직촉진수당은 줄어요')
       : best.allowanceLoss < cur.allowanceLoss ? (best.allowanceLoss === 0 ? ' 구직촉진수당은 줄지 않아요' : ' 구직촉진수당은 덜 줄어요') : '';
   const until = allowanceUntil();
@@ -1007,7 +1008,7 @@ function periodsCard(r) {
   const hasAllowance = r.cards.some((c) => c.id === 'jobSeekerAllowance');
   const small = (p) => (hasAllowance
     ? (p.allowancePaid === null ? '수당 끝남' : p.allowancePaid > 0 ? `수당 ${man(p.allowancePaid)} 받음` : '수당 0원')
-    : r.pay.byMonth && p.from === p.to && r.pay.byMonth[p.from] ? `${r.pay.byMonth[p.from].workDays}일 일함` : '');
+    : r.pay.byMonth && p.from === p.to && r.pay.byMonth[p.from] ? `일한 날 ${r.pay.byMonth[p.from].workDays}일` : '');
   return `<p class="sec">달마다 남는 돈</p><div class="rows kvs">${ps.map((p) => `<div class="kv col2"><span class="k"><b>${periodLabel(p)}</b><small>${small(p)}</small></span><span class="v num">${r.summary.span ? '' : '한 달 '}${man(p.net)}</span></div>`).join('')}</div>`;
 }
 function nextPeriodLine(r) {
@@ -1060,9 +1061,9 @@ function viewResult() {
       ${multi ? linkBtn(`다른 제안과 비교하기`, 'go', 'data-step="compare"') : ''}
       ${DISCLAIMER}
       </div></div>`,
-    bottom: !state.alts ? cta(unknownPay ? '물어볼 말 보기' : '준비물 보기', 'go', 'data-step="basis"')
+    bottom: !state.alts ? cta(unknownPay ? '물어볼 말 보기' : '시작 전 준비', 'go', 'data-step="basis"')
       : unknownPay ? two(weak('근무시간 바꿔 보기', 'go', 'data-step="alts"').replace('cta weak', 'cta weak eq'), cta('물어볼 말 보기', 'go', 'data-step="basis"'))
-      : two(weak('준비물 보기', 'go', 'data-step="basis"'), cta('근무시간 바꿔 보기', 'go', 'data-step="alts"')),
+      : two(weak('시작 전 준비', 'go', 'data-step="basis"'), cta('근무시간 바꿔 보기', 'go', 'data-step="alts"')),
   };
 }
 
@@ -1090,6 +1091,7 @@ function viewCompare() {
   const scale = Math.max(...rows.map((r) => r.gross));
   const h = c.highlights;
   const anyDays = rows.some((r) => r.days || r.span);
+  const allDays = rows.every((r) => r.days || r.span);
   const title = rows.length > 1 && h.net !== -1 && h.netPerHour !== -1 && h.net !== h.netPerHour
     ? (anyDays ? '더 남는 제안과<br><mark>시간당</mark> 더 남는 제안이 달라요' : '<mark>한 달</mark>에 더 남는 제안과<br><mark>시간당</mark> 더 남는 제안이 달라요')
     : `제안 ${rows.length}개를<br><mark>같은 기준</mark>으로 계산했어요`;
@@ -1099,11 +1101,11 @@ function viewCompare() {
       <div class="cmp-grid">${rows.map((r, i) => `<button type="button" class="cmp" data-action="detail" data-i="${i}">
         <span class="top"><span class="nm"><b>${esc(r.name)}</b>일주일에 ${r.job.weeklyHours}시간 · ${r.span ? (r.span.countedLabel || r.span.label) : r.days ? `${r.days}일` : `${r.workedMonths}개월`}</span><span class="amt2 num">${man(r.net)}</span></span>
         ${moneyBar(r.result.summary, { scale, height: 12, legend: false })}
-        <span class="meta"><span class="num">시간당 ${won(r.netPerHour)}</span>${lead(i)}${r.allowanceLoss ? '<span class="tagm need">정부 지원 줄어듦</span>' : ''}${r.result.summary.pendingIds.length ? `<span class="tagm need">확인 필요 ${r.result.summary.pendingIds.length}</span>` : ''}${r.withinHours ? '' : '<span class="tagm hold">할 수 있는 시간 초과</span>'}</span>
+        <span class="meta"><span class="num">시간당 남는 돈 ${won(r.netPerHour)}</span>${lead(i)}${r.allowanceLoss ? '<span class="tagm need">정부 지원 줄어듦</span>' : ''}${r.result.summary.pendingIds.length ? `<span class="tagm need">확인 필요 ${r.result.summary.pendingIds.length}</span>` : ''}${r.withinHours ? '' : '<span class="tagm hold">할 수 있는 시간 초과</span>'}</span>
         ${laterNote(r.result)}
       </button>`).join('')}</div>
       <div class="lg"><span>남는 돈</span><span class="o">보험료·세금</span><span class="r">줄어드는 정부 지원</span></div>
-      <p class="gline">금액은 한 달에 남는 돈이에요. 번 돈에서 보험료와 줄어드는 정부 지원을 뺀 돈이에요${anyDays ? '. 일수나 날짜로 넣은 제안은 그 기간 동안 남는 돈이라 한 달 금액과 바로 비교하기 어려워요' : ''}. 고르는 건 내 몫이에요. 카드를 누르면 자세히 볼 수 있어요</p>`,
+      <p class="gline">${allDays ? '금액은 넣은 기간 동안 남는 돈이에요' : '금액은 한 달에 남는 돈이에요'}. 번 돈에서 보험료와 줄어드는 정부 지원을 뺀 돈이에요${anyDays && !allDays ? '. 일수나 날짜로 넣은 제안은 그 기간 동안 남는 돈이라 한 달 금액과 바로 비교하기 어려워요' : ''}. 고르는 건 내 몫이에요. 카드를 누르면 자세히 볼 수 있어요</p>`,
     bottom: two(weak('제안 더하기', 'addOffer', state.offers.length < MAX_OFFERS ? '' : 'disabled'), cta('내 상황 바꾸기', 'go', 'data-step="profile"')),
   };
 }
@@ -1219,7 +1221,7 @@ function viewAlts() {
         return row({ ic, cls, title: `주 ${c.weeklyHours}시간부터`, sub: esc(c.changes.map((y) => polite(y.text)).join(' · ')) });
       }).join('')}</div>
       <div class="cb">${notes}</div>` : notes}`,
-    bottom: two(weak('준비물 보기', 'go', 'data-step="basis"'), cta('이 시간으로 문구 만들기', 'go', 'data-step="message"')),
+    bottom: two(weak('시작 전 준비', 'go', 'data-step="basis"'), cta('이 시간으로 문구 만들기', 'go', 'data-step="message"')),
   };
 }
 
@@ -1256,7 +1258,7 @@ function viewMessage() {
       <pre class="msg" id="msg">${esc(messageText())}</pre>
       <p class="gline">근무시간과 일정만 담았어요. 고쳐서 보내도 돼요</p>
       ${linkBtn('다른 시간으로 바꾸기', 'go', 'data-step="alts"')}`,
-    bottom: two(weak('준비물 보기', 'go', 'data-step="basis"'), cta('문구 복사하기', 'copy')),
+    bottom: two(weak('시작 전 준비', 'go', 'data-step="basis"'), cta('문구 복사하기', 'copy')),
   };
 }
 
@@ -1459,12 +1461,25 @@ function sheetConsent() {
 // 아래 창은 부드럽게 올라오고(0.25초) 내려간다(0.2초). 열려 있는 동안 내용만 바뀔 때는 다시 움직이지 않는다.
 let sheetOpen = false;
 let sheetTimer = null;
+// 창을 닫으면 창을 연 버튼으로 키보드 초점을 돌려준다. 그 사이 화면을 다시 그렸으면 같은 동작·같은 값의 버튼을 찾는다.
+let sheetOpener = null;
+let lastActionEl = null;
+const openerKey = (el) => ['action', 'key', 'id', 'i'].map((k) => (el.dataset && el.dataset[k] ? `[data-${k}="${el.dataset[k]}"]` : '')).join('');
+function returnFocus() {
+  const o = sheetOpener;
+  sheetOpener = null;
+  if (!o) return;
+  const target = o.el.isConnected ? o.el : o.key ? document.querySelector(`#app ${o.key}, #bar ${o.key}`) : null;
+  if (target) target.focus({ preventScroll: true });
+}
 function renderSheet() {
   const sh = state.sheet;
   clearTimeout(sheetTimer);
   if (!sh) {
     const wasOpen = sheetOpen;
     sheetOpen = false;
+    document.documentElement.classList.remove('sheet-open');
+    if (wasOpen) returnFocus();
     sheetEl.classList.remove('opening');
     if (!wasOpen || reduceMotion()) { sheetEl.hidden = true; sheetEl.innerHTML = ''; sheetEl.classList.remove('closing'); return; }
     sheetEl.classList.add('closing');
@@ -1473,6 +1488,12 @@ function renderSheet() {
   }
   const opening = !sheetOpen;
   sheetOpen = true;
+  if (opening) {
+    const a = document.activeElement;
+    const o = a && a !== document.body && !sheetEl.contains(a) ? a : lastActionEl;
+    sheetOpener = o && o.dataset ? { el: o, key: openerKey(o) } : null;
+    document.documentElement.classList.add('sheet-open');
+  }
   sheetEl.classList.remove('closing', 'opening');
   const body = sh.type === 'consent' ? sheetConsent() : sh.type === 'edit' ? sheetEdit(sh.key) : sh.type === 'amounts' ? sheetAmounts() : sheetCard(sh.id);
   sheetEl.hidden = false;
@@ -1752,6 +1773,21 @@ function emptyFields() {
   return withDefaults({ hourlyWage: blank(null), weeklyHours: blank(null), startMonth: blank(null), months: blank(null), incomeType: blank('unknown') });
 }
 
+// 직접 입력에서 빈칸이나 범위를 벗어난 값으로 '조건 확인하기'를 누르면, 브라우저 말풍선(브라우저마다 다르고 놓치기 쉬움)과 함께
+// 그 칸 바로 아래에 이유를 적는다. 그 폼에서 다시 입력하면 지운다.
+document.addEventListener('invalid', (e) => {
+  const t = e.target;
+  if (!t.closest || !t.closest('#manual') || document.getElementById('m-invalid')) return;
+  const name = t.labels && t.labels[0] ? t.labels[0].textContent.trim() : '이 칸';
+  const msg = t.id === 'm-wage' ? '시급을 1~999,999원 사이로 넣어 주세요'
+    : t.id === 'm-tstart' || t.id === 'm-tend' ? '출근·퇴근 시간을 넣어 주세요'
+      : t.validity.customError ? t.validationMessage : t.validity.valueMissing ? `${name}을 넣어 주세요` : `${name}을 확인해 주세요`;
+  const p = document.createElement('p');
+  p.id = 'm-invalid'; p.className = 'gline warn'; p.setAttribute('role', 'alert'); p.textContent = msg;
+  (t.closest('.unit') || t).insertAdjacentElement('afterend', p);
+}, true);
+document.addEventListener('input', (e) => { if (e.target.closest && e.target.closest('#manual')) document.getElementById('m-invalid')?.remove(); });
+
 app.addEventListener('submit', (e) => {
   if (e.target.id !== 'manual') return;
   e.preventDefault();
@@ -1900,6 +1936,7 @@ document.addEventListener('click', (e) => {
   // 새 화면의 같은 자리 버튼(맞아요·다음·고르는 버튼)을 눌러, 보지 않은 질문을 건너뛰거나 답이 저절로 들어가기 때문이다.
   // 같은 화면 안에서 다시 그릴 때(−/+ 버튼 등)는 화면이 바뀌지 않아 막지 않는다. 코드가 부른 클릭(isTrusted 아님)도 막지 않는다.
   if (e.isTrusted && performance.now() - screenChangedAt < 350 && el.closest('#app, #bar')) { e.preventDefault(); return; }
+  lastActionEl = el;
   const a = el.dataset.action;
   const keep = () => render(true);
   switch (a) {

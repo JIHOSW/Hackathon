@@ -108,6 +108,8 @@ mark, mark.rd { background-repeat: no-repeat; background-size: 100% 100%; }
 .inline { border: 0; background: none; padding: 0; color: var(--p); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; font-size: inherit; }
 /* 한 줄에 혼자 있는 글자 버튼은 누르는 곳을 44px로 */
 .gline > .inline:only-child { display: inline-block; padding: 11px 8px; }
+.gline a { padding-block: 13px; }
+.panel .gline > a:only-child { display: inline-block; padding: 11px 0; }
 
 /* 카드와 목록: 흰 카드 + 회색 바탕. 그림자 없음 */
 .card { background: var(--card); border-radius: 24px; padding: 24px; margin: 16px 0 0; }
@@ -286,6 +288,7 @@ select { min-height: 48px; }
 /* 직접 입력: 요일, 달력, 출퇴근 시간 */
 .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 .days .seg-b { padding: 12px 0; font-size: 15px; }
+@media (max-width: 370px) { .days { gap: 3px; } } /* 360px에서도 요일 버튼 44px */
 .grid2.pair { margin-top: 0; gap: 12px; align-items: end; }
 .pair > div { min-width: 0; }
 .calc .warn { background: var(--r-soft); color: var(--r); }
@@ -421,6 +424,12 @@ select { min-height: 48px; }
 .sheet.closing { pointer-events: none; }
 .sheet.closing .panel { animation: sheet-down .2s cubic-bezier(.4, 0, 1, 1) forwards; }
 .sheet.closing .dim { animation: fade-out .2s linear forwards; }
+/* 긴 창(달라지는 것 자세히 등)도 닫기 버튼이 늘 창 아래에 보이게 붙여 두고, 버튼 아래로 지나가는 글은 카드색으로 가린다(위쪽 내용은 가리지 않게 아래로만) */
+.panel { overscroll-behavior: contain; }
+.panel > .cta:last-child { position: sticky; bottom: 0; box-shadow: 0 40px 0 0 var(--card); }
+.panel > .two:last-child { position: sticky; bottom: 0; background: var(--card); box-shadow: 0 40px 0 0 var(--card); }
+/* 휴대폰에서 창이 열려 있는 동안 뒤 화면이 스크롤되지 않게 */
+@media (max-width: 1023.98px) { html.sheet-open, html.sheet-open body { overflow: hidden; } }
 @keyframes sheet-up { from { transform: translateY(100%); } }
 @keyframes sheet-down { to { transform: translateY(100%); } }
 @keyframes fade-in { from { opacity: 0; } }
