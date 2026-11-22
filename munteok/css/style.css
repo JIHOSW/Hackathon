@@ -59,8 +59,9 @@ a { color: var(--p); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .num { font-variant-numeric: tabular-nums; }
 .i { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
-/* PC에서만 보이는 것(시작 화면의 대상·3단계·주 버튼). 휴대폰은 배치를 그대로 둔다 */
+/* PC에서만 보이는 것(시작 화면의 대상·3단계·주 버튼, 근무시간별 그래프, 펼친 공고 원문)과 휴대폰에서만 보이는 것. 휴대폰은 배치를 그대로 둔다 */
 @media (max-width: 1023.98px) { .pc-only { display: none !important; } }
+@media (min-width: 1024px) { .m-only { display: none !important; } }
 
 /* 상단: 뒤로가기 + 6칸 진행 막대, 첫 화면은 로고 */
 .nav { position: sticky; top: 0; z-index: 5; background: var(--bg); height: 56px; display: flex; align-items: center; gap: 12px; padding: 0 8px; max-width: var(--wrap); margin: 0 auto; }
@@ -452,16 +453,86 @@ select { min-height: 48px; }
 .app.enter mark { animation: marker .3s var(--ease) .15s backwards; }
 .app.enter .rcpt { animation: print .3s var(--ease) .08s backwards; }
 .app.enter .tbar { animation: fill .3s var(--ease) .2s backwards; }
+/* 근무시간별 그래프(PC)는 아래에서 위로 드러난다 */
+@keyframes grow-up { from { clip-path: inset(100% 0 0 0); } to { clip-path: inset(0 0 0 0); } }
+.app.enter .hc-plot { animation: grow-up .3s var(--ease) .2s backwards; }
 .app.stagger mark { animation: marker .3s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 40ms + 150ms); }
 .app.stagger .split > * > .rcpt { animation-name: print; animation-duration: .3s; }
 .app.stagger .tbar { animation: fill .3s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 40ms + 150ms); }
 
-/* PC(1024px 이상) */
+/* PC(1024px 이상): 모든 화면이 같은 1080px 틀과 같은 왼쪽 선을 쓴다.
+   틀 안의 자는 하나다. 왼쪽 칸 456px + 사이 48px + 오른쪽 칸(나머지, 1440px에서 544px). 결과 화면의 두 칸과 같다.
+   위쪽 막대는 틀 폭 그대로, 아래 고정 버튼 줄은 늘 오른쪽 칸 아래에 둔다.
+   휴대폰 배치와 마크업 순서는 그대로 두고, 칸은 CSS 그리드 자리 지정으로만 나눈다. */
 @media (min-width: 1024px) {
-  body.wide { --wrap: 1080px; }
+  :root { --wrap: 1080px; }
   .t1 { font-size: 44px; line-height: 54px; letter-spacing: -1.2px; }
   .t2 .kn { font-size: 48px; line-height: 56px; letter-spacing: -1.4px; }
-  body.wide .gline, body.wide .sub, body.wide .cut { max-width: 720px; }
+  .gline, .sub, .cut { max-width: 720px; }
+
+  /* 아래 고정 버튼 줄: 왼쪽 끝 = 틀 왼쪽 + 16 + 456 + 48, 오른쪽 끝 = 틀 오른쪽 − 16 */
+  .bar { padding-left: calc(max(0px, (100% - 1080px) / 2) + 520px); padding-right: calc(max(0px, (100% - 1080px) / 2) + 16px); }
+  .bar > * { max-width: none; margin-left: 0; margin-right: 0; }
+
+  /* 두 칸(c2): 왼쪽 칸 요소는 위에서부터 한 줄씩 쌓고, 오른쪽 칸(.cb)은 한 덩어리로 그 옆에 붙인다.
+     .cb가 왼쪽보다 길면 남는 높이는 맨 끝 1fr 줄이 받아서 왼쪽 요소 사이가 벌어지지 않는다.
+     .hd(제목)는 두 칸에 걸쳐서, 그 아래에서 두 칸이 같은 높이로 시작한다 */
+  body[data-layout="c2"] .app { display: grid; grid-template-columns: minmax(0, 456px) minmax(0, 1fr); grid-template-rows: repeat(12, auto) 1fr; grid-auto-flow: row dense; column-gap: 48px; align-items: start; }
+  body[data-layout="c2"] .app > * { grid-column: 1; }
+  body[data-layout="c2"] .app > .hd { grid-column: 1 / -1; }
+  body[data-layout="c2"] .app > .cb { grid-column: 2; grid-row: span 13; margin-top: 24px; }
+  body[data-layout="c2"] .app > .cb > :first-child { margin-top: 0; }
+  /* 질문 화면: 오른쪽 칸 맨 위를 단계 표시 맨 위에 맞춘다 */
+  body[data-layout="c2"] .app > .step { justify-self: start; }
+  body[data-layout="c2"] .app > .step ~ .cb { margin-top: 16px; }
+  body[data-layout="c2"] .cb > .opts:first-child > .opt:first-child, body[data-layout="c2"] .cb > .tips:first-child > .tip:first-child { margin-top: 0; }
+  /* 문구 만들기: 왼쪽에 문구 상자, 오른쪽에 요청 종류와 '다른 시간으로 바꾸기'. 문구 상자가 1fr 줄까지 걸쳐서 오른쪽 둘이 붙어 쌓인다 */
+  body[data-step="message"] .app > .chips, body[data-step="message"] .app > .link { grid-column: 2; }
+  body[data-step="message"] .app > .chips { margin-top: 16px; }
+  body[data-step="message"] .app > .link { justify-self: start; width: auto; padding: 12px 8px; margin-left: -4px; border-radius: 14px; }
+  body[data-step="message"] .app > .msg { grid-row: span 11; }
+  /* 그리드에서는 여백이 겹치지 않아서, 문구 상자 아래 여백(pre 기본 1em)만 남긴다. 휴대폰과 같은 간격 */
+  body[data-step="message"] .app > .msg + .gline { margin-top: 0; }
+
+  /* 한 칸(c1): 가운데가 아니라 왼쪽 선에 맞추고, 왼쪽 칸 폭을 쓴다. 읽는 중 동그라미는 안내 화면의 그림과 같은 높이에 */
+  body[data-layout="c1"] .app > * { max-width: 456px; }
+  body[data-layout="c1"] .center-box { text-align: left; padding-top: 64px; }
+  body[data-layout="c1"] .center-box .spin { margin: 0 0 32px; }
+
+  /* 예시 고르기: 네 가지를 두 개씩 나란히 */
+  body[data-step="samples"] .app > .rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 0; background: none; }
+  body[data-step="samples"] .app > .rows > .row { min-height: 88px; background: var(--card); }
+  body[data-step="samples"] .app > .rows > .row:active { background: var(--fill); }
+
+  /* 읽은 조건: 오른쪽 칸에 공고 원문을 펼쳐 두고 값마다 근거 문장을 형광펜으로. 형광펜 위 글자는 진한 글자색 */
+  .raw-full { margin-top: 16px; }
+  .raw-full .q { font-size: 15px; line-height: 24px; white-space: pre-wrap; color: var(--ink); }
+
+  /* 근무시간별 남는 돈(근무시간 바꿔 보기): 한 시간마다 막대 하나, 아래부터 남는 돈·보험료·줄어드는 정부 지원.
+     고른 시간은 고른 카드처럼 보라 테두리, 달라지는 지점은 막대 왼쪽 점선과 굵은 숫자 */
+  .hc { margin-top: 8px; }
+  .hc-plot, .hc-axis { display: flex; gap: 4px; }
+  .hc-plot { position: relative; align-items: flex-end; height: 168px; padding-top: 8px; border-bottom: 1px solid var(--rule); }
+  .hc-ref { position: absolute; height: 0; border-top: 2px dashed var(--ink); pointer-events: none; }
+  .hc-col { position: relative; flex: 1 1 0; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; }
+  .hc-col.mk::before { content: ""; position: absolute; left: -3px; top: 0; bottom: 0; border-left: 1px dashed var(--rule); }
+  .hc-stack { display: flex; flex-direction: column; min-height: 2px; border-radius: 4px 4px 2px 2px; overflow: hidden; }
+  .hc-stack i { flex: 1 1 0; min-height: 0; }
+  .hc-stack .g { background: var(--p); }
+  .hc-stack .o { background: var(--o-bar); }
+  .hc-stack .r { background: var(--r-bar); }
+  .hc-col.on .hc-stack { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--p); }
+  .hc-axis { margin-top: 6px; }
+  .hc-x { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; font-size: 13px; line-height: 18px; color: var(--sub); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .hc-x.mk { color: var(--ink); font-weight: 700; }
+  .hc-x.on { color: var(--p); font-weight: 800; }
+  .hc-x small { font-size: 13px; color: var(--sub); font-weight: 600; }
+
+  /* 저장한 제안: 카드를 나란히(최대 3개), 남는 자리에 '비교할 제안 더하기' */
+  .offer-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 24px; }
+  .offer-grid > .card, .offer-grid > .add { margin: 0; }
+  .offer-grid > .card { display: flex; flex-direction: column; }
+  .offer-grid > .card > .acts { margin-top: auto; }
 
   /* 시작: 왼쪽에 제목·대상·3단계·주 버튼, 오른쪽에 예시 영수증 */
   body[data-step="start"] .tagline { display: block; }
@@ -474,8 +545,8 @@ select { min-height: 48px; }
   body[data-step="start"] .app > .gline > .inline:only-child { margin-left: -8px; }
   body[data-step="start"] .pvt { font-size: 22px; line-height: 32px; }
 
-  /* 결과: 왼쪽에 결론 문장과 영수증, 오른쪽에 나머지 카드 */
-  .split { display: grid; grid-template-columns: minmax(0, 456px) minmax(0, 1fr); column-gap: 48px; align-items: start; }
+  /* 결과: 왼쪽에 결론 문장과 영수증, 오른쪽에 나머지 카드. 첫 줄 높이를 다른 화면(단계 표시·제목)과 맞춘다 */
+  .split { display: grid; grid-template-columns: minmax(0, 456px) minmax(0, 1fr); column-gap: 48px; align-items: start; margin-top: 16px; }
   .split > * > :first-child { margin-top: 0; }
   .split .col-b > .better:first-child { margin-top: 0; }
   .split .col-b { padding-top: 8px; }
@@ -490,6 +561,9 @@ select { min-height: 48px; }
 }
 @media (min-width: 1024px) and (min-height: 760px) {
   .split .col-a { position: sticky; top: 72px; }
+}
+@media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
+  body[data-step="samples"] .app > .rows > .row:hover { background: var(--fill); }
 }
 
 /* 동작 줄이기: 움직임을 모두 끈다 */

@@ -214,26 +214,31 @@ function viewUpload() {
   // 공개 체험 주소에서는 AI 공고 읽기를 끄고 직접 입력과 예시만 보여 준다.
   if (AI_OFF) {
     return {
-      html: `<h1 class="t2">조건을 어떻게<br>넣을까요?</h1>
+      layout: 'c2',
+      html: `<h1 class="t2 hd">조건을 어떻게<br>넣을까요?</h1>
       <div class="rows">
         ${row({ ic: 'pen', title: '직접 입력하기', sub: '시급과 시간만 알아도 돼요', action: 'mode', attrs: 'data-mode="manual"' })}
         ${row({ title: '예시 공고로 해 보기', sub: '카페 알바, 학원 보조, 두 제안 비교', action: 'go', attrs: 'data-step="samples"' })}
       </div>
-      <p class="gline">이 체험 주소에서는 AI 공고 읽기를 쓰지 않아요. 공고 사진이나 글은 보내지 않아요. <button type="button" class="inline" data-action="privacy">개인정보 처리 안내</button></p>`,
+      <div class="cb"><p class="gline">이 체험 주소에서는 AI 공고 읽기를 쓰지 않아요. 공고 사진이나 글은 보내지 않아요. <button type="button" class="inline" data-action="privacy">개인정보 처리 안내</button></p></div>`,
     };
   }
+  // PC에서는 왼쪽에 올리는 방법 3줄, 오른쪽(.cb)에 예시·읽는 공고·AI 안내. 휴대폰은 위에서 아래로 그대로다.
   return {
-    html: `<h1 class="t2">공고를 어떻게<br>올릴까요?</h1>
+    layout: 'c2',
+    html: `<h1 class="t2 hd">공고를 어떻게<br>올릴까요?</h1>
     <div class="rows">
       ${row({ ic: 'cam', title: '사진으로 올리기', sub: '공고 캡처나 사진', action: 'mode', attrs: 'data-mode="photo"' })}
       ${row({ ic: 'msg', title: '글 붙여넣기', sub: '문자나 카톡으로 받은 제안', action: 'mode', attrs: 'data-mode="text"' })}
       ${row({ ic: 'pen', title: '직접 입력하기', sub: '시급과 시간만 알아도 돼요', action: 'mode', attrs: 'data-mode="manual"' })}
     </div>
+    <div class="cb">
     <p class="sec">공고가 아직 없다면</p>
     <div class="rows">${row({ title: '예시 공고로 해 보기', sub: '카페 알바, 학원 보조, 두 제안 비교', action: 'go', attrs: 'data-step="samples"' })}</div>
     <p class="sec">이런 공고도 읽어요</p>
     <div class="chips"><span>시급</span><span>월급</span><span>일당</span><span>3.3% 떼는 제안</span><span>조건이 빠진 공고</span></div>
-    ${AI_NOTICE}`,
+    ${AI_NOTICE}
+    </div>`,
   };
 }
 
@@ -377,7 +382,7 @@ function calendarHtml(m) {
 
 function viewInput() {
   if (state.loading) {
-    return { html: `<div class="center-box" role="status"><div class="spin" aria-hidden="true"></div><h1 class="t2">공고를 읽고 있어요</h1><p class="sub">3~5초쯤 걸려요</p></div>` };
+    return { layout: 'c1', html: `<div class="center-box" role="status"><div class="spin" aria-hidden="true"></div><h1 class="t2">공고를 읽고 있어요</h1><p class="sub">3~5초쯤 걸려요</p></div>` };
   }
   if (state.aiError) {
     const e = state.aiError;
@@ -388,6 +393,7 @@ function viewInput() {
           : '잠시 뒤 다시 읽거나 직접 입력해 주세요';
     const tips = e.kind === 'photo' ? '<div class="tips"><p class="tip">글자가 또렷하게 보이게 찍기</p><p class="tip">공고 전체가 한 장에 들어오게 찍기</p></div>' : '';
     return {
+      layout: 'c1',
       html: `<div class="big">${icon(e.kind === 'notPosting' ? 'file' : 'noread')}</div>
         <h1 class="t2" role="alert">${title}</h1><p class="sub">${esc(sub)}</p>${tips}
         ${e.detail ? `<p class="gline">${esc(e.detail)}</p>` : ''}`,
@@ -395,27 +401,34 @@ function viewInput() {
     };
   }
   const hint = state.inputHint ? `<p class="gline warn" role="alert">${esc(state.inputHint)}</p>` : '';
+  // 사진·글: PC에서는 왼쪽에 제목과 입력 칸, 오른쪽(.cb)에 찍는 법·지울 것·AI 안내
   if (state.mode === 'photo') {
     return {
-      html: `<h1 class="t2">공고 <mark>사진</mark>을<br>올려 주세요</h1>
+      layout: 'c2',
+      html: `<h1 class="t2 hd">공고 <mark>사진</mark>을<br>올려 주세요</h1>
       <label class="drop" for="photo">
         <span class="ic">${icon('cam')}</span><b id="photo-name">${state.photoName ? esc(state.photoName) : '사진 고르기'}</b><span>캡처한 화면도 괜찮아요</span>
         <input id="photo" type="file" accept="image/*" class="sr-only">
       </label>
       ${hint}
+      <div class="cb">
       <div class="tips"><p class="tip">글자가 또렷하게 보이게</p><p class="tip">공고 전체가 한 장에 들어오게</p><p class="tip">이름과 전화번호는 가리고</p></div>
-      ${AI_NOTICE}`,
+      ${AI_NOTICE}
+      </div>`,
       bottom: cta('공고 읽기', 'extract'),
     };
   }
   if (state.mode === 'text') {
     return {
-      html: `<h1 class="t2">받은 제안을<br><mark>그대로</mark> 붙여 주세요</h1>
+      layout: 'c2',
+      html: `<h1 class="t2 hd">받은 제안을<br><mark>그대로</mark> 붙여 주세요</h1>
       <label class="sr-only" for="raw">공고나 제안 메시지</label>
       <textarea id="raw" class="ta" placeholder="예: 주 3회 저녁 6시~10시, 시급 13,000원, 3.3% 떼고 지급">${esc(state.rawText)}</textarea>
       ${hint}
+      <div class="cb">
       <p class="gline">이름과 전화번호는 지우고 붙여 주세요</p>
-      ${AI_NOTICE}`,
+      ${AI_NOTICE}
+      </div>`,
       bottom: cta('공고 읽기', 'extract'),
     };
   }
@@ -423,6 +436,7 @@ function viewInput() {
   const year = state.rules.appliesToYear;
   const seg = (action, cur, v, label) => `<button type="button" class="seg-b ${cur === v ? 'on' : ''}" data-action="${action}" data-value="${v}" aria-pressed="${cur === v}">${label}</button>`;
   return {
+    layout: 'c1',
     html: `<h1 class="t2">조건을 <mark>직접</mark><br>입력해 주세요</h1>
     <form id="manual" class="form">
       <label for="m-wage">시급</label><div class="unit"><input id="m-wage" type="number" inputmode="numeric" min="1" max="999999" required placeholder="10,320" value="${esc(m.wage)}"><span>원</span></div>
@@ -539,6 +553,29 @@ function evidenceHtml(f) {
   return (shown ? `<div class="quote"><p class="cap">공고에 이렇게 적혀 있어요</p><p class="q">${shown}</p></div>` : '') + calc;
 }
 
+// PC 읽은 조건: 공고 원문 전체에서 값마다 근거 문장을 찾아 형광펜으로 칠한다.
+// 근거 전체("시급: 10,500원")가 원문에 있으면 그대로, 없으면 ': ' 앞부분(evidenceHtml과 같은 원문 일부)으로 찾는다. 겹치는 곳은 하나로 합친다.
+function markedRaw(raw, f, keys) {
+  const ranges = [];
+  for (const k of keys) {
+    const ev = (f[k] && f[k].evidence) || '';
+    const tries = [ev];
+    for (let i = ev.lastIndexOf(': '); i > 0; i = ev.lastIndexOf(': ', i - 1)) tries.push(ev.slice(0, i));
+    const q = tries.find((t) => t.trim().length >= 2 && raw.includes(t));
+    if (q) { const s = raw.indexOf(q); ranges.push([s, s + q.length]); }
+  }
+  ranges.sort((x, y) => x[0] - y[0]);
+  const merged = [];
+  for (const r of ranges) {
+    const last = merged[merged.length - 1];
+    if (last && r[0] <= last[1]) last[1] = Math.max(last[1], r[1]); else merged.push([...r]);
+  }
+  let out = '';
+  let at = 0;
+  for (const [s, e] of merged) { out += `${esc(raw.slice(at, s))}<mark>${esc(raw.slice(s, e))}</mark>`; at = e; }
+  return out + esc(raw.slice(at));
+}
+
 const QUESTIONS = {
   incomeType: { ask: '급여를 어떻게<br>받나요?', why: WHY.incomeType, options: [['wage', '4대보험 떼고 받아요'], ['business', '3.3% 떼고 받아요'], ['daily', '일당으로 그때그때 받아요'], ['unknown', '모르겠어요']] },
   startMonth: { ask: '몇 월부터<br>일하나요?', why: WHY.startMonth, options: Array.from({ length: 12 }, (_, i) => [String(i + 1), `${i + 1}월`]), grid: true },
@@ -552,23 +589,26 @@ function viewConfirm() {
   const remaining = queue.length + missing.length;
   const n = Math.max(1, state.reviewTotal - remaining + 1);
   const total = Math.max(state.reviewTotal, n);
+  // 질문 화면: PC에서는 왼쪽에 단계·질문·설명·'왜 물어보나요?', 오른쪽(.cb)에 고르는 버튼이나 공고 원문 인용·계산 과정
   if (queue.length) {
     const key = queue[0];
     // 답이 둘뿐인 주휴수당은 맞는지 묻지 않고 두 가지를 바로 보여 준다. 가정한 쪽이 먼저 골라져 있다.
     if (key === 'holidayIncluded') {
       const opt = (v, label) => `<button type="button" class="opt ${Boolean(f[key].value) === v ? 'on' : ''}" data-action="answer" data-key="holidayIncluded" data-value="${v}">${label}<i aria-hidden="true"></i></button>`;
       return {
+        layout: 'c2',
         html: `<span class="step">확인 ${n} / ${total}</span>
           <h1 class="t2">주휴수당은<br>어떻게 받나요?</h1>
           <p class="sub">공고에 없어서 물어봐요. 모르면 '따로 받아요'로 계산해요</p>
-          <div class="opts">${opt(false, '시급과 따로 받아요')}${opt(true, '시급에 포함돼 있어요')}</div>
+          <div class="cb"><div class="opts">${opt(false, '시급과 따로 받아요')}${opt(true, '시급에 포함돼 있어요')}</div></div>
           ${why(WHY[key])}`,
       };
     }
     return {
+      layout: 'c2',
       html: `<span class="step">확인 ${n} / ${total}</span>
         <h1 class="t2">${askText(key, f[key])}</h1>
-        ${evidenceHtml(f[key])}
+        <div class="cb">${evidenceHtml(f[key])}</div>
         ${why(WHY[key])}`,
       bottom: two(weak('고칠게요', 'editField', `data-key="${key}"`), cta('맞아요', 'reviewOk', `data-key="${key}"`)),
     };
@@ -577,25 +617,31 @@ function viewConfirm() {
     const key = missing[0];
     const q = QUESTIONS[key];
     return {
+      layout: 'c2',
       html: `<span class="step">확인 ${n} / ${total}</span>
         <h1 class="t2">${q.ask}</h1>
         <p class="sub">공고에 적혀 있지 않아서 물어봐요</p>
-        <div class="${q.grid ? 'grid3' : 'opts'}">${q.options.map(([v, l]) => `<button type="button" class="opt" data-action="answer" data-key="${key}" data-value="${v}">${esc(l)}</button>`).join('')}</div>
+        <div class="cb"><div class="${q.grid ? 'grid3' : 'opts'}">${q.options.map(([v, l]) => `<button type="button" class="opt" data-action="answer" data-key="${key}" data-value="${v}">${esc(l)}</button>`).join('')}</div></div>
         ${why(q.why)}`,
     };
   }
   const keys = relevantKeys(f);
   const ready = f.hourlyWage.value > 0 && f.weeklyHours.value > 0;
+  // 읽은 조건: PC에서는 왼쪽에 조건 목록, 오른쪽(.cb)에 점 설명과 공고 원문
   return {
-    html: `<h1 class="t2">이 조건으로<br>계산할게요</h1>
-      ${state.extractedBy ? `<p class="gline">AI가 공고를 읽은 결과예요. 틀린 곳은 눌러서 고쳐 주세요</p>` : ''}
+    layout: 'c2',
+    html: `<h1 class="t2 hd">이 조건으로<br>계산할게요</h1>
+      ${state.extractedBy ? `<p class="gline hd">AI가 공고를 읽은 결과예요. 틀린 곳은 눌러서 고쳐 주세요</p>` : ''}
       <div class="rows kvs">${keys.map((k) => `<button type="button" class="kv" data-action="editField" data-key="${k}">
         <span class="k">${FIELD_NAME[k]}${f[k].status !== STATUS.CONFIRMED ? `<i class="dot ${f[k].status === STATUS.CHECK ? 'need' : ''}" aria-label="${f[k].status === STATUS.CHECK ? '확인 필요' : '공고를 읽고 계산한 값'}"></i>` : ''}</span>
         <span class="v num">${esc(valueText(k, f[k]))}${icon('ch')}</span></button>`).join('')}</div>
+      <div class="cb">
       ${keys.some((k) => f[k].status === STATUS.ESTIMATED) ? `<p class="legend"><i class="dot"></i>${state.rawText ? '공고를 읽고 계산하거나 가정한 값이에요' : '넣지 않아 가정한 값이에요'}. 눌러서 고칠 수 있어요</p>` : ''}
       ${keys.some((k) => f[k].status === STATUS.CHECK) ? `<p class="legend"><i class="dot need"></i>${state.rawText ? '공고에 없어 모르는 값이에요' : '모른다고 답한 값이에요'}. 사장님께 물어보면 좋아요</p>` : ''}
-      ${state.rawText ? `<details class="raw-box"><summary>공고 원문 보기</summary><pre>${esc(state.rawText)}</pre></details>` : ''}
-      ${ready ? '' : '<p class="gline warn" role="alert">시급과 일하는 시간을 넣어야 다음으로 갈 수 있어요</p>'}`,
+      ${state.rawText ? `<div class="quote raw-full pc-only"><p class="cap">공고에 이렇게 적혀 있어요</p><p class="q">${markedRaw(state.rawText, f, keys)}</p></div>
+      <details class="raw-box m-only"><summary>공고 원문 보기</summary><pre>${esc(state.rawText)}</pre></details>` : ''}
+      ${ready ? '' : '<p class="gline warn" role="alert">시급과 일하는 시간을 넣어야 다음으로 갈 수 있어요</p>'}
+      </div>`,
     bottom: state.editing !== null
       ? cta('이 조건으로 저장하기', 'saveDraft', ready ? '' : 'disabled')
       : two(weak('제안 더하기', 'saveAndAdd', ready && state.offers.length < MAX_OFFERS - 0 ? '' : 'disabled'), cta('내 상황 입력하기', 'saveDraft', ready ? '' : 'disabled')),
@@ -655,10 +701,11 @@ function viewOffers() {
       <div class="acts"><button type="button" data-action="editOffer" data-i="${i}">고치기</button><button type="button" data-action="removeOffer" data-i="${i}">지우기</button></div>
     </div>`).join('');
   const canAdd = state.offers.length < MAX_OFFERS;
+  const add = canAdd ? '<button type="button" class="add" data-action="addOffer">＋ 비교할 제안 더하기</button>' : '';
+  // PC에서는 제안 카드와 '비교할 제안 더하기'를 한 줄에 나란히 둔다(.offer-grid). 휴대폰은 위아래 그대로다.
   return {
     html: `<h1 class="t2"><mark>제안 ${state.offers.length}개</mark>를<br>저장했어요</h1>
-      ${cards || '<p class="gline">저장한 제안이 없어요. 공고를 올려 주세요</p>'}
-      ${canAdd ? '<button type="button" class="add" data-action="addOffer">＋ 비교할 제안 더하기</button>' : ''}
+      ${cards ? `<div class="offer-grid">${cards}${add}</div>` : `<p class="gline">저장한 제안이 없어요. 공고를 올려 주세요</p>${add}`}
       <p class="gline">제안은 ${MAX_OFFERS}개까지 나란히 비교할 수 있어요</p>`,
     bottom: cta('내 상황 입력하기', 'go', `data-step="profile" ${state.offers.length ? '' : 'disabled'}`),
   };
@@ -700,34 +747,44 @@ function viewProfile() {
   const { q, askTax } = qs[i];
   const head = `<span class="step">질문 ${i + 1} / ${qs.length}</span>`;
   const next = i === qs.length - 1 ? cta('결과 보기', 'calculate') : cta('다음', 'nextQ');
+  // PC에서는 왼쪽에 단계·질문·'왜 물어보나요?', 오른쪽(.cb)에 답하는 칸. 휴대폰은 마크업 순서 그대로 위에서 아래로.
   if (q === 'maxHours') {
     const longest = Math.max(0, ...state.offers.map((o) => Number(o.fields.weeklyHours.value) || 0));
     const over = p.maxHours && longest > p.maxHours;
     return {
+      layout: 'c2',
       html: `${head}<h1 class="t2">일주일에 <mark>최대 몇 시간</mark><br>일할 수 있나요?</h1>
+        <div class="cb">
         ${stepper('p-max', p.maxHours, '시간', 1, 52)}
         <div class="chips center">${[15, 20, 30, 40].map((h) => `<button type="button" data-action="setNum" data-target="p-max" data-value="${h}">${h}시간</button>`).join('')}</div>
         ${state.profileError ? `<p class="gline warn" role="alert">${esc(state.profileError)}</p>` : ''}
         ${over ? `<p class="gline">받은 제안(주 ${longest}시간)이 이 시간을 넘어요. 그 제안은 "할 수 있는 시간 초과"로 표시돼요</p>` : ''}
+        </div>
         ${why('이 시간 안에서만 근무조건을 비교해요. 수업이나 훈련 시간은 빼고 알려 주세요.')}`,
       bottom: next,
     };
   }
   if (q === 'allowance') {
     return {
+      layout: 'c2',
       html: `${head}<h1 class="t2"><mark>구직촉진수당</mark>을<br>받고 있나요?</h1>
+        <div class="cb">
         <div class="opts">${optBtn('allowance', 'yes', '받고 있어요', p.allowance)}${optBtn('allowance', 'applying', '신청했어요', p.allowance)}${optBtn('allowance', 'no', '안 받아요', p.allowance)}</div>
         ${p.allowance !== 'no' ? `<p class="lbl">몇 월까지 받나요?</p>${monthGrid('allowanceEndMonth', p.allowanceEndMonth)}
           <p class="gline">구직촉진수당은 최대 6개월 받아요. 끝나는 달은 고용24나 고용센터(1350)에서 확인할 수 있어요</p>` : ''}
+        </div>
         ${why('수당을 받는 동안 돈을 벌면 수당이 줄 수 있어요. 끝나는 달을 알면 그 뒤로는 줄어드는 돈 없이 계산해요.')}`,
       bottom: next,
     };
   }
   if (q === 'age') {
     return {
+      layout: 'c2',
       html: `${head}<h1 class="t2"><mark>만 나이</mark>가<br>어떻게 되나요?</h1>
+        <div class="cb">
         ${stepper('p-age', p.age, '살', 15, 99)}
         ${state.profileError ? `<p class="gline warn" role="alert">${esc(state.profileError)}</p>` : ''}
+        </div>
         ${why('부모님 세금 공제는 자녀가 만 20세 이하일 때만 받을 수 있어요. 21세 이상이면 그 질문은 건너뛰어요.')}`,
       bottom: next,
     };
@@ -735,7 +792,9 @@ function viewProfile() {
   if (q === 'parents') {
     const maxAge = state.rules.dependentDeduction.impact.basicDeductionMaxAge;
     return {
+      layout: 'c2',
       html: `${head}<h1 class="t2">부모님 <mark>${askTax ? '보험과 세금' : '건강보험'}</mark>에<br>올라 있나요?</h1>
+        <div class="cb">
         <p class="lbl">부모님 건강보험에 피부양자로 올라 있어요</p>
         <div class="seg3">${segBtn('healthDependent', 'yes', '네', p.healthDependent)}${segBtn('healthDependent', 'no', '아니요', p.healthDependent)}${segBtn('healthDependent', 'unknown', '모르겠어요', p.healthDependent)}</div>
         ${p.healthDependent === 'unknown' ? `<div class="help">
@@ -748,6 +807,7 @@ function viewProfile() {
         <div class="seg3">${segBtn('taxDependent', 'yes', '네', p.taxDependent)}${segBtn('taxDependent', 'no', '아니요', p.taxDependent)}${segBtn('taxDependent', 'unknown', '모르겠어요', p.taxDependent)}</div>
         ${p.taxDependent === 'unknown' ? '<p class="gline">부모님 연말정산 서류에 나와요. 부모님께 여쭤보세요</p>' : ''}`
         : `<p class="gline">만 ${maxAge}세를 넘으면 부모님 세금 공제 대상이 아니라서 묻지 않아요</p>`}
+        </div>
         ${why('돈을 벌면 부모님 보험이나 세금이 달라질 수 있어요. 모르면 올라 있다고 보고 계산하고 "확인 필요"로 표시해요.')}`,
       bottom: next,
     };
@@ -755,25 +815,32 @@ function viewProfile() {
   if (q === 'ytd') {
     const has = state.ytdOpen || (p.ytdIncome.wage + p.ytdIncome.business + p.ytdIncome.daily) > 0;
     return {
+      layout: 'c2',
       html: `${head}<h1 class="t2">올해 <mark>이미 번 돈</mark>이<br>있나요?</h1>
+        <div class="cb">
         <div class="opts"><button type="button" class="opt ${has ? '' : 'on'}" data-action="ytd" data-value="no" aria-pressed="${!has}">없어요<i aria-hidden="true"></i></button><button type="button" class="opt ${has ? 'on' : ''}" data-action="ytd" data-value="yes" aria-pressed="${has}">있어요<i aria-hidden="true"></i></button></div>
         ${has ? `<div class="form">
           <label for="y-wage">월급으로 받은 돈 (4대보험 떼기 전)</label><div class="unit"><input id="y-wage" type="number" inputmode="numeric" min="0" value="${p.ytdIncome.wage || ''}" placeholder="0"><span>원</span></div>
           <label for="y-business">3.3% 떼고 받은 돈 (떼기 전)</label><div class="unit"><input id="y-business" type="number" inputmode="numeric" min="0" value="${p.ytdIncome.business || ''}" placeholder="0"><span>원</span></div>
           <label for="y-daily">일당으로 받은 돈</label><div class="unit"><input id="y-daily" type="number" inputmode="numeric" min="0" value="${p.ytdIncome.daily || ''}" placeholder="0"><span>원</span></div>
         </div>` : ''}
+        </div>
         ${why('1년 기준은 올해 번 돈을 모두 더해서 봐요.')}`,
       bottom: next,
     };
   }
   const others = Object.entries(state.rules.outOfScope);
   const none = !(p.otherSupports || []).length;
+  // 마지막 설명 줄은 휴대폰에서는 맨 아래, PC에서는 왼쪽 칸 질문 아래에 놓인다.
   return {
+    layout: 'c2',
     html: `${head}<h1 class="t2"><mark>다른 지원</mark>도<br>받고 있나요?</h1>
+      <div class="cb">
       <div class="grid2">${others.map(([k, v]) => { const on = (p.otherSupports || []).includes(k); return `<button type="button" class="opt c ${on ? 'on' : ''}" data-action="choose" data-name="otherSupports" data-multi="1" data-value="${k}" aria-pressed="${on}">${esc(v.title)}</button>`; }).join('')}
         <button type="button" class="opt c ${none ? 'on' : ''}" data-action="noSupports" aria-pressed="${none}">없어요</button></div>
       ${(p.otherSupports || []).includes('unemploymentBenefit') ? `<p class="lbl">실업급여는 몇 월까지 받나요?</p>${monthGrid('unemploymentEndMonth', p.unemploymentEndMonth ?? 'unknown')}
         <p class="gline">끝나는 달을 알면, 그 뒤로는 줄어들 실업급여가 없다는 것까지 알려 드려요</p>` : ''}
+      </div>
       <p class="gline">여러 개 고를 수 있어요. 이 지원들은 계산하지 않고 물어볼 곳만 알려 드려요</p>`,
     bottom: next,
   };
@@ -1037,6 +1104,44 @@ function altOptions(a) {
   return list.map((x) => ({ ...x, name: x.names.join(' · ') })).sort((x, y) => x.weeklyHours - y.weeklyHours);
 }
 
+// 근무시간 표의 한 줄을 돈 막대 계산 모양으로. 보험료 칸에는 떼는 돈(gross − takeHome)을 넣는다.
+const altSum = (o) => ({ addedIncome: o.gross, insurance: o.gross - o.takeHome, withholding: 0, allowanceLoss: o.allowanceLoss });
+
+// PC 전용 그래프: 주 1시간부터 할 수 있는 최대 시간까지 한 시간마다 막대 하나. 아래부터 남는 돈·보험료·줄어드는 정부 지원을 쌓는다.
+// 고른 시간은 보라 테두리, 받은 제안 시간은 아래 글자, 달라지는 지점은 점선 눈금. 누르는 곳이 없는 보기용 그림이다.
+function hoursChart(a, chosen) {
+  const parts = a.table.map((t) => moneyParts(altSum(t)));
+  const scale = Math.max(1, ...parts.map((p) => p.kept + p.deduct + p.loss));
+  const marks = new Set(a.changePoints.map((c) => c.weeklyHours));
+  const offered = a.offeredOutOfRange ? null : a.offered;
+  const first = a.table[0].weeklyHours;
+  const label = `근무시간별 남는 돈. 주 ${first}시간부터 ${a.trace.to}시간까지 한 시간씩 계산했어요. 가장 많이 남는 시간은 주 ${a.best.weeklyHours}시간 ${man(a.best.net)}이에요.`
+    + (a.dip ? ` 주 ${a.dip.from}~${a.dip.to}시간은 주 ${a.dip.peakHours}시간보다 적게 남아요.` : '')
+    + (offered ? ` 받은 제안은 주 ${offered}시간이에요.` : '');
+  const cols = a.table.map((t, i) => {
+    const p = parts[i];
+    const seg = (cls, v) => (v > 0 ? `<i class="${cls}" style="flex-grow:${v}"></i>` : '');
+    return `<span class="hc-col${t.weeklyHours === chosen ? ' on' : ''}${marks.has(t.weeklyHours) ? ' mk' : ''}"><span class="hc-stack" style="height:${(((p.kept + p.deduct + p.loss) / scale) * 100).toFixed(2)}%">${seg('r', p.loss)}${seg('o', p.deduct)}${seg('g', p.kept)}</span></span>`;
+  }).join('');
+  // 줄어드는 구간: 직전 봉우리의 남는 돈 높이에 점선을 그어, 그 뒤 막대의 남는 돈이 그보다 낮은 게 보이게 한다.
+  const n = a.table.length;
+  const at = (h) => a.table.findIndex((t) => t.weeklyHours === h);
+  const i0 = a.dip ? at(a.dip.peakHours) : -1;
+  const i1 = a.dip ? at(a.dip.to) : -1;
+  const ref = i0 >= 0 && i1 > i0
+    ? `<i class="hc-ref" style="left:calc(${i0} * (100% + 4px) / ${n});width:calc(${i1 - i0 + 1} * (100% + 4px) / ${n} - 4px);bottom:calc(${((parts[i0].kept / scale) * 100).toFixed(2)} * (100% - 8px) / 100)"></i>` : '';
+  const axis = a.table.map((t) => {
+    const h = t.weeklyHours;
+    const show = h === first || h === a.trace.to || marks.has(h) || h === offered || h === chosen;
+    return `<span class="hc-x${h === chosen ? ' on' : marks.has(h) ? ' mk' : ''}">${show ? h : ''}${h === offered ? '<small>받은 제안</small>' : ''}</span>`;
+  }).join('');
+  return `<div class="hc hd pc-only" role="img" aria-label="${esc(label)}">
+    <p class="sec" aria-hidden="true">근무시간별 남는 돈</p>
+    <div class="hc-plot" aria-hidden="true">${cols}${ref}</div>
+    <div class="hc-axis" aria-hidden="true">${axis}</div>
+  </div>`;
+}
+
 function viewAlts() {
   const a = state.alts;
   const opts = altOptions(a);
@@ -1045,26 +1150,31 @@ function viewAlts() {
   const exact = new Set(mans).size < mans.length;
   const chosen = state.chosenHours ?? (a.offeredOutOfRange ? a.trace.to : a.offered);
   const scale = Math.max(...opts.map((o) => o.gross));
-  const sumOf = (o) => ({ addedIncome: o.gross, insurance: o.gross - o.takeHome, withholding: 0, allowanceLoss: o.allowanceLoss });
+  const sumOf = altSum;
   const typeIcon = { gain: ['plus', 'green'], loss: ['down', 'red'], check: ['down', 'red'], pending: ['hold', 'gray'], note: ['plus', 'green'] };
+  // PC에서는 시간 카드를 틀 폭에 나란히(.hd), 그 아래 왼쪽에 달라지는 지점, 오른쪽(.cb)에 설명 줄을 둔다.
+  // 달라지는 지점이 없으면 설명 줄을 왼쪽 칸에 그대로 둔다.
+  const notes = `${a.dip ? `<p class="gline">주 ${a.dip.from}~${a.dip.to}시간은 주 ${a.dip.peakHours}시간(${perShort(state.result && state.result.summary)} ${man(a.dip.peakNet)})보다 남는 돈이 적어요. 줄어드는 정부 지원이 늘어나는 급여보다 커서예요</p>` : ''}
+      ${allowanceUntil() ? `<p class="gline">수당이 끝나는 ${allowanceUntil()}월까지 기준이에요. ${allowanceUntil() + 1}월부터는 줄어드는 수당이 없어서 일한 만큼 더 남아요</p>` : ''}
+      <p class="gline">시급과 기간은 그대로 두고 근무시간만 1시간씩 바꿔 ${a.trace.evaluated}번 계산했어요. 고르는 건 내 몫이에요</p>`;
   return {
-    html: `<h1 class="t2">${altsTitle(a)}</h1>
-      ${a.offeredOutOfRange ? `<p class="gline warn">받은 제안(주 ${a.offered}시간)은 할 수 있는 시간을 넘어 비교에서 뺐어요</p>` : ''}
-      <p class="gline" id="alts-help">아래 시간을 눌러 고르면, 그 시간으로 사장님께 보낼 문구를 만들 수 있어요</p>
-      <div class="opc-grid" role="radiogroup" aria-label="비교할 근무시간" aria-describedby="alts-help">${opts.map((o) => `<button type="button" role="radio" aria-checked="${o.weeklyHours === chosen}" class="opc ${o.weeklyHours === chosen ? 'on' : ''}" data-action="chooseHours" data-hours="${o.weeklyHours}">
+    layout: 'c2',
+    html: `<h1 class="t2 hd">${altsTitle(a)}</h1>
+      ${a.offeredOutOfRange ? `<p class="gline warn hd">받은 제안(주 ${a.offered}시간)은 할 수 있는 시간을 넘어 비교에서 뺐어요</p>` : ''}
+      <p class="gline hd" id="alts-help">아래 시간을 눌러 고르면, 그 시간으로 사장님께 보낼 문구를 만들 수 있어요</p>
+      <div class="opc-grid hd" role="radiogroup" aria-label="비교할 근무시간" aria-describedby="alts-help">${opts.map((o) => `<button type="button" role="radio" aria-checked="${o.weeklyHours === chosen}" class="opc ${o.weeklyHours === chosen ? 'on' : ''}" data-action="chooseHours" data-hours="${o.weeklyHours}">
         <span class="top"><span class="nm num">주 ${o.weeklyHours}시간</span><span class="am">남는 돈 <b class="num">${exact ? won(o.net) : man(o.net)}</b></span></span>
         <span class="gl2">${esc(o.name)}</span>
         ${moneyBar(sumOf(o), { scale, height: 12, legend: false })}
       </button>`).join('')}</div>
-      <div class="lg"><span>남는 돈</span><span class="o">보험료</span><span class="r">줄어드는 정부 지원</span></div>
+      <div class="lg hd"><span>남는 돈</span><span class="o">보험료</span><span class="r">줄어드는 정부 지원</span></div>
+      ${hoursChart(a, chosen)}
       ${a.changePoints.length ? `<p class="sec">달라지는 지점</p><div class="rows">${a.changePoints.map((c) => {
         const x = c.changes[0];
         const [ic, cls] = typeIcon[x.type] || ['hold', 'gray'];
         return row({ ic, cls, title: `주 ${c.weeklyHours}시간부터`, sub: esc(c.changes.map((y) => polite(y.text)).join(' · ')) });
-      }).join('')}</div>` : ''}
-      ${a.dip ? `<p class="gline">주 ${a.dip.from}~${a.dip.to}시간은 주 ${a.dip.peakHours}시간(${perShort(state.result && state.result.summary)} ${man(a.dip.peakNet)})보다 남는 돈이 적어요. 줄어드는 정부 지원이 늘어나는 급여보다 커서예요</p>` : ''}
-      ${allowanceUntil() ? `<p class="gline">수당이 끝나는 ${allowanceUntil()}월까지 기준이에요. ${allowanceUntil() + 1}월부터는 줄어드는 수당이 없어서 일한 만큼 더 남아요</p>` : ''}
-      <p class="gline">시급과 기간은 그대로 두고 근무시간만 1시간씩 바꿔 ${a.trace.evaluated}번 계산했어요. 고르는 건 내 몫이에요</p>`,
+      }).join('')}</div>
+      <div class="cb">${notes}</div>` : notes}`,
     bottom: two(weak('준비물 보기', 'go', 'data-step="basis"'), cta('이 시간으로 문구 만들기', 'go', 'data-step="message"')),
   };
 }
@@ -1091,11 +1201,13 @@ function messageText() {
   return buildRequestMessage(rq.action, { offeredHours: rq.offered, targetHours: rq.target, questions: rq.action === 'expand' || rq.action === 'adjust' ? questions.filter((q) => !q.includes('근무시간')) : questions });
 }
 
+// PC에서는 왼쪽에 문구 상자, 오른쪽에 요청 종류와 '다른 시간으로 바꾸기'(css에서 자리를 정한다)
 function viewMessage() {
   const rq = requestState();
   return {
-    html: `<h1 class="t2">사장님께 보낼<br><mark>문구</mark>를 만들었어요</h1>
-      <p class="gline num">주 ${rq.target}시간 기준</p>
+    layout: 'c2',
+    html: `<h1 class="t2 hd">사장님께 보낼<br><mark>문구</mark>를 만들었어요</h1>
+      <p class="gline num hd">주 ${rq.target}시간 기준</p>
       <div class="chips sel" role="radiogroup" aria-label="요청 종류">${rq.available.map((k) => `<button type="button" role="radio" aria-checked="${k === rq.action}" class="${k === rq.action ? 'on' : ''}" data-action="reqAction" data-value="${k}">${esc(ACTION_LABEL[k])}</button>`).join('')}</div>
       <pre class="msg" id="msg">${esc(messageText())}</pre>
       <p class="gline">근무시간과 일정만 담았어요. 고쳐서 보내도 돼요</p>
@@ -1129,16 +1241,20 @@ function viewBasis() {
     const list = c.sources.map((id) => rules.sources[id]).filter(Boolean);
     return `<li><b>${esc(c.title)}</b> ${tag(c.status)}<br>${list.map((s) => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a>`).join('<br>')}<br><span class="small">확인일 ${esc(rule.checkedAt || (rule.current && rule.current.checkedAt) || rules.version)}</span></li>`;
   }).join('');
+  // PC에서는 왼쪽에 챙길 것 목록, 오른쪽(.cb)에 물어볼 곳과 계산 근거
   return {
-    html: `<h1 class="t2">시작하기 전에<br>${total ? `<mark>${total}가지</mark>만 챙겨요` : '<mark>챙길 것이 없어요</mark>'}</h1>
+    layout: 'c2',
+    html: `<h1 class="t2 hd">시작하기 전에<br>${total ? `<mark>${total}가지</mark>만 챙겨요` : '<mark>챙길 것이 없어요</mark>'}</h1>
       ${groups.map(([t, items]) => `<p class="sec">${t}</p><div class="rows checks">${items.join('')}</div>`).join('')}
       ${allowanceNote}
+      <div class="cb">
       <p class="sec">물어볼 곳</p><div class="rows kvs">${contacts}${others}</div>
       <details class="raw-box"><summary>계산 근거와 출처</summary>
         <p class="small">규칙표 ${esc(rules.version)} 기준. 확실은 법령·고시 원문을 확인한 규칙, 어림값은 2차 자료로 계산한 값, 확인 필요는 원문을 확인하지 못한 규칙이에요.</p>
         <ul class="src">${sources}</ul></details>
       <p class="gline">신고를 피하는 방법은 알려 드리지 않아요</p>
-      <p class="gline center"><button type="button" class="inline" data-action="restart">내 입력 모두 지우기</button></p>`,
+      <p class="gline center"><button type="button" class="inline" data-action="restart">내 입력 모두 지우기</button></p>
+      </div>`,
     bottom: two(weak('처음으로', 'restart'), cta(AI_OFF ? '다른 조건 넣기' : '다른 공고 올리기', 'newOffer')),
   };
 }
@@ -1148,9 +1264,11 @@ function viewBasis() {
 function viewPrivacy() {
   const kv = (k, v) => `<div class="kv col"><span class="k">${k}</span><span class="v small">${v}</span></div>`;
   const agreed = consentChoice() === 'yes';
+  // PC에서는 왼쪽에 무엇을 어디로 보내는지, 오른쪽(.cb)에 지킬 것·보관과 지우기·만든 사람
   return {
     top: 'back',
-    html: `<h1 class="t2">개인정보 처리 안내</h1>
+    layout: 'c2',
+    html: `<h1 class="t2 hd">개인정보 처리 안내</h1>
       <p class="sec">무엇을 어디로 보내나요</p>
       <div class="rows kvs">
         ${AI_OFF ? kv('공고 사진과 글', '이 체험 주소에서는 AI 공고 읽기를 쓰지 않아 보내지 않아요') : kv('공고 사진과 글', '한끗 서버를 거쳐 Anthropic(미국)의 AI가 읽어요. 한끗 서버는 저장하지 않아요')}
@@ -1160,6 +1278,7 @@ function viewPrivacy() {
           : kv('로그인 · 쿠키 · 분석 도구', '쓰지 않아요')}
         ${kv('글꼴', 'Pretendard 글꼴을 공개 서비스 jsDelivr에서 불러와요')}
       </div>
+      <div class="cb">
       ${CLARITY_ID ? `<p class="sec">사용 기록 동의</p>
       <p class="gline">지금은 <b>${agreed ? '동의함' : '동의하지 않음'}</b>이에요. 동의하지 않아도 모든 기능을 똑같이 쓸 수 있어요 <button type="button" class="inline" data-action="${agreed ? 'consentWithdraw' : 'consentAsk'}">${agreed ? '동의 거두기' : '다시 고르기'}</button></p>
       <p class="gline">Microsoft가 사용 기록을 처리하는 방식은 <a href="${LINKS.microsoftPrivacy}" target="_blank" rel="noopener">Microsoft 개인정보처리방침</a>을 따라요</p>` : ''}
@@ -1170,7 +1289,8 @@ function viewPrivacy() {
       ${AI_OFF ? '' : `<p class="gline">AI 회사가 받은 내용을 처리하는 방식은 <a href="${LINKS.anthropicPrivacy}" target="_blank" rel="noopener">Anthropic 개인정보 처리방침</a>을 따라요</p>`}
       <p class="sec">만든 사람 · 문의</p>
       <p class="gline">한끗 팀 · 2026 대한민국 청년 CAREER FAIR AI 해커톤 출품작<br><a href="${LINKS.repo}" target="_blank" rel="noopener">GitHub 저장소</a>의 Issues로 문의해 주세요</p>
-      ${DISCLAIMER}`,
+      ${DISCLAIMER}
+      </div>`,
     bottom: two(weak('내 입력 모두 지우기', 'restart').replace('cta weak', 'cta weak eq'), cta('돌아가기', 'back')),
   };
 }
@@ -1371,7 +1491,6 @@ function topHtml(v) {
 // ---------------- 움직임 ----------------
 // 화면이 바뀔 때만 움직인다. 같은 화면을 다시 그릴 때(고르기, 입력)는 움직이지 않는다. 동작 줄이기 설정이면 모두 끈다.
 const reduceMotion = () => Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-const WIDE = new Set(['start', 'result', 'alts', 'compare']); // PC에서 두 칸이나 넓은 칸으로 보이는 화면
 let shownScreen = null;
 let countedKey = null;
 function screenKey() {
@@ -1432,7 +1551,8 @@ function render(keepScroll = false) {
   const y = window.scrollY;
   const v = VIEWS[state.step]();
   document.body.dataset.step = state.step;
-  document.body.classList.toggle('wide', WIDE.has(state.step));
+  // PC 배치: c2 = 두 칸(오른쪽 칸은 .cb), c1 = 왼쪽 선에 맞춘 한 칸. 시작·결과·비교 화면은 각자 배치를 쓴다.
+  document.body.dataset.layout = v.layout || '';
   topEl.innerHTML = topHtml(v);
   app.innerHTML = v.html;
   barEl.innerHTML = v.bottom || '';
