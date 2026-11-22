@@ -2,7 +2,7 @@
    대표색: 보라 #5B3DF5, 바탕: 옅은 회색 #F2F4F6에 흰 카드. 글꼴은 Pretendard 하나, 숫자에만 tabular-nums.
    보라는 누르는 곳(주 버튼·고른 것·링크·초점·진행 막대)과 '남는 돈'(돈 막대·영수증 합계)에만 쓴다.
    의미 색은 네 가지만: 생김 초록, 줄어듦 빨강, 보험료 주황, 신고 파랑. 색만으로 구분하지 않고 항상 글자를 함께 쓴다.
-   글자 13·15·17·22·30·44px(결과 숫자만 40·48px), 여백 4·8·12·16·24·32·48·64px, 둥글기 8·14·24px.
+   글자 13·15·17·22·30·44px(결과 숫자만 40·48px, PC에서는 13px 글을 14px로), 여백 4·8·12·16·24·32·48·64px, 둥글기 8·14·24px.
    영역은 그림자 대신 바탕색 차이로 나눈다. 그림자는 영수증 카드에만 아주 옅게 쓴다.
    움직임은 0.3초 이하(결과 숫자만 0.5초)이고, 동작 줄이기 설정이면 모두 끈다. */
 :root {
@@ -438,8 +438,8 @@ select { min-height: 48px; }
 .steps3 li::before { content: counter(st); width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--p-soft); color: var(--p); font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .steps3 li:not(:last-child)::after { content: ""; width: 32px; border-bottom: 2px dotted var(--rule); margin-left: 4px; }
 .start-cta { display: flex; align-items: center; gap: 16px; margin-top: 32px; }
-.start-cta .cta { width: auto; min-width: 240px; padding: 0 32px; }
-.start-cta .link { width: auto; padding: 12px 8px; }
+/* 주 버튼과 '예시로 먼저 해 보기'를 같은 크기로 나란히. 1024px처럼 칸이 좁으면 둘 다 조금씩 줄어든다 */
+.start-cta .cta { width: auto; flex: 0 1 240px; min-width: 0; padding: 0 24px; }
 
 /* 화면이 바뀔 때 내용이 8px 아래에서 올라오며 나타난다. 결과 화면 카드는 위에서부터 차례로 */
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
@@ -470,9 +470,20 @@ select { min-height: 48px; }
   .t2 .kn { font-size: 48px; line-height: 56px; letter-spacing: -1.4px; }
   .gline, .sub, .cut { max-width: 720px; }
 
-  /* 아래 고정 버튼 줄: 왼쪽 끝 = 틀 왼쪽 + 16 + 456 + 48, 오른쪽 끝 = 틀 오른쪽 − 16 */
-  .bar { padding-left: calc(max(0px, (100% - 1080px) / 2) + 520px); padding-right: calc(max(0px, (100% - 1080px) / 2) + 16px); }
+  /* 아래 버튼 줄: 가로 자리는 늘 오른쪽 칸(왼쪽 끝 = 틀 왼쪽 + 16 + 456 + 48, 오른쪽 끝 = 틀 오른쪽 − 16).
+     세로는 내용이 짧으면 내용 바로 아래, 내용이 화면보다 길면 화면 아래에 붙는다(sticky).
+     큰 모니터에서 답과 '다음' 사이가 500px 넘게 벌어지지 않게. 화면 아래 자리를 비워 두는 여백(app.js)도 PC에서는 쓰지 않는다 */
+  .bar { position: sticky; padding-left: calc(max(0px, (100% - 1080px) / 2) + 520px); padding-right: calc(max(0px, (100% - 1080px) / 2) + 16px); }
   .bar > * { max-width: none; margin-left: 0; margin-right: 0; }
+  .app { padding-bottom: 16px !important; }
+
+  /* 글자: 휴대폰의 13px 글(단계 표시, 상태 표시, 설명 글, 범례, 그래프 숫자)은 PC에서 14px로 */
+  .small, .step, .chip, .legend, .tagm, .lg, .bars-x span, .stamp, .better small, .quote .cap, .form .gline, .help .gline, .cal-g .dow, .meta, .kv.col2 .k small, .steps3 li::before { font-size: 14px; }
+  .disc { font-size: 14px; line-height: 21px; }
+
+  /* 공고 올리기 '이런 공고도 읽어요'는 누르는 곳이 아니라서, 누르는 칩과 같은 흰 칸 대신 점 목록으로 */
+  .chips span { display: inline-flex; align-items: center; gap: 8px; background: none; padding: 4px 12px 4px 4px; font-weight: 500; color: var(--ink-2); }
+  .chips span::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--p); flex: none; }
 
   /* 두 칸(c2): 왼쪽 칸 요소는 위에서부터 한 줄씩 쌓고, 오른쪽 칸(.cb)은 한 덩어리로 그 옆에 붙인다.
      .cb가 왼쪽보다 길면 남는 높이는 맨 끝 1fr 줄이 받아서 왼쪽 요소 사이가 벌어지지 않는다.
@@ -523,10 +534,10 @@ select { min-height: 48px; }
   .hc-stack .r { background: var(--r-bar); }
   .hc-col.on .hc-stack { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--p); }
   .hc-axis { margin-top: 6px; }
-  .hc-x { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; font-size: 13px; line-height: 18px; color: var(--sub); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .hc-x { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; font-size: 14px; line-height: 20px; color: var(--sub); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .hc-x.mk { color: var(--ink); font-weight: 700; }
   .hc-x.on { color: var(--p); font-weight: 800; }
-  .hc-x small { font-size: 13px; color: var(--sub); font-weight: 600; }
+  .hc-x small { font-size: 14px; color: var(--sub); font-weight: 600; }
 
   /* 저장한 제안: 카드를 나란히(최대 3개), 남는 자리에 '비교할 제안 더하기' */
   .offer-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 24px; }

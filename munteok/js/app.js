@@ -194,7 +194,7 @@ function viewStart() {
     </div>
     <p class="who pc-only">정부 지원을 받으면서 알바를 시작하려는 청년을 위해 만들었어요</p>
     <ol class="steps3 pc-only"><li>${first}</li><li>조건 확인</li><li>남는 돈</li></ol>
-    <div class="start-cta pc-only">${cta(first, 'go', 'data-step="upload"')}${linkBtn('예시로 먼저 해 보기', 'go', 'data-step="samples"')}</div>
+    <div class="start-cta pc-only">${cta(first, 'go', 'data-step="upload"')}${weak('예시로 먼저 해 보기', 'go', 'data-step="samples"')}</div>
     <div class="card pv tap rcpt" role="button" tabindex="0" data-action="sample" data-id="cafe" aria-label="주말 카페 알바 예시로 해 보기">
       <span class="chip">예시</span>
       <p class="pvt">주말 카페 알바로<br>한 달에 <span class="num">${man(s.addedIncome)}</span>을 벌면,<br>실제로 남는 돈은 <mark class="num">${man(s.net)}</mark>이에요</p>
