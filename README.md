@@ -16,7 +16,7 @@
 
 👉 **[시안 고르기](https://htmlpreview.github.io/?https://github.com/JIHOSW/Hackathon/blob/ui/design-system/%EA%B0%9C%EB%B0%9C%EC%82%B0%EC%B6%9C%EB%AC%BC/%EB%94%94%EC%9E%90%EC%9D%B8_%EA%B3%A0%EB%A5%B4%EA%B8%B0.html)** 에서 세 시안을 나란히 보고 하나를 골라 주세요.
 
-| # | 화면 | v3 다크 · 네온 | v4 라이트 · 블루 | v5 영수증 |
+| # | 화면 | v3 다크 · 네온 | v4 라이트 · 블루 | v5 영수증 · 크라프트 |
 |---|---|---|---|---|
 | 01 | 시작 (근무시간 그래프) | [열기](https://htmlpreview.github.io/?https://github.com/JIHOSW/Hackathon/blob/ui/design-system/%EA%B0%9C%EB%B0%9C%EC%82%B0%EC%B6%9C%EB%AC%BC/%EB%94%94%EC%9E%90%EC%9D%B8_v3/01_%EC%8B%9C%EC%9E%91_%EB%8B%A4%ED%81%AC_PC.html) | [열기](https://htmlpreview.github.io/?https://github.com/JIHOSW/Hackathon/blob/ui/design-system/%EA%B0%9C%EB%B0%9C%EC%82%B0%EC%B6%9C%EB%AC%BC/%EB%94%94%EC%9E%90%EC%9D%B8_v4/01_%EC%8B%9C%EC%9E%91_%EB%9D%BC%EC%9D%B4%ED%8A%B8_PC.html) | [열기](https://htmlpreview.github.io/?https://github.com/JIHOSW/Hackathon/blob/ui/design-system/%EA%B0%9C%EB%B0%9C%EC%82%B0%EC%B6%9C%EB%AC%BC/%EB%94%94%EC%9E%90%EC%9D%B8_v5/01_%EC%8B%9C%EC%9E%91_%ED%8E%98%EC%9D%B4%ED%8D%BC_PC.html) |
 | 02 | 올리기와 조건 확인 | [열기](https://htmlpreview.github.io/?https://github.com/JIHOSW/Hackathon/blob/ui/design-system/%EA%B0%9C%EB%B0%9C%EC%82%B0%EC%B6%9C%EB%AC%BC/%EB%94%94%EC%9E%90%EC%9D%B8_v3/02_%EC%98%AC%EB%A6%AC%EA%B8%B0_%EB%8B%A4%ED%81%AC_PC.html) | [열기](https://htmlpreview.github.io/?https://github.com/JIHOSW/Hackathon/blob/ui/design-system/%EA%B0%9C%EB%B0%9C%EC%82%B0%EC%B6%9C%EB%AC%BC/%EB%94%94%EC%9E%90%EC%9D%B8_v4/02_%EC%98%AC%EB%A6%AC%EA%B8%B0_%EB%9D%BC%EC%9D%B4%ED%8A%B8_PC.html) | [열기](https://htmlpreview.github.io/?https://github.com/JIHOSW/Hackathon/blob/ui/design-system/%EA%B0%9C%EB%B0%9C%EC%82%B0%EC%B6%9C%EB%AC%BC/%EB%94%94%EC%9E%90%EC%9D%B8_v5/02_%EC%98%AC%EB%A6%AC%EA%B8%B0_%ED%8E%98%EC%9D%B4%ED%8D%BC_PC.html) |
@@ -98,6 +98,8 @@
 | [`기획/`](./기획) | 최신 기획 문서. PRD 수정본, 기능명세서 확정본, 유저플로우 수정본(11화면), 매니패스트 요청문 |
 | [`개발산출물/와이어프레임/`](./개발산출물/와이어프레임) | 화면별 와이어프레임 17장 |
 | [`개발산출물/디자인_v3/`](./개발산출물/디자인_v3) | 다크 테마 디자인 시안 HTML 4장 (`ui/design-system` 브랜치) |
+| [`개발산출물/디자인_v4/`](./개발산출물/디자인_v4) | 라이트·블루 디자인 시안 HTML 4장 (`ui/design-system` 브랜치) |
+| [`개발산출물/디자인_v5/`](./개발산출물/디자인_v5) | 영수증 디자인 시안 HTML 4장. 크라프트지 바탕, 첫 화면 검정 무대에서 영수증이 출력됨 (`ui/design-system` 브랜치) |
 | [`.github/workflows/`](./.github/workflows) | GitHub Pages 자동 배포 설정 |
 | [`LICENSE`](./LICENSE) | MIT 라이선스 |
 
