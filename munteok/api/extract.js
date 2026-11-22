@@ -14,6 +14,8 @@ import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 const MODEL = 'claude-opus-5-5';
 const MAX_TEXT = 4000;
 const MAX_IMAGE_BASE64 = 4_000_000; // 약 3MB 이미지
+const MAX_IMAGES = 3; // 한 공고를 나눠 찍은 사진. 화면(js/app.js)의 MAX_PHOTOS와 같게 둔다
+const MAX_IMAGES_BASE64 = 4_200_000; // 여러 장의 합계. Vercel 요청 한도(4.5MB) 안
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const STATUS = ['확정', '추정', '확인 필요'];
 
@@ -110,19 +112,26 @@ export default async function handler(req, res) {
   if (tooMany(clientIp(req))) return send(res, 429, { error: '요청이 너무 많아요. 1분쯤 뒤에 다시 시도해 주세요.' }, cors);
   if (!process.env.ANTHROPIC_API_KEY) return send(res, 503, { error: 'AI 서버에 API 키가 설정되지 않았습니다.' }, cors);
 
-  const { text, image } = req.body || {};
+  const { text, image, images } = req.body || {};
+  // 사진은 예전처럼 image 한 장으로 오거나, 여러 장이면 images 배열(3장까지)로 온다.
+  const photos = Array.isArray(images) ? images : image ? [image] : [];
+  if (photos.length > MAX_IMAGES) return send(res, 413, { error: `사진은 ${MAX_IMAGES}장까지 받습니다.` }, cors);
   const content = [];
-  if (image) {
-    if (typeof image.data !== 'string' || !IMAGE_TYPES.includes(image.mediaType)) return send(res, 400, { error: '지원하지 않는 이미지 형식입니다.' }, cors);
-    if (image.data.length > MAX_IMAGE_BASE64) return send(res, 413, { error: '이미지가 너무 큽니다.' }, cors);
-    content.push({ type: 'image', source: { type: 'base64', media_type: image.mediaType, data: image.data } });
+  let photoBytes = 0;
+  for (const photo of photos) {
+    if (!photo || typeof photo.data !== 'string' || !IMAGE_TYPES.includes(photo.mediaType)) return send(res, 400, { error: '지원하지 않는 이미지 형식입니다.' }, cors);
+    if (photo.data.length > MAX_IMAGE_BASE64) return send(res, 413, { error: '이미지가 너무 큽니다.' }, cors);
+    photoBytes += photo.data.length;
+    content.push({ type: 'image', source: { type: 'base64', media_type: photo.mediaType, data: photo.data } });
   }
+  if (photoBytes > MAX_IMAGES_BASE64) return send(res, 413, { error: '사진이 너무 큽니다.' }, cors);
   if (text) {
     if (typeof text !== 'string' || text.length > MAX_TEXT) return send(res, 413, { error: `텍스트는 ${MAX_TEXT}자까지 받습니다.` }, cors);
     content.push({ type: 'text', text: `<공고>\n${text}\n</공고>` });
   }
   if (!content.length) return send(res, 400, { error: '텍스트나 사진이 필요합니다.' }, cors);
-  content.push({ type: 'text', text: '위 공고에서 근무 조건을 뽑아 주세요.' });
+  // 여러 장이면 한 공고를 나눠 찍은 것으로 보고 합쳐 읽게 한다. 한 장이나 글이면 지금까지와 같은 말을 보낸다.
+  content.push({ type: 'text', text: photos.length > 1 ? `위 사진 ${photos.length}장은 한 공고를 나눠 찍은 것이에요. 합쳐서 한 공고로 보고 근무 조건을 뽑아 주세요.` : '위 공고에서 근무 조건을 뽑아 주세요.' });
 
   // 키를 붙여 넣을 때 섞인 앞뒤 공백·줄바꿈 때문에 인증이 실패하지 않도록 잘라 낸다.
   // 작업 공간에 묶이지 않은 조직 키는 어느 작업 공간을 쓸지 헤더로 알려야 한다(ANTHROPIC_WORKSPACE_ID).

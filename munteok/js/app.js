@@ -18,9 +18,12 @@ const state = {
   fields: null, profile: clone(EMPTY_PROFILE), result: null, alts: null, aiError: null, loading: false,
   offers: [], editing: null, active: 0, comparison: null, reviewed: [], reviewTotal: 0,
   profileQ: 0, ytdOpen: false, chosenHours: null, requestAction: null, sheet: null, returnStep: 'start', inputHint: null,
+  photoFiles: [],
 };
 const MAX_OFFERS = 3;
 const MAX_TEXT = 4000; // AI 서버(api/extract.js)가 받는 글자 수와 같게 둔다
+const MAX_PHOTOS = 3; // 한 공고를 나눠 찍은 사진. AI 서버의 MAX_IMAGES와 같게 둔다
+const PHOTO_BUDGET = 3_800_000; // 사진 base64 합계. Vercel 요청 한도(4.5MB) 안에 들도록, 넘으면 더 줄여 보낸다
 
 // 단계 막대: 6칸. 시작 화면과 안내 화면에는 막대 대신 로고를 보인다.
 const STEP_GROUP = { upload: 0, input: 0, samples: 0, confirm: 1, offers: 1, profile: 2, compare: 3, result: 3, alts: 4, message: 4, basis: 5 };
@@ -393,7 +396,7 @@ function viewInput() {
       : e.kind === 'photo' ? '다시 올리거나 직접 입력해 주세요'
         : e.kind === 'tooLong' ? `${MAX_TEXT.toLocaleString('ko-KR')}자까지 읽을 수 있어요. 시급·근무시간·기간이 적힌 부분만 남기고 다시 붙여 주세요`
           : '잠시 뒤 다시 읽거나 직접 입력해 주세요';
-    const tips = e.kind === 'photo' ? '<div class="tips"><p class="tip">글자가 또렷하게 보이게 찍기</p><p class="tip">공고 전체가 한 장에 들어오게 찍기</p></div>' : '';
+    const tips = e.kind === 'photo' ? `<div class="tips"><p class="tip">글자가 또렷하게 보이게 찍기</p><p class="tip">한 장에 안 들어오면 나눠서 ${MAX_PHOTOS}장까지 올리기</p></div>` : '';
     return {
       layout: 'c1',
       html: `<div class="big">${icon(e.kind === 'notPosting' ? 'file' : 'noread')}</div>
@@ -404,17 +407,22 @@ function viewInput() {
   }
   const hint = state.inputHint ? `<p class="gline warn" role="alert">${esc(state.inputHint)}</p>` : '';
   // 사진·글: PC에서는 왼쪽에 제목과 입력 칸, 오른쪽(.cb)에 찍는 법·지울 것·AI 안내
+  // 사진은 3장까지 고르거나 끌어다 놓을 수 있다(끌어다 놓기 안내는 마우스를 쓰는 화면에서만 보인다). 고른 사진은 아래 목록에서 뺄 수 있다.
   if (state.mode === 'photo') {
+    const files = state.photoFiles || [];
+    const full = files.length >= MAX_PHOTOS;
     return {
       layout: 'c2',
       html: `<h1 class="t2 hd">공고 <mark>사진</mark>을<br>올려 주세요</h1>
-      <label class="drop" for="photo">
-        <span class="ic">${icon('cam')}</span><b id="photo-name">${state.photoName ? esc(state.photoName) : '사진 고르기'}</b><span>캡처한 화면도 괜찮아요</span>
-        <input id="photo" type="file" accept="image/*" class="sr-only">
+      <label class="drop" for="photo" id="drop">
+        <span class="ic">${icon('cam')}</span><b id="photo-name">${!files.length ? '사진 고르기' : full ? `사진 ${MAX_PHOTOS}장을 다 골랐어요` : '사진 더 고르기'}</b>
+        <span>${files.length ? `${files.length} / ${MAX_PHOTOS}장` : `캡처한 화면도 괜찮아요 · ${MAX_PHOTOS}장까지`}<span class="drag-hint"> · 끌어다 놓아도 돼요</span></span>
+        <input id="photo" type="file" accept="image/*" multiple class="sr-only">
       </label>
+      ${files.length ? `<ul class="photo-list" aria-label="고른 사진">${files.map((f, i) => `<li><span class="nm">${esc(f.name)}</span><button type="button" class="inline" data-action="removePhoto" data-i="${i}" aria-label="${esc(f.name)} 빼기">빼기</button></li>`).join('')}</ul>` : ''}
       ${hint}
       <div class="cb">
-      <div class="tips"><p class="tip">글자가 또렷하게 보이게</p><p class="tip">공고 전체가 한 장에 들어오게</p><p class="tip">이름과 전화번호는 가리고</p></div>
+      <div class="tips"><p class="tip">글자가 또렷하게 보이게</p><p class="tip">한 장에 안 들어오면 나눠서 ${MAX_PHOTOS}장까지</p><p class="tip">이름과 전화번호는 가리고</p></div>
       ${AI_NOTICE}
       </div>`,
       bottom: cta('공고 읽기', 'extract'),
@@ -546,8 +554,9 @@ function evidenceHtml(f) {
   const explain = cut > 0 ? ev.slice(cut + 2) : '';
   let shown = '';
   // 공고 원문에서 찾은 문장만 "공고에 이렇게 적혀 있어요"로 보인다. 찾지 못하면 가정한 내용이라고 밝힌다.
+  // 사진으로 올린 공고는 원문 글이 없어서 찾을 수 없으므로, AI가 사진에서 읽은 근거라고 밝힌다.
   const line = quote ? (state.rawText || '').split('\n').find((l) => l.includes(quote)) : null;
-  if (quote && !line) return `<div class="quote"><p class="cap">공고에 없어 이렇게 가정했어요</p><p class="q">${esc(polite(ev))}</p></div>`;
+  if (quote && !line) return `<div class="quote"><p class="cap">${!state.rawText && state.extractedBy ? '사진에서 이렇게 읽었어요' : '공고에 없어 이렇게 가정했어요'}</p><p class="q">${esc(polite(ev))}</p></div>`;
   if (line) shown = esc(line).replace(esc(quote), `<mark>${esc(quote)}</mark>`);
   const m = explain.match(/하루\s*([\d.]+)시간\s*×\s*([\d.]+)일/);
   const calc = m ? `<div class="calc" aria-label="계산 과정"><span>하루 ${m[1]}시간</span>×<span>${m[2]}일</span>=<span class="res">${Number(m[1]) * Number(m[2])}시간</span></div>`
@@ -1650,23 +1659,24 @@ function back() {
 }
 
 function resetAll() {
-  Object.assign(state, { step: 'start', sample: null, rawText: '', fields: null, profile: clone(EMPTY_PROFILE), result: null, alts: null, aiError: null, offers: [], editing: null, comparison: null, reviewed: [], reviewTotal: 0, profileQ: 0, ytdOpen: false, chosenHours: null, requestAction: null, sheet: null, photoFile: null, photoName: null, manual: null, returnToConfirm: false });
+  Object.assign(state, { step: 'start', sample: null, rawText: '', fields: null, profile: clone(EMPTY_PROFILE), result: null, alts: null, aiError: null, offers: [], editing: null, comparison: null, reviewed: [], reviewTotal: 0, profileQ: 0, ytdOpen: false, chosenHours: null, requestAction: null, sheet: null, photoFiles: [], manual: null, returnToConfirm: false });
   try { sessionStorage.removeItem(STORE_KEY); } catch (e) { /* 무시 */ }
 }
 
 // 사진을 긴 변 1600px 이하 JPEG로 줄여 base64로 바꾼다. 전송량과 비용을 줄이기 위해서다.
-function imageToBase64(file) {
+// 여러 장의 합이 PHOTO_BUDGET을 넘으면 긴 변 1280px, 품질 0.8로 한 번 더 줄인다.
+function imageToBase64(file, side = 1600, quality = 0.85) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {
-      const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
+      const scale = Math.min(1, side / Math.max(img.width, img.height));
       const canvas = document.createElement('canvas');
       canvas.width = Math.round(img.width * scale);
       canvas.height = Math.round(img.height * scale);
       canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
       URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL('image/jpeg', 0.85).split(',')[1]);
+      resolve(canvas.toDataURL('image/jpeg', quality).split(',')[1]);
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('사진 파일을 열지 못했어요')); };
     img.src = url;
@@ -1679,8 +1689,15 @@ async function tryExtract() {
   state.aiError = null; state.inputHint = null;
   const body = {};
   if (state.mode === 'photo') {
-    if (!state.photoFile) { state.inputHint = '사진을 먼저 골라 주세요'; render(true); return; }
-    try { body.image = { mediaType: 'image/jpeg', data: await imageToBase64(state.photoFile) }; } catch (e) { state.aiError = { kind: 'photo', detail: e.message }; render(); return; }
+    const files = state.photoFiles || [];
+    if (!files.length) { state.inputHint = '사진을 먼저 골라 주세요'; render(true); return; }
+    try {
+      let images = await Promise.all(files.map((f) => imageToBase64(f)));
+      if (images.reduce((sum, d) => sum + d.length, 0) > PHOTO_BUDGET) images = await Promise.all(files.map((f) => imageToBase64(f, 1280, 0.8)));
+      // 1장이면 예전과 똑같은 형식(image)으로 보내 지금까지와 같이 읽는다. 여러 장일 때만 images로 보낸다.
+      if (images.length === 1) body.image = { mediaType: 'image/jpeg', data: images[0] };
+      else body.images = images.map((data) => ({ mediaType: 'image/jpeg', data }));
+    } catch (e) { state.aiError = { kind: 'photo', detail: e.message }; render(); return; }
     state.rawText = '';
   } else {
     if (!state.rawText.trim()) { state.inputHint = '공고나 메시지를 붙여 넣어 주세요'; render(true); return; }
@@ -1768,16 +1785,47 @@ app.addEventListener('submit', (e) => {
   render();
 });
 
+// 고르거나 끌어다 놓은 사진을 더한다. 사진 파일만, 같은 사진은 한 번만, 3장까지 받는다.
+function addPhotos(list) {
+  const picked = [...list];
+  const imgs = picked.filter((f) => f.type && f.type.startsWith('image/'));
+  const key = (f) => `${f.name}:${f.size}:${f.lastModified}`;
+  const merged = [...(state.photoFiles || [])];
+  for (const f of imgs) if (!merged.some((g) => key(g) === key(f))) merged.push(f);
+  state.photoFiles = merged.slice(0, MAX_PHOTOS);
+  state.inputHint = picked.length && !imgs.length ? '사진 파일만 올릴 수 있어요'
+    : merged.length > MAX_PHOTOS ? `사진은 ${MAX_PHOTOS}장까지 올릴 수 있어요. 앞의 ${MAX_PHOTOS}장만 넣었어요` : null;
+  render(true);
+}
+// 사진을 끌어다 놓기: 사진 올리기 화면에서는 창 어디에 놓아도 들어가고, 공고 올리기 화면에 놓으면 사진 올리기로 넘어간다.
+// 공고를 읽는 동안이나 안내 화면에서는 받지 않는다(브라우저가 사진 파일을 열어 입력이 사라지지 않게 막기만 한다).
+const draggingFiles = (e) => Boolean(e.dataTransfer) && [...(e.dataTransfer.types || [])].includes('Files');
+const photoDropOk = () => !AI_OFF && (state.step === 'upload' || (state.step === 'input' && state.mode === 'photo' && !state.loading && !state.aiError));
+let dragDepth = 0;
+function dropMark(on) { document.getElementById('drop')?.classList.toggle('over', on); }
+document.addEventListener('dragenter', (e) => {
+  if (!draggingFiles(e) || !['upload', 'input'].includes(state.step)) return;
+  e.preventDefault(); dragDepth += 1; if (photoDropOk()) dropMark(true);
+});
+document.addEventListener('dragover', (e) => {
+  if (!draggingFiles(e) || !['upload', 'input'].includes(state.step)) return;
+  e.preventDefault(); e.dataTransfer.dropEffect = photoDropOk() ? 'copy' : 'none';
+});
+document.addEventListener('dragleave', (e) => {
+  if (!draggingFiles(e)) return;
+  dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) dropMark(false);
+});
+document.addEventListener('drop', (e) => {
+  if (!draggingFiles(e) || !['upload', 'input'].includes(state.step)) return;
+  e.preventDefault(); dragDepth = 0; dropMark(false);
+  if (!photoDropOk()) return;
+  if (state.step === 'upload') Object.assign(state, { mode: 'photo', step: 'input', aiError: null, inputHint: null });
+  addPhotos(e.dataTransfer.files);
+});
+
 document.addEventListener('change', (e) => {
   const t = e.target;
-  if (t.id === 'photo' && t.files[0]) {
-    state.photoFile = t.files[0];
-    state.photoName = t.files[0].name;
-    state.inputHint = null;
-    const n = document.getElementById('photo-name');
-    if (n) n.textContent = state.photoName;
-    return;
-  }
+  if (t.id === 'photo' && t.files.length) { addPhotos(t.files); return; }
   if (t.dataset.offerName !== undefined) {
     const o = state.offers[Number(t.dataset.offerName)];
     if (o) { o.name = t.value.trim() || o.name; persist(); }
@@ -1865,6 +1913,7 @@ document.addEventListener('click', (e) => {
       break;
     }
     case 'extract': tryExtract(); return;
+    case 'removePhoto': (state.photoFiles || []).splice(Number(el.dataset.i), 1); state.inputHint = null; keep(); return;
     // 직접 입력: 고를 때마다 state.manual을 바꾸고 화면을 그 자리에서 다시 그린다.
     case 'mHow': manual().how = el.dataset.value; keep(); return;
     case 'mType': manual().type = el.dataset.value; keep(); return;

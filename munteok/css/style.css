@@ -316,6 +316,15 @@ select { min-height: 48px; }
 .drop .ic .i { width: 32px; height: 32px; }
 .drop b { font-size: 17px; word-break: break-all; }
 .drop span { font-size: 15px; color: var(--sub); }
+/* 사진을 끌어다 놓는 동안 사진 칸을 보라로. 끌어다 놓기 안내는 마우스를 쓰는 PC 화면에서만(휴대폰은 끌어다 놓을 수 없다) */
+.drop.over { border-color: var(--p); background: var(--p-tint); }
+.drag-hint { display: none; }
+@media (min-width: 1024px) and (hover: hover) and (pointer: fine) { .drag-hint { display: inline; } }
+/* 고른 사진 목록: 이름이 길면 말줄임, 오른쪽에 '빼기' */
+.photo-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.photo-list li { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--card); border-radius: 14px; padding: 0 6px 0 16px; font-size: 15px; }
+.photo-list .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.photo-list .inline { flex: none; padding: 11px 10px; }
 .tips { margin-top: 24px; }
 .tip { display: flex; align-items: center; gap: 12px; font-size: 15px; color: var(--ink-2); margin: 8px 4px 0; }
 .tip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--p); flex: none; }
