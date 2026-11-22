@@ -138,6 +138,24 @@ function moneyBar(s, { scale = null, height = 16, legend = true, lossName = '줄
   return bar + `<div class="lgv">${segs.map(([c, v, n], i) => `<div class="${c}"><span>${esc(n)}</span><b>${c === 'g' ? '' : '−'}${v < 10000 ? won(v) : mans[i].toLocaleString('ko-KR') + '만 원'}</b></div>`).join('')}</div>`;
 }
 
+// 영수증 줄: 버는 돈 → − 빼는 돈 → − 줄어드는 정부 지원 → 점선 → = 남는 돈. 모든 줄에 '원'을 붙이고 숫자는 오른쪽 정렬한다.
+// short면 만 원 단위(시작 화면 예시, 제목과 같은 값), 아니면 '금액 자세히 보기'와 같은 원 단위 계산값을 쓴다.
+function receiptRows(s, { short = false, keptName = '남는 돈' } = {}) {
+  const { kept, deduct, loss, deductName } = moneyParts(s);
+  const mp = manParts(s);
+  const val = (v, m) => (short && v >= 10000 ? `${m.toLocaleString('ko-KR')}만 원` : won(v));
+  const rows = [['', '버는 돈', val(s.addedIncome, mp.gross)]];
+  if (deduct > 0) rows.push(['o', deductName, `−${val(deduct, mp.deduct)}`]);
+  if (loss > 0) rows.push(['r', '줄어드는 정부 지원', `−${val(loss, mp.loss)}`]);
+  const total = short ? val(kept, mp.kept) : s.net < 0 ? `−${won(-s.net)}` : won(s.net);
+  const cls = s.net > 0 ? 'g' : s.net < 0 ? 'neg' : '';
+  return `<dl class="rc">${rows.map(([c, k, v]) => `<div class="rc-row ${c}"><dt>${esc(k)}</dt><dd class="num">${v}</dd></div>`).join('')}
+    <div class="rc-row sum ${cls}"><dt>${esc(keptName)}</dt><dd class="num">${total}</dd></div></dl>`;
+}
+const STAMP = '<span class="stamp">참고용 추정</span>';
+// 결과 숫자: 0.5초 동안 한 번만 올라간다. 화면 읽기 프로그램에는 마지막 값만 읽힌다.
+const countNum = (n) => `<span class="count" data-to="${n}"><span class="sr-only">${n.toLocaleString('ko-KR')}</span><span class="cv" aria-hidden="true">${n.toLocaleString('ko-KR')}</span></span>`;
+
 function row({ ic = null, cls = '', title, sub = '', badge = '', action = '', attrs = '', arrow = Boolean(action) }) {
   const tagName = action ? 'button' : 'div';
   return `<${tagName} class="row" ${action ? `type="button" data-action="${action}" ${attrs}` : ''}>
@@ -166,21 +184,27 @@ function sampleSummary(id) {
 
 function viewStart() {
   const s = sampleSummary('cafe');
+  const first = AI_OFF ? '조건 넣기' : '공고 올리기';
+  // PC에서는 왼쪽에 제목·대상·3단계·주 버튼, 오른쪽에 예시 영수증을 둔다. 휴대폰은 배치를 그대로 둔다(pc-only는 숨김).
   return {
     top: 'logo',
     html: `<div class="hero">
       <h1 class="t1">일하기 전에<br><mark>내 돈</mark>부터 확인해요</h1>
       <p class="sub">${AI_OFF ? '시급과 일하는 시간만 넣으면 3분 만에 끝나요' : '알바 공고 하나면 3분 만에 끝나요'}</p>
     </div>
-    <div class="card pv tap" role="button" tabindex="0" data-action="sample" data-id="cafe" aria-label="주말 카페 알바 예시로 해 보기">
+    <p class="who pc-only">정부 지원을 받으면서 알바를 시작하려는 청년을 위해 만들었어요</p>
+    <ol class="steps3 pc-only"><li>${first}</li><li>조건 확인</li><li>남는 돈</li></ol>
+    <div class="start-cta pc-only">${cta(first, 'go', 'data-step="upload"')}${linkBtn('예시로 먼저 해 보기', 'go', 'data-step="samples"')}</div>
+    <div class="card pv tap rcpt" role="button" tabindex="0" data-action="sample" data-id="cafe" aria-label="주말 카페 알바 예시로 해 보기">
       <span class="chip">예시</span>
       <p class="pvt">주말 카페 알바로<br>한 달에 <span class="num">${man(s.addedIncome)}</span>을 벌면,<br>실제로 남는 돈은 <mark class="num">${man(s.net)}</mark>이에요</p>
-      ${moneyBar(s)}
-      <span class="pv-go">이 예시로 해 보기${icon('ch')}</span>
+      ${moneyBar(s, { legend: false })}
+      ${receiptRows(s, { short: true })}
+      <div class="rc-foot">${STAMP}<span class="pv-go">이 예시로 해 보기${icon('ch')}</span></div>
     </div>
     <p class="gline center">로그인 없이 바로 써요 · 입력한 내용은 서버에 저장하지 않아요</p>
     <p class="gline center"><button type="button" class="inline" data-action="privacy">개인정보 처리 안내</button></p>`,
-    bottom: `${cta(AI_OFF ? '조건 넣기' : '공고 올리기', 'go', 'data-step="upload"')}${linkBtn('예시로 먼저 해 보기', 'go', 'data-step="samples"')}`,
+    bottom: `${cta(first, 'go', 'data-step="upload"')}${linkBtn('예시로 먼저 해 보기', 'go', 'data-step="samples"')}`,
   };
 }
 
@@ -843,18 +867,18 @@ function betterOptionAll() {
 function resultTitle(r, job) {
   const s = r.summary;
   if (s.net <= 0 && s.addedIncome > 0) {
-    return `<h1 class="t2">일해도 ${periodOf(s) ? '' : '한 달에 '}<br><mark class="rd">남는 돈이 없어요</mark></h1>
+    return `<h1 class="t2 res">일해도 ${periodOf(s) ? '' : '한 달에 '}<br><mark class="rd">남는 돈이 없어요</mark></h1>
       <p class="cut">버는 돈 <b class="num">${man(s.addedIncome)}</b>보다 빠지는 돈이 더 커요</p>`;
   }
   const mp = manParts(s);
   // 급여를 어떻게 받는지 모르면 보험료·세금을 뺄 수 없어 "남아요"라고 하지 않는다.
-  if (job.incomeType === 'unknown') return `<h1 class="t2">${perLong(s)} <mark class="num kn">${mp.gross}만 원</mark>을<br>받아요</h1>`;
+  if (job.incomeType === 'unknown') return `<h1 class="t2 res">${perLong(s)} <mark class="num kn">${countNum(mp.gross)}만 원</mark>을<br>받아요</h1>`;
   if (s.allowanceLoss > 0) {
     const ended = state.result.cards.some((c) => c.ended);
-    return `<h1 class="t2">${periodOf(s) ? `${periodOf(s)} 동안<br>` : '한 달에<br>'}<span class="num">${mp.gross}만 원</span>을 벌지만<br>실제로 남는 돈은<br><mark class="num kn">${mp.kept}만 원</mark>이에요</h1>
+    return `<h1 class="t2 res">${periodOf(s) ? `${periodOf(s)} 동안<br>` : '한 달에<br>'}<span class="num">${mp.gross}만 원</span>을 벌지만<br>실제로 남는 돈은<br><mark class="num kn">${countNum(mp.kept)}만 원</mark>이에요</h1>
       <p class="cut">${mp.deduct ? '보험료와 ' : ''}${ended ? '끊기는' : '줄어드는'} 정부 지원으로 <mark class="rd"><b class="num">${mp.deduct + mp.loss}만 원</b></mark>이 빠져요</p>`;
   }
-  return `<h1 class="t2">${perLong(s)} <mark class="num kn">${mp.kept}만 원</mark>이<br>남아요</h1>`;
+  return `<h1 class="t2 res">${perLong(s)} <mark class="num kn">${countNum(mp.kept)}만 원</mark>이<br>남아요</h1>`;
 }
 
 function reportText(t) {
@@ -899,11 +923,14 @@ function viewResult() {
   const multi = state.offers.length > 1;
   return {
     // 제안이 하나뿐이면 "제안 1" 같은 이름을 본 적이 없으니 조건으로 부른다.
-    html: `<p class="pre">${state.offers.length > 1 ? `${esc(josa(offer.name, '을', '를'))} 시작하면` : '이 조건으로 일을 시작하면'}</p>
+    // PC에서는 왼쪽에 결론 문장과 영수증, 오른쪽에 나머지 카드. 휴대폰은 두 칸이 위아래로 이어져 순서가 그대로다.
+    html: `<div class="split"><div class="col-a">
+      <p class="pre">${state.offers.length > 1 ? `${esc(josa(offer.name, '을', '를'))} 시작하면` : '이 조건으로 일을 시작하면'}</p>
       ${resultTitle(r, job)}
       ${nextPeriodLine(r)}
       ${pendingLine}
-      <div class="card bcard"><div class="hd"><span>버는 돈</span><b class="num">${man(s.addedIncome)}</b></div>${moneyBar(s, { height: 18, keptName: unknownPay ? '받는 돈 (떼기 전)' : '남는 돈' })}</div>
+      <div class="card rcpt">${moneyBar(s, { height: 16, legend: false, keptName: unknownPay ? '받는 돈 (떼기 전)' : '남는 돈' })}${receiptRows(s, { keptName: unknownPay ? '받는 돈 (떼기 전)' : '남는 돈' })}<div class="rc-foot">${STAMP}</div></div>
+      </div><div class="col-b">
       ${better ? `<button type="button" class="better" data-action="${better.hours ? 'altsAt' : 'go'}" ${better.hours ? `data-hours="${better.hours}"` : 'data-step="alts"'}>
         <span class="tx"><small>근무시간을 바꾸면</small><b>${esc(better.title)}</b><span>${esc(better.sub)}</span></span>${icon('ch')}</button>` : ''}
       ${shown.length || reports.length ? `<p class="sec">달라지는 것</p><div class="rows">${shown.map(rowOf).join('')}${reports.join('')}</div>` : holds.length ? '' : '<p class="gline">지금 조건에서는 지원이나 자격에 달라지는 것이 없어요</p>'}
@@ -918,7 +945,8 @@ function viewResult() {
       ${r.notices.map((n) => `<p class="gline">${esc(polite(n))}</p>`).join('')}
       ${job.incomeType !== 'business' ? '<p class="gline">밤 10시~아침 6시, 하루 8시간을 넘는 시간, 휴일에 일해서 더 받는 수당(5명 이상 사업장)은 계산하지 않았어요</p>' : ''}
       ${multi ? linkBtn(`다른 제안과 비교하기`, 'go', 'data-step="compare"') : ''}
-      ${DISCLAIMER}`,
+      ${DISCLAIMER}
+      </div></div>`,
     bottom: !state.alts ? cta(unknownPay ? '물어볼 말 보기' : '준비물 보기', 'go', 'data-step="basis"')
       : unknownPay ? two(weak('근무시간 바꿔 보기', 'go', 'data-step="alts"').replace('cta weak', 'cta weak eq'), cta('물어볼 말 보기', 'go', 'data-step="basis"'))
       : two(weak('준비물 보기', 'go', 'data-step="basis"'), cta('근무시간 바꿔 보기', 'go', 'data-step="alts"')),
@@ -955,12 +983,12 @@ function viewCompare() {
   const lead = (i) => (rows.length > 1 && h.net === i ? `<span class="tagm ok">${anyDays ? '남는 금액' : '한 달 금액'}이 가장 커요</span>` : '') + (rows.length > 1 && h.netPerHour === i ? '<span class="tagm ok">시간당 금액이 가장 커요</span>' : '');
   return {
     html: `<h1 class="t2">${title}</h1>
-      ${rows.map((r, i) => `<button type="button" class="cmp" data-action="detail" data-i="${i}">
+      <div class="cmp-grid">${rows.map((r, i) => `<button type="button" class="cmp" data-action="detail" data-i="${i}">
         <span class="top"><span class="nm"><b>${esc(r.name)}</b>일주일에 ${r.job.weeklyHours}시간 · ${r.span ? (r.span.countedLabel || r.span.label) : r.days ? `${r.days}일` : `${r.workedMonths}개월`}</span><span class="amt2 num">${man(r.net)}</span></span>
         ${moneyBar(r.result.summary, { scale, height: 12, legend: false })}
         <span class="meta"><span class="num">시간당 ${won(r.netPerHour)}</span>${lead(i)}${r.allowanceLoss ? '<span class="tagm need">정부 지원 줄어듦</span>' : ''}${r.result.summary.pendingIds.length ? `<span class="tagm need">확인 필요 ${r.result.summary.pendingIds.length}</span>` : ''}${r.withinHours ? '' : '<span class="tagm hold">할 수 있는 시간 초과</span>'}</span>
         ${laterNote(r.result)}
-      </button>`).join('')}
+      </button>`).join('')}</div>
       <div class="lg"><span>남는 돈</span><span class="o">보험료·세금</span><span class="r">줄어드는 정부 지원</span></div>
       <p class="gline">금액은 한 달에 남는 돈이에요. 번 돈에서 보험료와 줄어드는 정부 지원을 뺀 돈이에요${anyDays ? '. 일수나 날짜로 넣은 제안은 그 기간 동안 남는 돈이라 한 달 금액과 바로 비교하기 어려워요' : ''}. 고르는 건 내 몫이에요. 카드를 누르면 자세히 볼 수 있어요</p>`,
     bottom: two(weak('제안 더하기', 'addOffer', state.offers.length < MAX_OFFERS ? '' : 'disabled'), cta('내 상황 바꾸기', 'go', 'data-step="profile"')),
@@ -1020,7 +1048,7 @@ function viewAlts() {
   return {
     html: `<h1 class="t2">${altsTitle(a)}</h1>
       ${a.offeredOutOfRange ? `<p class="gline warn">받은 제안(주 ${a.offered}시간)은 할 수 있는 시간을 넘어 비교에서 뺐어요</p>` : ''}
-      <div role="radiogroup" aria-label="비교할 근무시간">${opts.map((o) => `<button type="button" role="radio" aria-checked="${o.weeklyHours === chosen}" class="opc ${o.weeklyHours === chosen ? 'on' : ''}" data-action="chooseHours" data-hours="${o.weeklyHours}">
+      <div class="opc-grid" role="radiogroup" aria-label="비교할 근무시간">${opts.map((o) => `<button type="button" role="radio" aria-checked="${o.weeklyHours === chosen}" class="opc ${o.weeklyHours === chosen ? 'on' : ''}" data-action="chooseHours" data-hours="${o.weeklyHours}">
         <span class="top"><span class="nm num">주 ${o.weeklyHours}시간</span><span class="am">남는 돈 <b class="num">${exact ? won(o.net) : man(o.net)}</b></span></span>
         <span class="gl2">${esc(o.name)}</span>
         ${moneyBar(sumOf(o), { scale, height: 12, legend: false })}
@@ -1258,12 +1286,28 @@ function sheetConsent() {
     ${two(btn('동의하지 않아요', 'no'), btn('동의해요', 'yes'))}`;
 }
 
+// 아래 창은 부드럽게 올라오고(0.25초) 내려간다(0.2초). 열려 있는 동안 내용만 바뀔 때는 다시 움직이지 않는다.
+let sheetOpen = false;
+let sheetTimer = null;
 function renderSheet() {
   const sh = state.sheet;
-  if (!sh) { sheetEl.hidden = true; sheetEl.innerHTML = ''; return; }
+  clearTimeout(sheetTimer);
+  if (!sh) {
+    const wasOpen = sheetOpen;
+    sheetOpen = false;
+    sheetEl.classList.remove('opening');
+    if (!wasOpen || reduceMotion()) { sheetEl.hidden = true; sheetEl.innerHTML = ''; sheetEl.classList.remove('closing'); return; }
+    sheetEl.classList.add('closing');
+    sheetTimer = setTimeout(() => { sheetEl.hidden = true; sheetEl.innerHTML = ''; sheetEl.classList.remove('closing'); }, 200);
+    return;
+  }
+  const opening = !sheetOpen;
+  sheetOpen = true;
+  sheetEl.classList.remove('closing', 'opening');
   const body = sh.type === 'consent' ? sheetConsent() : sh.type === 'edit' ? sheetEdit(sh.key) : sh.type === 'amounts' ? sheetAmounts() : sheetCard(sh.id);
   sheetEl.hidden = false;
   sheetEl.innerHTML = `<div class="dim" data-action="closeSheet"></div><div class="panel" role="dialog" aria-modal="true" aria-labelledby="sheet-title" tabindex="-1"><div class="hdl" aria-hidden="true"></div>${body}</div>`;
+  if (opening && !reduceMotion()) { void sheetEl.offsetWidth; sheetEl.classList.add('opening'); }
   // 기간 창은 개월 버튼이 먼저라 일수 칸에 바로 커서를 두지 않는다. "한 달보다 짧아요"로 열었거나 이미 일수면 일수 칸에 둔다.
   const monthsFirst = sh.type === 'edit' && sh.key === 'months' && !sh.unit && !state.fields.months.unit;
   ((monthsFirst ? null : sheetEl.querySelector('.panel input')) || sheetEl.querySelector('.panel'))?.focus({ preventScroll: true });
@@ -1315,15 +1359,75 @@ function openOffer(i, keepChoice = false) {
 const VIEWS = { start: viewStart, upload: viewUpload, samples: viewSamples, input: viewInput, confirm: viewConfirm, offers: viewOffers, profile: viewProfile, compare: viewCompare, result: viewResult, alts: viewAlts, message: viewMessage, basis: viewBasis, privacy: viewPrivacy };
 
 function topHtml(v) {
-  if (v.top === 'logo') return `<button type="button" class="logo" data-action="home" aria-label="한끗 처음 화면">${LOGO}</button>`;
+  if (v.top === 'logo') return `<button type="button" class="logo" data-action="home" aria-label="한끗 처음 화면">${LOGO}</button><span class="tagline">한 끗 차이로 달라지는 내 돈, 일하기 전에 확인해요</span>`;
   const group = STEP_GROUP[state.step];
   const seg = group === undefined ? '' : `<div class="seg" role="progressbar" aria-label="진행 단계" aria-valuemin="1" aria-valuemax="6" aria-valuenow="${group + 1}">${Array.from({ length: 6 }, (_, i) => `<i class="${i <= group ? 'on' : ''}"></i>`).join('')}</div>`;
   return `<button type="button" class="backb" data-action="back">${icon('back')}<span>뒤로</span></button>${seg}`;
 }
 
+// ---------------- 움직임 ----------------
+// 화면이 바뀔 때만 움직인다. 같은 화면을 다시 그릴 때(고르기, 입력)는 움직이지 않는다. 동작 줄이기 설정이면 모두 끈다.
+const reduceMotion = () => Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+const WIDE = new Set(['start', 'result', 'alts', 'compare']); // PC에서 두 칸이나 넓은 칸으로 보이는 화면
+let shownScreen = null;
+let countedKey = null;
+function screenKey() {
+  const s = state.step;
+  if (s === 'profile') return `${s}:${state.profileQ}`;
+  if (s === 'confirm' && state.fields) return `${s}:${reviewQueue().length + missingFields().length}:${state.editing}`;
+  if (s === 'input') return `${s}:${state.mode}:${state.loading ? 1 : 0}:${state.aiError ? state.aiError.kind : ''}`;
+  return s;
+}
+function animateScreen() {
+  const key = screenKey();
+  const changed = key !== shownScreen;
+  shownScreen = key;
+  app.classList.remove('enter', 'stagger');
+  if (changed && !reduceMotion()) {
+    void app.offsetWidth; // 애니메이션을 처음부터 다시 시작한다
+    if (state.step === 'result') {
+      // 결과 화면 카드는 위에서부터 차례로 나타난다.
+      let i = 0;
+      for (const el of app.children) {
+        const items = el.classList.contains('split') ? [...el.children].flatMap((col) => [...col.children]) : [el];
+        for (const it of items) it.style.setProperty('--i', Math.min(i++, 8));
+      }
+      app.classList.add('stagger');
+    } else app.classList.add('enter');
+  }
+  if (state.step === 'result') countUp();
+}
+// 결과 숫자는 0.5초 동안 0에서 마지막 값까지 한 번만 올라간다. 자리는 마지막 값 너비로 미리 잡아 글자가 밀리지 않게 한다.
+function countUp() {
+  const els = [...app.querySelectorAll('.count')];
+  if (!els.length) return;
+  const key = `${state.active}:${els.map((e) => e.dataset.to).join(',')}`;
+  if (key === countedKey) return;
+  countedKey = key;
+  if (reduceMotion()) return;
+  for (const el of els) {
+    const to = Number(el.dataset.to);
+    const cv = el.querySelector('.cv');
+    if (!cv || !(to > 0)) continue;
+    cv.style.minWidth = `${cv.getBoundingClientRect().width}px`;
+    cv.textContent = '0';
+    const t0 = performance.now();
+    const tick = (now) => {
+      const p = Math.min(1, (now - t0) / 500);
+      if (p < 1 && cv.isConnected) {
+        cv.textContent = Math.round(to * (1 - Math.pow(1 - p, 3))).toLocaleString('ko-KR');
+        requestAnimationFrame(tick);
+      } else { cv.textContent = to.toLocaleString('ko-KR'); cv.style.minWidth = ''; }
+    };
+    requestAnimationFrame(tick);
+  }
+}
+
 function render(keepScroll = false) {
   const y = window.scrollY;
   const v = VIEWS[state.step]();
+  document.body.dataset.step = state.step;
+  document.body.classList.toggle('wide', WIDE.has(state.step));
   topEl.innerHTML = topHtml(v);
   app.innerHTML = v.html;
   barEl.innerHTML = v.bottom || '';
@@ -1331,6 +1435,7 @@ function render(keepScroll = false) {
   app.style.paddingBottom = v.bottom ? `${barEl.offsetHeight + 24}px` : '32px';
   renderSheet();
   window.scrollTo(0, keepScroll ? y : 0);
+  animateScreen();
   persist();
   trackStep();
 }
