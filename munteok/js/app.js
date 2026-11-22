@@ -61,6 +61,8 @@ const ICON = {
   noread: '<path d="M4 8.5h3l1.5-2h7l1.5 2h3v10H4z"/><path d="M9.5 11l5 5M14.5 11l-5 5"/>',
   link: '<path d="M10 14l4-4M9 7h-2a4 4 0 000 8h2M15 17h2a4 4 0 000-8h-2"/>',
   phone: '<path d="M6 4h3l1.5 4-2 1.5a10 10 0 005 5L15 12.5l4 1.5v3a2 2 0 01-2 2A14 14 0 014 6a2 2 0 012-2z"/>',
+  pause: '<path d="M9 6.5v11M15 6.5v11"/>',
+  play: '<path d="M8.5 6.3v11.4L17.5 12z"/>',
 };
 const icon = (name) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${ICON[name]}</svg>`;
 // 로고: 보라 '한끗' 글자 로고(색은 css의 .logo)
@@ -186,6 +188,30 @@ function sampleSummary(id) {
   const job = { hourlyWage: f.hourlyWage, weeklyHours: f.weeklyHours, startMonth: f.startMonth || 1, months: f.months || 12, incomeType: f.incomeType, holidayIncluded: Boolean(f.holidayIncluded) };
   return evaluate(job, s.profile, state.rules).summary;
 }
+
+// PC 화면(시작 화면 빼고, 1366px 이상)의 틀 바깥 좌우 여백에 떠다니는 동전·지폐. 한끗 보라로 그린 그림이라 화면 읽기 프로그램은 읽지 않는다.
+// 가까운 것은 보라 테두리와 숫자(지폐 숫자 밑에는 예시 영수증처럼 형광펜), 먼 것은 옅은 보라 면만 그린다.
+// 지폐 안쪽 점선 테는 영수증 줄의 점선과 같은 모양. 자리·움직임·멈춤은 style.css '떠다니는 동전·지폐', 그림 층은 '움직임' 구역에서 한 번만 만든다.
+function coinSvg(d, num) {
+  const c = d / 2;
+  const r = c - 1;
+  return `<svg viewBox="0 0 ${d} ${d}" width="${d}" height="${d}" focusable="false"><circle class="mn-face" cx="${c}" cy="${c}" r="${r}"/><circle class="mn-reed" cx="${c}" cy="${c}" r="${r - 4.5}"/><circle class="mn-ring" cx="${c}" cy="${c}" r="${r - 9}"/><circle class="mn-line" cx="${c}" cy="${c}" r="${r}"/><text class="mn-num" x="${c}" y="${c}" dy=".36em" text-anchor="middle" font-size="${Math.round(d / 4)}">${num}</text></svg>`;
+}
+function farCoinSvg(d) {
+  const c = d / 2;
+  return `<svg viewBox="0 0 ${d} ${d}" width="${d}" height="${d}" focusable="false"><circle class="mn-mark" cx="${c}" cy="${c}" r="${c}"/><circle class="mn-face" cx="${c}" cy="${c}" r="${c - 5}"/><circle class="mn-ring" cx="${c}" cy="${c}" r="${c - 10}"/></svg>`;
+}
+function billSvg(w, h, num, markW) {
+  const m = h / 2;
+  return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" focusable="false"><rect class="mn-paper" x="1" y="1" width="${w - 2}" height="${h - 2}" rx="8"/><rect class="mn-dots" x="7" y="7" width="${w - 14}" height="${h - 14}" rx="4"/><circle class="mn-face" cx="${w - 31}" cy="${m}" r="${Math.round(h * 0.23)}"/><rect class="mn-mark" x="15" y="${m - 4}" width="${markW}" height="8" rx="1"/><text class="mn-num mn-ink" x="17" y="${m + 2.5}" font-size="16">${num}</text><rect class="mn-mark" x="17" y="${m + 10}" width="26" height="3" rx="1.5"/><rect class="mn-line" x="1" y="1" width="${w - 2}" height="${h - 2}" rx="8"/></svg>`;
+}
+function farBillSvg(w, h) {
+  const m = h / 2;
+  return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" focusable="false"><rect class="mn-mark" width="${w}" height="${h}" rx="8"/><rect class="mn-dots mn-w" x="6" y="6" width="${w - 12}" height="${h - 12}" rx="4"/><circle class="mn-face" cx="${w - 28}" cy="${m}" r="${Math.round(h * 0.2)}"/><rect class="mn-face" x="15" y="${m - 6}" width="40" height="5" rx="2.5"/><rect class="mn-face" x="15" y="${m + 4}" width="24" height="3" rx="1.5"/></svg>`;
+}
+// 여백 네 모서리에 하나씩: a 왼쪽 위(가까운 동전), b 왼쪽 아래(먼 지폐), c 오른쪽 위('움직임 멈춤' 아래, 먼 동전), d 오른쪽 아래(가까운 지폐).
+// 가까운 것과 먼 것을 엇갈려 두어 양쪽 무게가 같다.
+const MONEY = [['mc-a', coinSvg(76, '500')], ['mc-b', farBillSvg(112, 60)], ['mc-c', farCoinSvg(44)], ['mc-d', billSvg(112, 60, '10,000', 54)]];
 
 function viewStart() {
   const s = sampleSummary('cafe');
@@ -1560,6 +1586,38 @@ function topHtml(v) {
 // ---------------- 움직임 ----------------
 // 화면이 바뀔 때만 움직인다. 같은 화면을 다시 그릴 때(고르기, 입력)는 움직이지 않는다. 동작 줄이기 설정이면 모두 끈다.
 const reduceMotion = () => Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+// PC 화면 좌우 여백의 떠다니는 동전·지폐는 5초 넘게 저절로 움직여서 '움직임 멈춤'으로 멈출 수 있게 한다(다시 누르면 다시 움직임).
+// 누르기 전에는 기기 설정을 따르고(동작 줄이기면 처음부터 멈춤), 누른 뒤에는 이 탭을 닫을 때까지 고른 대로 둔다.
+// body[data-motion]: auto(기기 설정대로) · on · off. 멈추면 그 자리에 선다(style.css).
+const MOTION_KEY = 'hankkeut-motion';
+let motionChoice = null;
+try { motionChoice = sessionStorage.getItem(MOTION_KEY); } catch (e) { /* 무시 */ }
+if (motionChoice !== 'on' && motionChoice !== 'off') motionChoice = null;
+document.body.dataset.motion = motionChoice || 'auto';
+const motionStopped = () => (motionChoice ? motionChoice === 'off' : reduceMotion());
+const motionLabel = () => (motionStopped() ? `${icon('play')}<span>움직임 켜기</span>` : `${icon('pause')}<span>움직임 멈춤</span>`);
+// 그림 층과 버튼은 #app 밖에 한 번만 만든다. 화면을 다시 그려도 그대로 남아서, 화면을 넘겨도 움직임이 처음부터 다시 시작하지 않는다.
+// 보이는지는 style.css가 정한다(시작 화면과 1366px 미만은 숨김). 버튼은 위쪽 막대 바로 뒤에 둬서 Tab 순서가 위쪽 막대 → 움직임 멈춤 → 내용이다.
+const motionBtn = document.createElement('button');
+motionBtn.type = 'button';
+motionBtn.className = 'motion-btn';
+motionBtn.dataset.action = 'motion';
+motionBtn.innerHTML = motionLabel();
+const coinsEl = document.createElement('div');
+coinsEl.className = 'coins';
+coinsEl.setAttribute('aria-hidden', 'true');
+coinsEl.innerHTML = MONEY.map(([k, svg]) => `<span class="coin ${k}">${svg}</span>`).join('');
+topEl.after(motionBtn, coinsEl);
+function toggleMotion() {
+  motionChoice = motionStopped() ? 'on' : 'off';
+  document.body.dataset.motion = motionChoice;
+  try { sessionStorage.setItem(MOTION_KEY, motionChoice); } catch (e) { /* 무시 */ }
+  // 버튼은 그대로 두고 안만 바꿔서 키보드 초점이 남는다.
+  motionBtn.innerHTML = motionLabel();
+}
+// 고르기 전에 기기의 동작 줄이기 설정이 바뀌면 버튼 글자도 맞춘다.
+const reduceQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+if (reduceQuery && reduceQuery.addEventListener) reduceQuery.addEventListener('change', () => { if (!motionChoice) motionBtn.innerHTML = motionLabel(); });
 let shownScreen = null;
 let screenChangedAt = 0; // 화면이 바뀐 시각. 빠르게 두 번 누를 때 두 번째 누르기를 막는 데 쓴다
 let countedKey = null;
@@ -1635,6 +1693,32 @@ function placeVertically(force = false) {
 let placeTimer = null;
 window.addEventListener('resize', () => { clearTimeout(placeTimer); placeTimer = setTimeout(() => placeVertically(true), 120); });
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => placeVertically(true));
+// PC 질문 화면(질문 1~6, 조건 확인 질문, 공고에 없는 것 묻기 = 단계 표시가 있는 두 칸 화면): 오른쪽 고르는 칸(.cb)이
+// 왼쪽 묶음('질문 n/6'부터 '계산할 조건'까지)보다 짧으면 그 묶음의 세로 가운데에 둔다. 길면 지금처럼 맨 위를 단계 표시에 맞춘다.
+// placeVertically처럼 화면이 바뀔 때(와 창 크기·글꼴이 바뀔 때)만 정한다. 같은 화면에서 안내가 펼쳐지면 위 여백을 그대로 둬서
+// 방금 누른 버튼이 움직이지 않고 칸이 아래로만 늘어난다. 휴대폰은 하지 않는다.
+let answerKey = null;
+let answerShift = 0;
+function centerAnswer(force = false) {
+  const cb = app.querySelector(':scope > .step ~ .cb');
+  if (cb) cb.style.marginTop = '';
+  const key = screenKey();
+  if (force || key !== answerKey) {
+    answerKey = key;
+    answerShift = 0;
+    if (cb && pcQuery && pcQuery.matches) {
+      const left = [...app.children].filter((el) => el !== cb && el.getClientRects().length);
+      const top = app.querySelector(':scope > .step').getBoundingClientRect().top;
+      const bottom = Math.max(...left.map((el) => el.getBoundingClientRect().bottom));
+      const r = cb.getBoundingClientRect();
+      answerShift = Math.max(0, Math.round(top + (bottom - top - r.height) / 2 - r.top));
+    }
+  }
+  if (cb && answerShift) cb.style.marginTop = `${parseFloat(getComputedStyle(cb).marginTop) + answerShift}px`;
+}
+let answerTimer = null;
+window.addEventListener('resize', () => { clearTimeout(answerTimer); answerTimer = setTimeout(() => centerAnswer(true), 120); });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => centerAnswer(true));
 
 function render(keepScroll = false) {
   const y = window.scrollY;
@@ -1647,6 +1731,7 @@ function render(keepScroll = false) {
   barEl.innerHTML = v.bottom || '';
   barEl.hidden = !v.bottom;
   app.style.paddingBottom = v.bottom ? `${barEl.offsetHeight + 24}px` : '32px';
+  centerAnswer();
   placeVertically();
   renderSheet();
   window.scrollTo(0, keepScroll ? y : 0);
@@ -2201,6 +2286,7 @@ document.addEventListener('click', (e) => {
     }
     case 'restart': resetAll(); break;
     case 'home': state.step = 'start'; state.sheet = null; break;
+    case 'motion': toggleMotion(); return;
     case 'consent': {
       const yes = el.dataset.value === 'yes';
       saveConsent(yes ? 'yes' : 'no');
