@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>문턱 · 제안 비교 (시안 v8 영수증+v4)</title>
+<link rel="stylesheet" href="style.css?v=25">
+</head>
+<body>
+<header class="nav-bar"><div class="wrap nav">
+  <div class="nav-l"><a class="brand" href="01_시작_PC.html"><i></i>문턱</a><nav class="links"><a href="01_시작_PC.html#how">작동 방식</a><a href="01_시작_PC.html#rules">계산하는 제도</a><a class="on" href="04_제안비교_PC.html">제안 비교</a></nav></div>
+  <a class="btn sm" href="02_올리기_PC.html">새 계산</a>
+</div></header>
+
+<main class="wrap">
+  <header class="page-head cmp-head rise">
+    <div><span class="eyebrow">제안 비교 · 같은 규칙으로 계산</span><h1><span class="ca">카페</span>와 <span class="cb">학원 보조</span>,<br>실질 소득은 어느 쪽이 클까?</h1></div>
+    <div><p>기준마다 앞서는 제안을 표시할 뿐이에요. 어느 쪽을 고를지는 직접 정하세요.</p><br><span class="chip gray">내 상황 · 구직촉진수당을 받는 27세</span></div>
+  </header>
+
+  <section class="cmp rise" style="--t:.1s" aria-label="기준별 비교">
+    <div class="c-corner">2026년 · 월 기준</div>
+    <div class="c-top" style="--c:var(--blue)"><span class="tag">제안 A · 근로소득</span><h2>주말 카페 알바 공고</h2><div class="chips"><span class="chip line">시급 10,500원</span><span class="chip line">주 24시간</span><span class="chip line">1~12월</span><span class="chip line">4대보험</span></div><div class="net"><small>월 실질 소득</small><strong class="mono">810,863원</strong></div></div>
+    <div class="c-top" style="--c:var(--violet)"><span class="tag">제안 B · 사업소득</span><h2>3.3% 떼는 학원 채점 보조</h2><div class="chips"><span class="chip line">시급 13,000원</span><span class="chip line">주 12시간</span><span class="chip line">3~12월</span><span class="chip line">3.3% 원천징수</span></div><div class="net"><small>월 실질 소득</small><strong class="mono">655,452원</strong></div></div>
+
+    <div class="c-lab">월 실질 소득<small>클수록 유리</small></div>
+    <div class="c-v win" style="--c:var(--blue)"><span class="mono">810,863원</span><div class="bar"><i style="--w:100%"></i></div></div>
+    <div class="c-v" style="--c:var(--violet)"><span class="mono">655,452원</span><div class="bar"><i style="--w:80.8%"></i></div></div>
+
+    <div class="c-lab">시간당 실질 소득<small>클수록 유리</small></div>
+    <div class="c-v" style="--c:var(--blue)"><span class="mono">7,776원</span><div class="bar"><i style="--w:61.9%"></i></div></div>
+    <div class="c-v win" style="--c:var(--violet)"><span class="mono">12,571원</span><div class="bar"><i style="--w:100%"></i></div></div>
+
+    <div class="c-lab">기간 전체 실질 소득<small>12개월 vs 10개월</small></div>
+    <div class="c-v win" style="--c:var(--blue)"><span class="mono">9,730,356원</span><div class="bar"><i style="--w:100%"></i></div></div>
+    <div class="c-v" style="--c:var(--violet)"><span class="mono">6,554,520원</span><div class="bar"><i style="--w:67.4%"></i></div></div>
+
+    <div class="c-lab">지원 조정액 (월)<small>적을수록 유리</small></div>
+    <div class="c-v" style="--c:var(--red)"><span class="mono neg">−375,385원</span><div class="bar"><i style="--w:100%"></i></div></div>
+    <div class="c-v win" style="--c:var(--violet)"><span class="mono">0원</span><div class="bar"><i style="--w:1%"></i></div></div>
+
+    <div class="c-lab">일하는 시간<small>가능한 주 40시간 안</small></div>
+    <div class="c-v" style="--c:#c9ced8"><span class="mono">주 24시간</span><div class="bar"><i style="--w:60%"></i></div></div>
+    <div class="c-v" style="--c:#c9ced8"><span class="mono">주 12시간</span><div class="bar"><i style="--w:30%"></i></div></div>
+  </section>
+
+  <div class="detail">
+    <article class="panel dcard" style="--c:var(--blue)">
+      <h3><i></i>제안 A에서 달라지는 것</h3>
+      <div class="chips"><span class="chip amber">구직촉진수당 조정</span><span class="chip blue">주휴수당·4대보험</span></div>
+      <dl class="mono"><dt>급여 (월)</dt><dd>1,313,928원</dd><dt>4대보험 (월)</dt><dd class="neg">−127,680원</dd><dt>수당 (월)</dt><dd>600,000 → <span class="neg">224,615원</span></dd></dl>
+      <p class="ask"><small>시작 전에 고용주에게 물어볼 것</small>주휴수당은 시급과 별도로 지급되나요?</p>
+      <a class="btn line sm" href="03_결과_PC.html">제안 A 자세히 보기 →</a>
+    </article>
+    <article class="panel dcard" style="--c:var(--violet)">
+      <h3><i></i>제안 B에서 달라지는 것</h3>
+      <div class="chips"><span class="chip green">구직촉진수당 유지</span><span class="chip gray">주 15시간 미만</span></div>
+      <dl class="mono"><dt>급여 (월)</dt><dd>677,820원</dd><dt>3.3% 원천징수 (월)</dt><dd class="neg">−22,368원</dd><dt>수당 (월)</dt><dd>600,000원 전액</dd></dl>
+      <p class="ask"><small>시작 전에 고용주에게 물어볼 것</small>근로계약서를 쓰나요, 용역(프리랜서) 계약인가요?</p>
+      <a class="btn line sm" href="03_결과_PC.html">제안 B 자세히 보기 →</a>
+    </article>
+    <a class="add" href="02_올리기_PC.html"><div><b>+</b><span>비교할 제안 추가</span><small>최대 3개까지</small></div></a>
+  </div>
+  <p class="scope">2026년 규칙으로 한 해(1~12월)를 계산했어요. 실질 소득은 급여에서 4대보험이나 3.3%와 수당 조정분을 뺀 금액이고, 소득세와 부모님 세금 변화는 넣지 않았어요. 화면의 두 제안은 가상 예시예요.</p>
+
+  <footer class="foot">
+    <p>참고용 계산이며 세무·법률 자문과 행정기관의 최종 판단을 대체하지 않습니다.</p>
+    <p>AI가 생성한 내용이 포함될 수 있습니다. 입력값은 서버에 저장하지 않습니다. 화면의 사례는 가상 예시입니다.</p>
+  </footer>
+</main>
+<script src="motion.js?v=2"></script>
+</body>
+</html>

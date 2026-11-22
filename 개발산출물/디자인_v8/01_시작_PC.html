@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>문턱 · 시작 (시안 v8 영수증+v4)</title>
+<link rel="stylesheet" href="style.css?v=25">
+</head>
+<body>
+<header class="nav-bar"><div class="nav">
+  <div class="nav-l"><a class="brand" href="01_시작_PC.html"><i></i>문턱</a><nav class="links"><a href="#how">작동 방식</a><a href="#rules">계산하는 제도</a><a href="#samples">샘플</a><a href="04_제안비교_PC.html">제안 비교</a></nav></div>
+  <a class="btn sm" href="02_올리기_PC.html">계산 시작</a>
+</div></header>
+
+<main class="wrap">
+  <section class="hero">
+    <div class="hero-bg" aria-hidden="true"><div class="hb-bars"></div><i class="hb-line"></i><i class="hb-sweep"></i></div>
+    <a class="pill" href="#rules" data-reveal><i></i><b>2026년 규칙</b> 반영 · 제도 4개 계산<span>보기 →</span></a>
+    <h1 data-split>일을 늘리기 전,<br><em>지원이 바뀌는 지점</em>을 확인하세요.</h1>
+    <p class="lead" data-reveal style="--i:4">근무시간이 늘면 급여와 함께 공제와 지원도 달라집니다. 문턱은 일 제안마다 넘게 되는 <b>제도별 기준선</b>과 <b>실질 소득</b>을 미리 계산해, 나에게 맞는 근무 조건을 찾도록 돕습니다.</p>
+    <div class="cta" data-reveal style="--i:5">
+      <a class="btn blue" href="02_올리기_PC.html">내 조건으로 계산하기<span class="ar">→</span></a>
+      <a class="btn line" href="03_결과_PC.html">예시 결과 보기</a>
+    </div>
+
+    <div class="stage-wrap" data-reveal style="--i:6" data-scroll-tilt>
+      <div class="window" data-start="24" data-series="[[1,45623,0,0,45623],[2,91245,0,0,91245],[3,136868,0,0,136868],[4,182490,0,0,182490],[5,228113,0,0,228113],[6,273735,0,0,273735],[7,319358,0,0,319358],[8,364980,0,0,364980],[9,410603,0,0,410603],[10,456225,0,0,456225],[11,501848,0,0,501848],[12,547470,0,0,547470],[13,593093,0,0,593093],[14,638715,0,0,638715],[15,821206,79800,0,741406],[16,875952,85120,0,790832],[17,930700,90440,0,840260],[18,985446,95760,46903,842783],[19,1040194,101080,101651,837463],[20,1094940,106400,156397,832143],[21,1149688,111720,211145,826823],[22,1204434,117040,265891,821503],[23,1259181,122360,320638,816183],[24,1313928,127680,375385,810863],[25,1368676,133000,430133,805543],[26,1423422,138320,484879,800223],[27,1478170,143640,539627,794903],[28,1532916,148960,594373,789583],[29,1587664,154280,600000,833384],[30,1642410,159600,600000,882810],[31,1697158,164920,600000,932238],[32,1751904,170240,600000,981664],[33,1806652,175560,600000,1031092],[34,1861398,180879,600000,1080519],[35,1916146,186200,600000,1129946],[36,1970892,191519,600000,1179373],[37,2025640,196840,600000,1228800],[38,2080386,202159,600000,1278227],[39,2135134,207480,600000,1327654],[40,2189880,212799,600000,1377081]]">
+        <div class="win-bar"><i></i><i></i><i></i><span class="url">문턱 · 예시 · 주말 카페 알바 공고</span><span class="live">실시간 계산</span></div>
+        <div class="win-body">
+          <div class="win-chart">
+            <div class="cap"><b>주당 근무시간별 월 실질 소득</b><span>막대에 마우스를 올려 보세요</span></div>
+            <div class="plot">
+              <div class="zone"><span>지원 조정 구간</span></div>
+              <div class="mark" data-at="15"><span>주 15시간부터<br><b>4대보험·주휴수당</b></span></div>
+              <div class="mark r" data-at="18"><span>주 18시간부터<br><b>구직촉진수당 조정</b></span></div>
+              <div class="bars" aria-hidden="true"></div>
+            </div>
+            <div class="axis" aria-hidden="true"><span style="left:1.25%">1</span><span style="left:23.75%">10</span><span style="left:36.25%">15</span><span style="left:48.75%">20</span><span style="left:73.75%">30</span><span style="left:96%">40시간</span></div>
+            <div class="ctrl">
+              <label for="r">주당 근무시간</label>
+              <input id="r" class="range" type="range" min="1" max="40" value="24">
+              <output class="out" for="r">주 24시간</output>
+            </div>
+          </div>
+          <aside class="read win-side rc-side" aria-live="polite">
+            <div class="rc-slot" aria-hidden="true"></div>
+            <div class="rcpt rc-feed">
+              <div class="rc-head"><b>문턱 영수증</b><span>주말 카페 알바 · 시급 10,500원</span></div>
+              <div class="rr"><span>급여 <small>주휴수당 포함</small></span><b class="r-gross"></b></div>
+              <div class="rr"><span>4대보험</span><b class="r-cut"></b></div>
+              <div class="rr"><span>구직촉진수당 조정</span><b class="r-loss"></b></div>
+              <div class="rc-total">
+                <small class="r-h"></small>
+                <strong class="r-net"></strong>
+                <p class="r-note"></p>
+                <span class="rc-stamp" aria-hidden="true">지원 조정<br>구간</span>
+              </div>
+              <div class="rc-code" aria-hidden="true"></div>
+              <p class="rc-foot">가상 예시 · 구직촉진수당 월 600,000원을 받는 훈련생</p>
+            </div>
+          </aside>
+        </div>
+      </div>
+      <div class="toast t1"><span class="ic">!</span><div>주 18시간부터 수당 조정<small>구직촉진수당 · 월 소득 기준</small></div></div>
+      <div class="toast t2"><span class="ic">✓</span><div>주 17시간이면 지원 그대로<small>받은 제안보다 +29,397원</small></div></div>
+    </div>
+  </section>
+
+  <section class="marquee">
+    <p>이런 일 제안을 받았다면</p>
+    <div class="track"><span>카페·편의점 알바</span><span>학원 채점 보조</span><span>3.3% 떼는 외주</span><span>일용직</span><span>단기 계약직</span><span>배달·라이더</span><span>과외</span><span>행사 스태프</span><span>디자인 프리랜서</span><span>카페·편의점 알바</span><span>학원 채점 보조</span><span>3.3% 떼는 외주</span><span>일용직</span><span>단기 계약직</span><span>배달·라이더</span><span>과외</span><span>행사 스태프</span><span>디자인 프리랜서</span></div>
+  </section>
+
+  <section class="sec" id="how">
+    <div class="sec-head"><div><span class="eyebrow">작동 방식</span><h2>공고 한 장이면,<br>나머지는 문턱이 합니다</h2></div><p>AI는 공고를 읽고 설명만 해요. 기준선 판정과 금액 계산은 검증된 규칙표로 코드가 합니다.</p></div>
+    <div class="bento">
+      <article class="b span2">
+        <span class="no">01</span><h3>제안을 올리면 AI가 조건을 읽어요</h3><p>공고 사진, 메시지 붙여넣기, 직접 입력 중 편한 방식으로.</p>
+        <div class="viz scan">
+          <div class="scan-ad"><b>카페 문턱 주말 스태프 모집</b><br>근무: <u>금·토·일 10:00~19:00</u><br><u>시급 10,500원</u> · <u>1월부터</u> 6개월 이상<br><u>4대보험 가입</u>, 주휴수당 별도</div>
+          <div class="scan-out"><div>시급<b>10,500원</b></div><div>주당 근무<b>24시간</b></div><div>기간<b>1~12월</b></div><div>소득 종류<b>근로소득</b></div></div>
+        </div>
+      </article>
+      <article class="b">
+        <span class="no">02</span><h3>확실한 정도를 함께 보여 줘요</h3><p>원문 근거를 붙이고, 틀린 값은 바로 고쳐요.</p>
+        <div class="viz levels"><div>시급 10,500원<span class="chip green">확정</span></div><div>주 24시간<span class="chip amber">추정</span></div><div>지급 방식<span class="chip gray">확인 필요</span></div></div>
+      </article>
+      <article class="b">
+        <span class="no">03</span><h3>실질 소득을 계산해요</h3><p>급여와 함께 달라지는 공제·지원까지 반영합니다.</p>
+        <div class="viz netviz">
+          <small>월 실질 소득 증가분</small>
+          <strong>+<span data-count="810863">0</span>원</strong>
+          <svg class="spark" viewBox="0 0 300 80" preserveAspectRatio="none" aria-hidden="true">
+            <defs><linearGradient id="sg" x1="0" x2="1"><stop offset="0" stop-color="#0a5cff"/><stop offset="1" stop-color="#7a5cff"/></linearGradient><linearGradient id="sa" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0a5cff" stop-opacity=".18"/><stop offset="1" stop-color="#0a5cff" stop-opacity="0"/></linearGradient></defs>
+            <path class="a" d="M2 76 L60 58 L118 38 L132 30 L150 31 L200 36 L214 30 L298 4 L298 80 L2 80 Z"/>
+            <path class="l" d="M2 76 L60 58 L118 38 L132 30 L150 31 L200 36 L214 30 L298 4"/>
+            <circle cx="176" cy="34" r="5"/>
+          </svg>
+        </div>
+      </article>
+      <article class="b span2">
+        <span class="no">04</span><h3>고용주에게 보낼 문구까지</h3><p>더 유리한 근무시간을 찾았다면, 정중하게 물어볼 문장을 바로 써 드려요.</p>
+        <div class="viz chat">
+          <div class="bubble them">주말 3일, 하루 8시간 근무 가능하실까요?</div>
+          <div class="bubble" data-type="제 사정상 주 24시간은 어려워서, 주 17시간으로 조정할 수 있을까요? 요일과 시간대는 최대한 맞추겠습니다."></div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="sec" id="rules">
+    <div class="sec-head"><div><span class="eyebrow">계산 범위</span><h2>네 가지 기준선을 한 번에</h2></div><p>제도마다 소득의 정의와 기간이 달라요. 원문을 확인한 제도만 계산하고, 그 밖의 제도는 문의처만 안내합니다.</p></div>
+    <div class="rules4">
+      <div class="panel"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V10l8-6 8 6v10z"/><path d="M10 20v-6h4v6"/></svg></span><h3>부모 연말정산</h3><p>부양가족 기본공제</p><div class="meter"><div class="meter-t" style="--at:62%"><i></i></div><div class="meter-l"><span>연간 소득</span><span>기준선</span></div></div></div>
+      <div class="panel"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z"/></svg></span><h3>건강보험</h3><p>피부양자 자격</p><div class="meter"><div class="meter-t" style="--at:70%"><i style="--d:.4s"></i></div><div class="meter-l"><span>연간 소득</span><span>기준선</span></div></div></div>
+      <div class="panel"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M7 15h4"/></svg></span><h3>구직촉진수당</h3><p>감액·중단</p><div class="meter"><div class="meter-t" style="--at:48%"><i style="--d:.8s"></i></div><div class="meter-l"><span>월 소득</span><span>기준선</span></div></div></div>
+      <div class="panel"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg></span><h3>주 15시간</h3><p>주휴수당·4대보험</p><div class="meter"><div class="meter-t" style="--at:37.5%"><i style="--d:1.2s"></i></div><div class="meter-l"><span>주당 근무시간</span><span>15시간</span></div></div></div>
+    </div>
+  </section>
+
+  <section class="stats">
+    <div><strong><span data-count="4">0</span><small>개</small></strong><span>한 번에 계산하는 제도</span></div>
+    <div><strong><span data-count="40">0</span><small>가지</small></strong><span>주 1~40시간을 하나씩 계산해 대안을 찾아요</span></div>
+    <div><strong>0<small>건</small></strong><span>서버에 저장하는 개인정보. 입력값은 이 브라우저 안에만 둬요</span></div>
+  </section>
+
+  <section class="sec" id="samples">
+    <div class="sec-head"><div><span class="eyebrow">바로 체험</span><h2>가상 샘플로 시작하기</h2></div><p>샘플은 지어낸 공고와 인물입니다.</p></div>
+    <div class="samples">
+      <a class="sample" href="03_결과_PC.html"><span class="av">A</span><div><span>구직촉진수당을 받는 훈련생</span><b>주말 카페 알바 공고</b></div><em>결과 보기 <span>→</span></em></a>
+      <a class="sample" href="04_제안비교_PC.html"><span class="av">B</span><div><span>부모의 피부양자인 대학생</span><b>3.3% 떼는 제안 메시지</b></div><em>결과 보기 <span>→</span></em></a>
+      <a class="sample" href="02_올리기_PC.html"><span class="av">C</span><div><span>조건이 모호한 공고</span><b>지급 방식이 없는 공고</b></div><em>조건 확인 <span>→</span></em></a>
+      <a class="sample" href="04_제안비교_PC.html"><span class="av">D</span><div><span>비교 모드</span><b>두 제안 나란히 비교하기</b></div><em>비교 보기 <span>→</span></em></a>
+    </div>
+  </section>
+
+  <section class="band">
+    <p class="band-meta">문턱 · 다음 일 계산 영수증</p>
+    <h2>다음 일, 시작하기 전에<br>먼저 <em>계산</em>해 보세요.</h2>
+    <div class="band-lines"><div><span>공고</span><b>사진 · 붙여넣기 · 직접</b></div><div><span>걸리는 시간</span><b>1분</b></div><div><span>저장하는 개인정보</span><b>0건</b></div></div>
+    <a class="btn blue" href="02_올리기_PC.html">새 계산 시작<span class="ar">→</span></a>
+    <div class="band-code" aria-hidden="true"></div>
+  </section>
+
+  <footer class="foot">
+    <a class="brand" href="#"><i></i>문턱</a>
+    <div><p>참고용 계산이며 세무·법률 자문과 행정기관의 최종 판단을 대체하지 않습니다.</p><p>AI가 생성한 내용이 포함될 수 있습니다. 입력값은 서버에 저장하지 않습니다.</p></div>
+  </footer>
+</main>
+<script src="motion.js?v=2"></script>
+<script src="stage.js?v=3"></script>
+<script>
+// 제목 뒤 배경: 아래 그래프와 같은 데이터로 옅은 막대를 세우고, 파도처럼 천천히 숨 쉬게 한다.
+(function () {
+  var box = document.querySelector('.hb-bars'), src = document.querySelector('[data-series]');
+  if (!box || !src) return;
+  var s = JSON.parse(src.dataset.series), max = Math.max.apply(null, s.map(function (r) { return r[4]; }));
+  var peak = null;
+  s.forEach(function (r, i) { if (!peak && i > 0 && r[4] < s[i - 1][4]) peak = s[i - 1]; });
+  s.forEach(function (r, i) {
+    var b = document.createElement('i');
+    b.style.setProperty('--h', (12 + r[4] / max * 88).toFixed(1) + '%');
+    b.style.setProperty('--d', (i * 35) + 'ms');
+    b.style.setProperty('--w', (i * 0.18).toFixed(2) + 's');
+    if (peak && r[0] > peak[0] && r[4] < peak[4]) b.className = 'dip';
+    box.appendChild(b);
+  });
+  requestAnimationFrame(function () { requestAnimationFrame(function () { box.classList.add('on'); }); });
+})();
+</script>
+</body>
+</html>
