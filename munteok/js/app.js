@@ -719,10 +719,14 @@ function profileQuestions() {
   return ['maxHours', 'allowance', 'age', 'parents', 'ytd', 'others'].map((q) => ({ q, askTax: age == null || age <= maxAge }));
 }
 
-function stepper(id, value, unit, min, max) {
+// 숫자 칸 폭을 들어 있는 자릿수에 맞춘다. 칸이 넓고 숫자가 오른쪽에 붙어 있으면 "27 살"이 −와 + 사이 가운데에서 오른쪽으로 치우친다.
+const numWidth = (v) => `calc(${Math.max(1, String(v ?? '').length)}ch + 2px)`;
+function fitNum(input) { input.style.width = numWidth(input.value); }
+// cap을 주면 그보다 큰 수는 칠 수 없다(자릿수를 넘는 글자는 버리고, 넘는 값은 cap으로). 만 나이는 99까지.
+function stepper(id, value, unit, min, max, cap = null) {
   return `<div class="stepper">
     <button type="button" class="sb" data-action="step" data-target="${id}" data-delta="-1" aria-label="1 줄이기">−</button>
-    <label class="sv"><span class="sr-only">${unit} 입력</span><input id="${id}" type="number" inputmode="numeric" min="${min}" max="${max}" value="${value ?? ''}" placeholder="0"><span>${unit}</span></label>
+    <label class="sv"><span class="sr-only">${unit} 입력</span><input id="${id}" type="number" inputmode="numeric" min="${min}" max="${max}" ${cap ? `data-cap="${cap}"` : ''} value="${value ?? ''}" placeholder="0" style="width:${numWidth(value)}"><span>${unit}</span></label>
     <button type="button" class="sb" data-action="step" data-target="${id}" data-delta="1" aria-label="1 늘리기">+</button>
   </div>`;
 }
@@ -782,7 +786,7 @@ function viewProfile() {
       layout: 'c2',
       html: `${head}<h1 class="t2"><mark>만 나이</mark>가<br>어떻게 되나요?</h1>
         <div class="cb">
-        ${stepper('p-age', p.age, '살', 15, 99)}
+        ${stepper('p-age', p.age, '살', 15, 99, 99)}
         ${state.profileError ? `<p class="gline warn" role="alert">${esc(state.profileError)}</p>` : ''}
         </div>
         ${why('부모님 세금 공제는 자녀가 만 20세 이하일 때만 받을 수 있어요. 21세 이상이면 그 질문은 건너뛰어요.')}`,
@@ -1756,7 +1760,22 @@ document.addEventListener('change', (e) => {
   if (state.step === 'profile') { saveProfileInputs(); persist(); }
 });
 // 시간을 고르는 동안에도 계산이 바로 바뀌게 한다.
-document.addEventListener('input', (e) => { onManualInput(e.target); });
+document.addEventListener('input', (e) => { onStepperInput(e.target); onManualInput(e.target); });
+// 숫자 입력(− 값 +): 칠 때마다 칸 폭을 자릿수에 맞추고, cap이 있으면 그보다 큰 수는 들어가지 않게 한다.
+function onStepperInput(t) {
+  if (!t.matches || !t.matches('.sv input')) return;
+  const cap = Number(t.dataset.cap);
+  if (cap && t.value !== '') {
+    let v = t.value.replace(/\D/g, '').slice(0, String(cap).length);
+    if (Number(v) > cap) v = String(cap);
+    if (v !== t.value) t.value = v;
+  }
+  fitNum(t);
+}
+// 숫자 입력에는 숫자만 친다(브라우저 숫자 칸은 e, +, -, . 도 받는다).
+document.addEventListener('keydown', (e) => {
+  if (e.target.matches && e.target.matches('.sv input') && e.key.length === 1 && !/[0-9]/.test(e.key) && !e.ctrlKey && !e.metaKey) e.preventDefault();
+});
 
 // 직접 입력 화면의 글자 칸과, 기간 고치기 창의 날짜. 다시 그리지 않아 커서가 그대로 남는다.
 function onManualInput(t) {
@@ -2013,6 +2032,7 @@ document.addEventListener('click', (e) => {
       const min = Number(input.min || 0); const max = Number(input.max || 999);
       const next = a === 'setNum' ? Number(el.dataset.value) : (Number(input.value) || (Number(el.dataset.delta) > 0 ? min - 1 : min)) + Number(el.dataset.delta);
       input.value = Math.min(max, Math.max(min, next));
+      fitNum(input);
       if (state.step === 'profile') { saveProfileInputs(); state.profileError = null; persist(); }
       return;
     }
