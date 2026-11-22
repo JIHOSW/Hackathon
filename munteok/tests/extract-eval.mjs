@@ -12,7 +12,7 @@ const cases = SAMPLES.map((s) => ({
   expect: Object.fromEntries(Object.entries(s.extraction).filter(([k]) => k !== 'holidayIncluded').map(([k, v]) => [k, v.value])),
 }));
 
-// 표기 방식이 다른 가상 공고 4건을 더한다.
+// 표기 방식이 다른 가상 공고 5건을 더한다.
 cases.push(
   {
     name: '월급만 적힌 공고',
@@ -29,6 +29,12 @@ cases.push(
     name: '프리랜서 공고',
     text: '[가상 샘플] 영상 자막 작업 프리랜서. 주 10시간 내외, 시간당 15,000원, 사업소득 3.3% 원천징수. 기간 협의.',
     expect: { hourlyWage: 15000, weeklyHours: 10, startMonth: null, months: null, incomeType: 'business' },
+  },
+  {
+    name: '해를 넘기는 공고',
+    text: '[가상 샘플] 스키장 렌탈샵 단기 알바. 월~금 09:00~18:00(휴게 1시간), 시급 11,000원, 4대보험 가입. 12월부터 3개월 근무.',
+    // 올해 안의 달만 세는 일은 화면이 한다. AI는 공고에 적힌 3개월을 그대로 읽어야 한다.
+    expect: { hourlyWage: 11000, weeklyHours: 40, startMonth: 12, months: 3, incomeType: 'wage' },
   },
   {
     name: '공고가 아닌 글',

@@ -1389,7 +1389,7 @@ async function tryExtract() {
       const kind = res.status === 422 ? 'notPosting' : state.mode === 'photo' && res.status === 400 ? 'photo' : 'server';
       throw Object.assign(new Error(data.error || ''), { kind });
     }
-    state.fields = withDefaults(data.fields);
+    state.fields = markYearEnd(withDefaults(data.fields));
     state.extractedBy = data.model || 'AI';
     state.sample = null;
     beginReview();
@@ -1404,6 +1404,13 @@ async function tryExtract() {
 // 주휴수당 포함 여부는 공고에 잘 적히지 않는다. 값이 없으면 "시급과 별도"로 가정하고 추정으로 표시한다.
 function withDefaults(fields) {
   if (!fields.holidayIncluded) fields.holidayIncluded = { value: false, status: STATUS.ESTIMATED, evidence: '적혀 있지 않아 시급과 별도로 지급된다고 가정' };
+  return fields;
+}
+// AI가 끝이 정해지지 않은 기간을 연말까지로 읽었으면(추정, 12월에 끝남) 시작 달을 고쳐도 연말까지를 따라가게 표시한다.
+function markYearEnd(fields) {
+  const start = Number(fields.startMonth && fields.startMonth.value);
+  const m = fields.months;
+  if (m && m.status === STATUS.ESTIMATED && start >= 1 && start <= 12 && m.value === 13 - start) m.toYearEnd = true;
   return fields;
 }
 function emptyFields() {
