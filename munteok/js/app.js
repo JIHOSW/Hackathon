@@ -58,7 +58,7 @@ const ICON = {
   phone: '<path d="M6 4h3l1.5 4-2 1.5a10 10 0 005 5L15 12.5l4 1.5v3a2 2 0 01-2 2A14 14 0 014 6a2 2 0 012-2z"/>',
 };
 const icon = (name) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${ICON[name]}</svg>`;
-// 로고: 초록 '한끗' 글자 로고
+// 로고: 보라 '한끗' 글자 로고(색은 css의 .logo)
 const LOGO = '<span class="logo-word">한끗</span>';
 
 // ---------------- 말투 ----------------

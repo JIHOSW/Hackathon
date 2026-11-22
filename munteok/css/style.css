@@ -1,27 +1,37 @@
 /* 한끗 화면 스타일
-   대표색: 초록 #0A6352, 바탕: 종이색 #F4F2EC. 글꼴은 Pretendard 하나, 숫자에만 tabular-nums.
-   의미 색은 세 가지만: 줄어듦 빨강, 신고 파랑, 생김 초록. 색만으로 구분하지 않고 항상 글자를 함께 쓴다.
+   대표색: 보라 #5B3DF5, 바탕: 옅은 회색 #F2F4F6에 흰 카드. 글꼴은 Pretendard 하나, 숫자에만 tabular-nums.
+   보라는 누르는 곳(주 버튼·고른 것·링크·초점·진행 막대)과 '남는 돈'(돈 막대·영수증 합계)에만 쓴다.
+   의미 색은 네 가지만: 생김 초록, 줄어듦 빨강, 보험료 주황, 신고 파랑. 색만으로 구분하지 않고 항상 글자를 함께 쓴다.
    글자 13·15·17·22·30·44px(결과 숫자만 40·48px), 여백 4·8·12·16·24·32·48·64px, 둥글기 8·14·24px.
    영역은 그림자 대신 바탕색 차이로 나눈다. 그림자는 영수증 카드에만 아주 옅게 쓴다.
    움직임은 0.3초 이하(결과 숫자만 0.5초)이고, 동작 줄이기 설정이면 모두 끈다. */
 :root {
-  --bg: #F4F2EC;
+  --bg: #F2F4F6;
   --card: #ffffff;
   --ink: #1B2430;
-  --sub: #57524A;
-  --line: #E9E5DC;
-  --weak: #ECE8DF;
-  --weak-hover: #E5E0D5;
-  --weak-press: #DCD6C9;
-  --edge: #CFC8BA;  /* 종이색 바탕 위 흰 버튼·카드: 마우스를 올리거나 누르면 테두리를 이 색으로 */
-  --fill: #EFEBE3;  /* 흰 카드 안의 줄: 마우스를 올리거나 누르면 안쪽 띠를 이 색으로(종이색보다 조금 진함) */
-  --g: #0A6352;
-  --g-hover: #085646;
-  --g-press: #064438;
-  --g-soft: #DFF0E9;
-  --g-soft-press: #CDE8DC;
-  --mark: #BDEBD6;
+  --ink-2: #39424E;  /* 회색·흰 상자 안의 긴 설명 */
+  --sub: #4F5968;
+  --line: #E5E8EB;
+  --weak: #E8EBEE;
+  --weak-hover: #DFE3E8;
+  --weak-press: #D5DAE0;
+  --edge: #C5CCD4;  /* 회색 바탕 위 흰 버튼·카드: 마우스를 올리거나 누르면 테두리를 이 색으로 */
+  --fill: #EBEEF2;  /* 흰 카드 안의 줄: 마우스를 올리거나 누르면 안쪽 띠를 이 색으로(바탕보다 조금 진함) */
+  --track: #D9DEE3; /* 진행 막대의 빈 칸, 아래 창 손잡이 */
+  --stroke: #CED4DB; /* 고르기 전 동그라미·네모 테두리, 일하지 않는 달 막대 */
+  /* 대표색 보라. 흰 글자 대비: 기본 6.1, 마우스를 올리면 7.8, 누르면 9.6 */
+  --p: #5B3DF5;
+  --p-hover: #4A2BDF;
+  --p-press: #3D22BF;
+  --p-soft: #EFECFE;
+  --p-soft-press: #E4DFFD;
+  --p-tint: #F6F4FF;  /* 고른 선택지의 바탕 */
+  --p-ink: #3C3666;   /* 옅은 보라 카드 안의 설명 */
+  --mark: #DCD6FE;    /* 형광펜. 위 글자는 진한 글자색만(보라 글자는 대비 4.4라 쓰지 않음) */
   --mark-red: #F6C4BC;
+  /* 의미 색 */
+  --g: #0A6352;
+  --g-soft: #DFF0E9;
   --r: #B42318;
   --r-bar: #C8382A;
   --r-soft: #FBE7E3;
@@ -30,8 +40,8 @@
   --o-soft: #FBEBD3;
   --b: #1F55B8;
   --b-soft: #E6EEFC;
-  --rule: #CFC8BA;
-  --muted: #A39E93;
+  --rule: #C5CCD4;
+  --muted: #A0A8B3;
   --side: 16px;
   --wrap: 560px;
   --ease: cubic-bezier(.2, .8, .2, 1);
@@ -44,8 +54,8 @@ body {
   font-size: 17px; line-height: 1.5; letter-spacing: -0.2px; word-break: keep-all; overflow-wrap: break-word; -webkit-font-smoothing: antialiased;
 }
 button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent; }
-a { color: var(--g); }
-:focus-visible { outline: 3px solid var(--g); outline-offset: 2px; border-radius: 8px; }
+a { color: var(--p); }
+:focus-visible { outline: 3px solid var(--p); outline-offset: 2px; border-radius: 8px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .num { font-variant-numeric: tabular-nums; }
 .i { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
@@ -54,13 +64,13 @@ a { color: var(--g); }
 
 /* 상단: 뒤로가기 + 6칸 진행 막대, 첫 화면은 로고 */
 .nav { position: sticky; top: 0; z-index: 5; background: var(--bg); height: 56px; display: flex; align-items: center; gap: 12px; padding: 0 8px; max-width: var(--wrap); margin: 0 auto; }
-.logo { display: flex; align-items: center; min-height: 44px; font: inherit; font-weight: 800; font-size: 22px; line-height: 1; letter-spacing: -0.8px; color: var(--g); padding: 8px; margin: 0; border: 0; background: none; border-radius: 14px; cursor: pointer; }
+.logo { display: flex; align-items: center; min-height: 44px; font: inherit; font-weight: 800; font-size: 22px; line-height: 1; letter-spacing: -0.8px; color: var(--p); padding: 8px; margin: 0; border: 0; background: none; border-radius: 14px; cursor: pointer; }
 .tagline { display: none; font-size: 15px; color: var(--sub); }
 .backb { min-width: 44px; height: 44px; border: 0; background: none; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 0 8px 0 4px; cursor: pointer; border-radius: 14px; flex: none; font: inherit; font-size: 15px; font-weight: 600; color: var(--ink); }
 .backb .i { width: 24px; height: 24px; stroke-width: 2; }
 .seg { flex: 1; display: flex; gap: 4px; margin-right: 8px; }
-.seg i { flex: 1; height: 4px; border-radius: 8px; background: #DAD5CA; }
-.seg i.on { background: var(--g); }
+.seg i { flex: 1; height: 4px; border-radius: 8px; background: var(--track); }
+.seg i.on { background: var(--p); }
 
 .app { max-width: var(--wrap); margin: 0 auto; padding: 12px var(--side) 32px; }
 
@@ -88,20 +98,20 @@ mark, mark.rd { background-repeat: no-repeat; background-size: 100% 100%; }
 .small { font-size: 13px; color: var(--sub); }
 .sec { font-size: 15px; font-weight: 700; color: var(--sub); margin: 24px 4px 8px; }
 .lbl { font-size: 17px; font-weight: 700; margin: 24px 4px 12px; }
-.step { display: inline-block; font-size: 13px; font-weight: 700; color: var(--g); background: var(--g-soft); border-radius: 8px; padding: 4px 8px; margin-top: 16px; }
+.step { display: inline-block; font-size: 13px; font-weight: 700; color: var(--p); background: var(--p-soft); border-radius: 8px; padding: 4px 8px; margin-top: 16px; }
 .disc { font-size: 13px; line-height: 19.5px; color: var(--sub); margin: 24px 4px 0; }
-.inline { border: 0; background: none; padding: 0; color: var(--g); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; font-size: inherit; }
+.inline { border: 0; background: none; padding: 0; color: var(--p); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; font-size: inherit; }
 /* 한 줄에 혼자 있는 글자 버튼은 누르는 곳을 44px로 */
 .gline > .inline:only-child { display: inline-block; padding: 11px 8px; }
 
-/* 카드와 목록: 흰 카드 + 종이색 바탕. 그림자 없음 */
+/* 카드와 목록: 흰 카드 + 회색 바탕. 그림자 없음 */
 .card { background: var(--card); border-radius: 24px; padding: 24px; margin: 16px 0 0; }
 .hero { padding: 24px 0 0; }
 .pv { margin-top: 32px; }
 .pv.tap { display: block; cursor: pointer; }
-.pv-go { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: 15px; font-weight: 700; color: var(--g); }
+.pv-go { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: 15px; font-weight: 700; color: var(--p); }
 .pv-go .i { width: 16px; height: 16px; }
-.chip { display: inline-block; font-size: 13px; font-weight: 700; color: var(--g); background: var(--g-soft); border-radius: 8px; padding: 2px 8px; }
+.chip { display: inline-block; font-size: 13px; font-weight: 700; color: var(--p); background: var(--p-soft); border-radius: 8px; padding: 2px 8px; }
 .pvt { font-size: 17px; line-height: 26px; font-weight: 700; letter-spacing: -0.3px; margin: 12px 0 16px; }
 .rows { background: var(--card); border-radius: 24px; padding: 8px 0; }
 .t2 + .rows, .t2 + .gline + .rows { margin-top: 24px; }
@@ -109,7 +119,7 @@ mark, mark.rd { background-repeat: no-repeat; background-size: 100% 100%; }
 button.row { cursor: pointer; min-height: 64px; border-radius: 24px; transition: background-color .12s; }
 /* 흰 카드 안의 줄은 가장자리를 흰색으로 남긴 안쪽 띠로 보여 줘서 카드가 바탕과 이어져 보이지 않게 한다 */
 button.row:active, button.kv:active, a.kv:active { background: var(--fill); box-shadow: inset 0 0 0 4px var(--card); }
-.row .ic, .drop .ic, .big { display: flex; align-items: center; justify-content: center; border-radius: 14px; background: var(--g-soft); color: var(--g); flex: none; }
+.row .ic, .drop .ic, .big { display: flex; align-items: center; justify-content: center; border-radius: 14px; background: var(--p-soft); color: var(--p); flex: none; }
 .row .ic { width: 40px; height: 40px; }
 .ic.red { background: var(--r-soft); color: var(--r); }
 .ic.blue { background: var(--b-soft); color: var(--b); }
@@ -135,7 +145,7 @@ div.kv { cursor: default; }
 .chips.center { justify-content: center; margin-top: 16px; }
 .chips span { background: var(--card); border-radius: 14px; padding: 8px 12px; font-size: 15px; font-weight: 600; }
 .chips button { background: var(--card); border: 2px solid transparent; border-radius: 14px; padding: 9px 10px; font-size: 15px; font-weight: 600; cursor: pointer; }
-.chips.sel button.on { background: var(--g); color: #fff; }
+.chips.sel button.on { background: var(--p); color: #fff; }
 
 /* 상태 표시: 확실 / 어림값 / 확인 필요 / 계산 보류 / 신고 */
 .tagm { display: inline-block; font-size: 13px; font-weight: 700; border-radius: 8px; padding: 0 8px; line-height: 22px; margin-left: 8px; vertical-align: 2px; white-space: nowrap; }
@@ -148,28 +158,28 @@ div.kv { cursor: default; }
 /* 돈 막대: 남는 돈, 보험료·세금, 줄어드는 정부 지원 */
 .tbar { display: flex; gap: 4px; height: 16px; }
 .tbar i { display: block; border-radius: 8px; min-width: 6px; }
-.tbar .g { background: var(--g); }
+.tbar .g { background: var(--p); }
 .tbar .o { background: var(--o-bar); }
 .tbar .r { background: var(--r-bar); }
 .lgv { margin-top: 12px; }
 .lgv div { display: flex; justify-content: space-between; align-items: center; font-size: 15px; line-height: 26px; color: var(--sub); }
 .lgv span { display: flex; align-items: center; gap: 8px; }
-.lgv span::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--g); }
+.lgv span::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--p); }
 .lgv .o span::before { background: var(--o-bar); }
 .lgv .r span::before { background: var(--r-bar); }
 .lgv b { color: var(--ink); font-variant-numeric: tabular-nums; }
 .lg { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 12px 4px 0; font-size: 13px; color: var(--sub); font-weight: 600; }
 .lg span { display: flex; align-items: center; gap: 4px; }
-.lg span::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--g); }
+.lg span::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--p); }
 .lg .o::before { background: var(--o-bar); }
 .lg .r::before { background: var(--r-bar); }
 .mini .hd { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; font-size: 15px; color: var(--sub); font-weight: 600; margin-bottom: 12px; }
 .mini .hd b, .mini .hd span { white-space: nowrap; }
 .mini .hd b { color: var(--ink); font-size: 17px; }
-.mini .hd span { color: var(--g); font-weight: 700; font-size: 15px; }
+.mini .hd span { color: var(--p); font-weight: 700; font-size: 15px; }
 .bars { display: flex; align-items: flex-end; gap: 4px; height: 64px; }
-.bars i { flex: 1; background: var(--g); border-radius: 4px 4px 2px 2px; }
-.bars i.off { background: #CFC9BC; }
+.bars i { flex: 1; background: var(--p); border-radius: 4px 4px 2px 2px; }
+.bars i.off { background: var(--stroke); }
 .bars-x { display: flex; gap: 4px; margin-top: 4px; }
 .bars-x span { flex: 1; text-align: center; font-size: 13px; color: var(--sub); }
 
@@ -187,21 +197,22 @@ div.kv { cursor: default; }
 .rc-row dd { margin: 0; font-size: 17px; font-weight: 700; white-space: nowrap; }
 .rc-row.o dt::before { background: var(--o-bar); }
 .rc-row.r dt::before { background: var(--r-bar); }
-.rc-row.g dt::before { background: var(--g); }
+.rc-row.g dt::before { background: var(--p); }
 .rc-row.sum { margin-top: 8px; padding-top: 12px; border-top: 2px dashed var(--rule); }
 .rc-row.sum dt { color: var(--ink); font-weight: 700; font-size: 17px; }
 .rc-row.sum dd { font-size: 22px; font-weight: 800; letter-spacing: -0.4px; }
+.rc-row.sum.g dd { color: var(--p); }
 .rc-row.sum.neg dd { color: var(--r); }
 .rc-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; min-height: 32px; }
 .stamp { display: inline-block; flex: none; padding: 2px 8px; border: 2px solid var(--o); border-radius: 8px; color: var(--o); font-size: 13px; font-weight: 800; line-height: 20px; letter-spacing: 0.5px; transform: rotate(-6deg); mix-blend-mode: multiply; }
 
 /* 더 나은 조건 미리보기 */
-.better { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; border: 0; cursor: pointer; background: var(--g-soft); border-radius: 24px; padding: 16px 24px; margin-top: 16px; }
+.better { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; border: 0; cursor: pointer; background: var(--p-soft); border-radius: 24px; padding: 16px 24px; margin-top: 16px; }
 .better .tx { flex: 1; }
-.better small { display: block; font-size: 13px; font-weight: 700; color: var(--g); }
+.better small { display: block; font-size: 13px; font-weight: 700; color: var(--p); }
 .better b { display: block; font-size: 17px; line-height: 25px; }
-.better .tx > span { display: block; font-size: 15px; line-height: 22px; color: #2F4E45; }
-.better .i { color: var(--g); width: 16px; height: 16px; }
+.better .tx > span { display: block; font-size: 15px; line-height: 22px; color: var(--p-ink); }
+.better .i { color: var(--p); width: 16px; height: 16px; }
 
 /* 조건 확인 */
 .quote { background: var(--card); border-radius: 24px; padding: 16px 24px; margin-top: 24px; }
@@ -209,15 +220,15 @@ div.kv { cursor: default; }
 .quote .q { font-size: 17px; line-height: 27px; margin: 0; }
 .calc { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; margin-top: 16px; font-size: 15px; font-weight: 600; color: var(--sub); }
 .calc span { background: var(--weak); border-radius: 8px; padding: 8px 12px; color: var(--ink); }
-.calc .res { background: var(--g); color: #fff; }
-.why { background: var(--weak); border-radius: 14px; padding: 16px; margin-top: 24px; font-size: 15px; line-height: 22.5px; color: #3F3B35; }
+.calc .res { background: var(--p); color: #fff; }
+.why { background: var(--weak); border-radius: 14px; padding: 16px; margin-top: 24px; font-size: 15px; line-height: 22.5px; color: var(--ink-2); }
 .why b { display: block; color: var(--ink); margin-bottom: 4px; }
 .raw-box { background: var(--card); border-radius: 14px; padding: 12px 16px; margin-top: 16px; font-size: 15px; }
 .raw-box summary { cursor: pointer; color: var(--sub); font-weight: 600; min-height: 44px; display: flex; align-items: center; }
 .raw-box summary::before { content: ""; width: 8px; height: 8px; margin: 0 12px 0 4px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform .12s; flex: none; }
 .raw-box[open] summary::before { transform: rotate(45deg); }
 .raw-box summary::-webkit-details-marker { display: none; }
-.raw-box pre { white-space: pre-wrap; font: inherit; font-size: 15px; color: #3F3B35; margin: 8px 0 0; }
+.raw-box pre { white-space: pre-wrap; font: inherit; font-size: 15px; color: var(--ink-2); margin: 8px 0 0; }
 .raw-box ul { margin: 8px 0 0; padding-left: 16px; color: var(--sub); }
 .raw-box li { margin: 8px 0; }
 .src { list-style: none; padding: 0 !important; }
@@ -227,9 +238,9 @@ div.kv { cursor: default; }
 /* 선택지 */
 .opts { margin-top: 24px; }
 .opt { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 56px; background: var(--card); border: 2px solid transparent; border-radius: 14px; padding: 14px 24px; margin-top: 8px; font-size: 17px; font-weight: 700; cursor: pointer; text-align: left; }
-.opt i { width: 24px; height: 24px; border-radius: 50%; border: 2px solid #D6D1C6; flex: none; }
-.opt.on { border-color: var(--g); background: #F3FAF7; }
-.opt.on i { border: 0; background: var(--g) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6.5 12.5l3.5 3.5 7.5-8'/%3E%3C/svg%3E") center/16px no-repeat; }
+.opt i { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--stroke); flex: none; }
+.opt.on { border-color: var(--p); background: var(--p-tint); }
+.opt.on i { border: 0; background: var(--p) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6.5 12.5l3.5 3.5 7.5-8'/%3E%3C/svg%3E") center/16px no-repeat; }
 .opt.c { justify-content: center; text-align: center; margin: 0; padding: 12px 8px; font-size: 17px; }
 .grid2, .grid3 { display: grid; gap: 8px; margin-top: 24px; }
 .grid2 { grid-template-columns: 1fr 1fr; }
@@ -239,12 +250,12 @@ div.kv { cursor: default; }
 .seg2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .seg3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
 .seg-b { min-height: 48px; background: var(--card); border: 2px solid transparent; border-radius: 14px; padding: 12px 4px; font-size: 15px; font-weight: 700; cursor: pointer; }
-.seg-b.on { border-color: var(--g); background: #F3FAF7; color: var(--g); }
+.seg-b.on { border-color: var(--p); background: var(--p-tint); color: var(--p); }
 .unit-seg { margin-bottom: 8px; }
 .unit-seg .seg-b { min-height: 44px; padding: 8px 4px; font-size: 15px; }
 .form .gline { margin: 8px 4px 0; font-size: 13px; }
 .help { background: var(--card); border-radius: 14px; padding: 16px; margin-top: 12px; }
-.help p { margin: 0 0 12px; font-size: 15px; line-height: 22.5px; color: #3F3B35; }
+.help p { margin: 0 0 12px; font-size: 15px; line-height: 22.5px; color: var(--ink-2); }
 .help p b { display: block; color: var(--ink); }
 .help a { display: flex; align-items: center; gap: 8px; min-height: 48px; font-weight: 700; text-decoration: none; padding: 12px 0; border-top: 1px solid var(--line); }
 .help a .i { width: 16px; height: 16px; }
@@ -262,7 +273,7 @@ div.kv { cursor: default; }
 .unit { display: flex; align-items: center; background: var(--card); border-radius: 14px; padding: 0 16px; }
 .unit input { flex: 1; min-width: 0; border: 0; background: none; font: inherit; font-size: 22px; font-weight: 700; padding: 12px 0; color: var(--ink); font-variant-numeric: tabular-nums; }
 .unit span { color: var(--sub); font-weight: 600; }
-.unit:focus-within { outline: 3px solid var(--g); outline-offset: 2px; }
+.unit:focus-within { outline: 3px solid var(--p); outline-offset: 2px; }
 .unit input:focus-visible { outline: none; }
 select, .ta, .name-in, .field { width: 100%; font: inherit; font-size: 17px; border: 0; border-radius: 14px; background: var(--card); color: var(--ink); padding: 12px 16px; }
 select { min-height: 48px; }
@@ -284,31 +295,31 @@ select { min-height: 48px; }
 .cal-g .we { color: var(--r); }
 .cal-d { width: 100%; max-width: 48px; min-height: 44px; aspect-ratio: 1; justify-self: center; border: 0; border-radius: 50%; background: none; font: inherit; font-size: 15px; font-weight: 600; color: var(--ink); cursor: pointer; font-variant-numeric: tabular-nums; }
 .cal-d.we { color: var(--r); }
-.cal-d.on { background: var(--g); color: #fff; }
+.cal-d.on { background: var(--p); color: #fff; }
 .cal-q { margin: 12px 8px 0; }
 .cal-q button { background: var(--bg); }
 .cal .gline { margin: 12px 8px 0; }
 .form .calc span { background: var(--card); }
 /* 흰 창 안에서는 입력 칸과 고르지 않은 버튼을 바탕색으로 구분한다. */
 .panel .unit, .panel .field, .panel .seg-b:not(.on) { background: var(--bg); }
-.form .calc .res { background: var(--g); }
+.form .calc .res { background: var(--p); }
 .form .calc .warn { background: var(--r-soft); }
 .fold { margin: 12px 4px 0; font-size: 15px; color: var(--sub); }
 .fold b { color: var(--ink); font-weight: 700; }
 .fold .inline { margin-left: 4px; padding: 11px 4px; font-weight: 600; }
 .ta { min-height: 200px; resize: vertical; line-height: 1.6; margin-top: 24px; }
-.drop { display: flex; flex-direction: column; align-items: center; gap: 4px; border: 2px dashed #CFCABF; border-radius: 24px; padding: 32px 24px; margin-top: 24px; text-align: center; background: #FBFAF7; cursor: pointer; }
+.drop { display: flex; flex-direction: column; align-items: center; gap: 4px; border: 2px dashed var(--rule); border-radius: 24px; padding: 32px 24px; margin-top: 24px; text-align: center; background: #FAFBFC; cursor: pointer; }
 .drop .ic { width: 56px; height: 56px; border-radius: 14px; margin-bottom: 8px; }
 .drop .ic .i { width: 32px; height: 32px; }
 .drop b { font-size: 17px; word-break: break-all; }
 .drop span { font-size: 15px; color: var(--sub); }
 .tips { margin-top: 24px; }
-.tip { display: flex; align-items: center; gap: 12px; font-size: 15px; color: #3F3B35; margin: 8px 4px 0; }
-.tip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--g); flex: none; }
+.tip { display: flex; align-items: center; gap: 12px; font-size: 15px; color: var(--ink-2); margin: 8px 4px 0; }
+.tip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--p); flex: none; }
 .big { width: 72px; height: 72px; border-radius: 24px; background: var(--weak); color: var(--sub); margin: 64px 0 24px; }
 .big .i { width: 40px; height: 40px; }
 .center-box { text-align: center; padding-top: 22vh; }
-.spin { width: 64px; height: 64px; border-radius: 50%; border: 6px solid var(--g-soft); border-top-color: var(--g); margin: 0 auto 32px; animation: spin 0.9s linear infinite; }
+.spin { width: 64px; height: 64px; border-radius: 50%; border: 6px solid var(--p-soft); border-top-color: var(--p); margin: 0 auto 32px; animation: spin 0.9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* 제안 */
@@ -317,7 +328,7 @@ select { min-height: 48px; }
 .offer .gline { margin: 4px 0 12px; }
 .acts { display: flex; gap: 8px; }
 .acts button { flex: 1; min-height: 44px; background: var(--weak); border: 0; border-radius: 14px; padding: 12px; font-size: 15px; font-weight: 700; cursor: pointer; }
-.add { width: 100%; min-height: 56px; border: 2px dashed #CFCABF; border-radius: 24px; padding: 16px; margin-top: 12px; background: none; font-size: 15px; font-weight: 700; color: var(--sub); cursor: pointer; }
+.add { width: 100%; min-height: 56px; border: 2px dashed var(--rule); border-radius: 24px; padding: 16px; margin-top: 12px; background: none; font-size: 15px; font-weight: 700; color: var(--sub); cursor: pointer; }
 .cmp, .opc { display: block; width: 100%; text-align: left; background: var(--card); border: 2px solid transparent; border-radius: 24px; padding: 16px 24px; margin-top: 12px; cursor: pointer; }
 .cmp .top, .opc .top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; }
 .opc .nm, .opc .am, .amt2 { white-space: nowrap; }
@@ -327,22 +338,22 @@ select { min-height: 48px; }
 .cmp .tbar, .opc .tbar { margin-top: 12px; }
 .meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; font-size: 13px; color: var(--sub); }
 .meta .tagm { margin-left: 0; }
-.opc.on { border-color: var(--g); }
+.opc.on { border-color: var(--p); }
 .opc .nm { font-size: 17px; font-weight: 800; }
 .opc .am { font-size: 15px; color: var(--sub); white-space: nowrap; }
 .opc .am b { font-size: 22px; color: var(--ink); letter-spacing: -0.4px; }
 .gl2 { display: block; font-size: 15px; color: var(--sub); margin-top: 4px; }
 .msg { white-space: pre-wrap; background: var(--card); border-radius: 24px; padding: 16px 24px; margin-top: 16px; font: inherit; font-size: 17px; line-height: 27px; }
 .checks .chk { display: flex; align-items: flex-start; gap: 12px; padding: 12px 24px; cursor: pointer; }
-.chk input { appearance: none; -webkit-appearance: none; width: 24px; height: 24px; border-radius: 8px; border: 2px solid #D6D1C6; flex: none; margin: 0; cursor: pointer; background: var(--card); }
-.chk input:checked { border: 0; background: var(--g) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6.5 12.5l3.5 3.5 7.5-8'/%3E%3C/svg%3E") center/16px no-repeat; }
+.chk input { appearance: none; -webkit-appearance: none; width: 24px; height: 24px; border-radius: 8px; border: 2px solid var(--stroke); flex: none; margin: 0; cursor: pointer; background: var(--card); }
+.chk input:checked { border: 0; background: var(--p) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6.5 12.5l3.5 3.5 7.5-8'/%3E%3C/svg%3E") center/16px no-repeat; }
 .chk span { font-size: 17px; line-height: 24px; font-weight: 600; }
 .chk input:checked + span { color: var(--sub); text-decoration: line-through; }
 
 /* 아래 고정 버튼: 위쪽만 흐려지게. 흐림 배경과 그림자는 쓰지 않는다 */
-.bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; padding: 16px var(--side) max(24px, env(safe-area-inset-bottom)); background: linear-gradient(rgba(244, 242, 236, 0), var(--bg) 24%); }
+.bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; padding: 16px var(--side) max(24px, env(safe-area-inset-bottom)); background: linear-gradient(rgba(242, 244, 246, 0), var(--bg) 24%); }
 .bar > * { max-width: 528px; margin-left: auto; margin-right: auto; }
-.cta { display: flex; align-items: center; justify-content: center; width: 100%; height: 56px; border: 0; border-radius: 14px; background: var(--g); color: #fff; font-weight: 700; font-size: 17px; cursor: pointer; padding: 0 12px; text-align: center; line-height: 1.25; }
+.cta { display: flex; align-items: center; justify-content: center; width: 100%; height: 56px; border: 0; border-radius: 14px; background: var(--p); color: #fff; font-weight: 700; font-size: 17px; cursor: pointer; padding: 0 12px; text-align: center; line-height: 1.25; }
 .cta.weak { background: var(--weak); color: var(--ink); }
 .cta:disabled { opacity: 0.4; cursor: not-allowed; }
 .two { display: flex; gap: 8px; }
@@ -355,30 +366,30 @@ select { min-height: 48px; }
 /* 누르면 살짝 작아지고(97%) 색이 진해진다. 떠오르는 효과와 그림자는 넣지 않는다 */
 .cta, .opt, .seg-b, .chips button, .sb, .acts button, .add, .better, .cmp, .opc, .pv.tap, .cal-d, .cal-nav, .backb, .logo, .link { transition: transform .12s var(--ease), background-color .12s, border-color .12s, color .12s; }
 .cta:active:not(:disabled), .opt:active, .seg-b:active, .chips button:active, .sb:active, .acts button:active, .add:active, .better:active, .cmp:active, .opc:active, .pv.tap:active, .cal-d:active, .cal-nav:active:not(:disabled), .backb:active, .logo:active, .link:active { transform: scale(.97); }
-.cta:active:not(:disabled) { background: var(--g-press); }
+.cta:active:not(:disabled) { background: var(--p-press); }
 .cta.weak:active:not(:disabled), .sb:active, .acts button:active { background: var(--weak-press); }
-/* 종이색 바탕 위 흰 버튼·카드는 바탕색에 가까워지지 않게, 배경 대신 테두리 색을 진하게 한다 */
+/* 회색 바탕 위 흰 버튼·카드는 바탕색에 가까워지지 않게, 배경 대신 테두리 색을 진하게 한다 */
 .opt:active:not(.on), .seg-b:active:not(.on), .chips button:active:not(.on), .cmp:active, .opc:active:not(.on) { border-color: var(--edge); }
-/* 흰 창·흰 카드 안에서 종이색으로 칠한 버튼은 배경을 한 단계 진하게 */
+/* 흰 창·흰 카드 안에서 바탕색으로 칠한 버튼은 배경을 한 단계 진하게 */
 .panel .opt:active:not(.on), .panel .seg-b:active:not(.on), .panel .chips button:active:not(.on), .cal .chips button:active { background: var(--weak); border-color: transparent; }
-.chips.sel button.on:active { background: var(--g-press); }
-.better:active { background: var(--g-soft-press); }
+.chips.sel button.on:active { background: var(--p-press); }
+.better:active { background: var(--p-soft-press); }
 .add:active, .backb:active, .cal-nav:active:not(:disabled), .link:active { background: var(--weak); }
 .cal-d:active:not(.on) { background: var(--weak); }
-.cal-d.on:active { background: var(--g-press); }
+.cal-d.on:active { background: var(--p-press); }
 @media (hover: hover) and (pointer: fine) {
-  .cta:hover:not(:disabled) { background: var(--g-hover); }
+  .cta:hover:not(:disabled) { background: var(--p-hover); }
   .cta.weak:hover:not(:disabled), .sb:hover, .acts button:hover { background: var(--weak-hover); }
   .opt:hover:not(.on), .seg-b:hover:not(.on), .chips button:hover:not(.on), .cmp:hover, .opc:hover:not(.on) { border-color: var(--edge); }
   .panel .opt:hover:not(.on), .panel .seg-b:hover:not(.on), .panel .chips button:hover:not(.on), .cal .chips button:hover { background: var(--weak); border-color: transparent; }
   button.row:hover, button.kv:hover, a.kv:hover { background: var(--fill); box-shadow: inset 0 0 0 4px var(--card); }
   /* 예시 영수증은 종이 모양을 그대로 두고 '이 예시로 해 보기'만 진하게 */
-  .pv.tap:hover .pv-go { color: var(--g-press); text-decoration: underline; text-underline-offset: 3px; }
-  .chips.sel button.on:hover { background: var(--g-hover); }
-  .better:hover { background: var(--g-soft-press); }
+  .pv.tap:hover .pv-go { color: var(--p-press); text-decoration: underline; text-underline-offset: 3px; }
+  .chips.sel button.on:hover { background: var(--p-hover); }
+  .better:hover { background: var(--p-soft-press); }
   .add:hover, .backb:hover, .cal-nav:hover:not(:disabled), .link:hover, .logo:hover { background: var(--weak); }
   .cal-d:hover:not(.on) { background: var(--weak); }
-  .inline:hover { color: var(--g-press); }
+  .inline:hover { color: var(--p-press); }
 }
 
 /* 아래에서 올라오는 창 */
@@ -386,7 +397,7 @@ select { min-height: 48px; }
 .sheet[hidden] { display: none; }
 .dim { position: absolute; inset: 0; background: rgba(27, 36, 48, 0.46); }
 .panel { position: absolute; left: 0; right: 0; bottom: 0; max-width: 560px; margin: 0 auto; max-height: 88vh; overflow-y: auto; background: var(--card); border-radius: 24px 24px 0 0; padding: 8px 24px max(24px, env(safe-area-inset-bottom)); }
-.hdl { width: 40px; height: 4px; border-radius: 8px; background: #DDD8CE; margin: 0 auto 16px; }
+.hdl { width: 40px; height: 4px; border-radius: 8px; background: var(--track); margin: 0 auto 16px; }
 .panel h2 { font-size: 22px; line-height: 31px; margin: 0 0 8px; font-weight: 800; letter-spacing: -0.4px; }
 .panel .two, .panel > .cta { margin-top: 24px; }
 .panel .stepper, .panel .unit, .panel .opt:not(.on), .panel .chips button { background: var(--bg); }
@@ -423,7 +434,7 @@ select { min-height: 48px; }
 .who { font-size: 17px; line-height: 27px; color: var(--ink); margin: 32px 0 0; max-width: 30em; }
 .steps3 { list-style: none; counter-reset: st; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 24px 0 0; padding: 0; }
 .steps3 li { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; counter-increment: st; }
-.steps3 li::before { content: counter(st); width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--g-soft); color: var(--g); font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.steps3 li::before { content: counter(st); width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--p-soft); color: var(--p); font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .steps3 li:not(:last-child)::after { content: ""; width: 32px; border-bottom: 2px dotted var(--rule); margin-left: 4px; }
 .start-cta { display: flex; align-items: center; gap: 16px; margin-top: 32px; }
 .start-cta .cta { width: auto; min-width: 240px; padding: 0 32px; }
