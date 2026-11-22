@@ -1351,7 +1351,9 @@ function sheetCard(id) {
       ? Object.entries(c.paidByMonth).map(([m, p]) => kv(`${m}월에 받는 수당`, won(p))).join('') + (c.totalLoss ? `<div class="amt"><span class="k">기간 동안 줄어드는 수당</span><span class="n minus">−${won(c.totalLoss)}</span></div>` : '')
       : kv('일을 시작하면', won(c.paid)) + (c.impact.max ? `<div class="amt"><span class="k">${esc(c.impact.text)}</span><span class="n minus">−${won(c.impact.max)}</span></div>` : ''));
   }
-  if (c.proposed) body += kv('지금 기준', esc(c.limitText)) + kv('개정안 (국회 미확정)', esc(c.proposed.limitText));
+  // 기준은 긴 문장이라 이름·금액을 점선으로 잇는 한 줄(.amt, 금액은 줄바꿈 없음)에 넣으면 화면 밖으로 넘치고 이름과 겹친다.
+  // 그래서 '기준'처럼 제목과 글 줄로 보인다. 개정안이 있으면 지금 기준 다음에 적는다.
+  if (c.proposed) body += `<p class="sec">지금 기준</p><p class="gline">${esc(c.limitText)}</p><p class="sec">개정안 (국회 미확정)</p><p class="gline">${esc(c.proposed.limitText)}</p>`;
   else if (c.limitText) body += `<p class="sec">기준</p><p class="gline">${esc(c.limitText)}</p>`;
   return `<h2 id="sheet-title">${esc(l[2])} ${tag(c.status)}</h2>
     <p class="gline">${esc(polite(c.headline))}</p>${body}
