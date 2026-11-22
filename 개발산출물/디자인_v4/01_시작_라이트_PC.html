@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>문턱 · 시작 (시안 v4 라이트)</title>
-<link rel="stylesheet" href="style.css?v=8">
+<link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
 <header class="nav-bar"><div class="nav">
@@ -14,6 +14,7 @@
 
 <main class="wrap">
   <section class="hero">
+    <div class="hero-bg" aria-hidden="true"><div class="hb-bars"></div><i class="hb-line"></i><i class="hb-sweep"></i></div>
     <a class="pill" href="#rules" data-reveal><i></i><b>2026년 규칙</b> 반영 · 제도 4개 계산<span>보기 →</span></a>
     <h1 data-split>일을 늘리기 전,<br><em>지원이 바뀌는 지점</em>을 확인하세요.</h1>
     <p class="lead" data-reveal style="--i:4">근무시간이 늘면 급여와 함께 공제와 지원도 달라집니다. 문턱은 일 제안마다 넘게 되는 <b>제도별 기준선</b>과 <b>실질 소득</b>을 미리 계산해, 나에게 맞는 근무 조건을 찾도록 돕습니다.</p>
@@ -138,5 +139,24 @@
 </main>
 <script src="motion.js?v=2"></script>
 <script src="stage.js?v=3"></script>
+<script>
+// 제목 뒤 배경: 아래 그래프와 같은 데이터로 옅은 막대를 세우고, 파도처럼 천천히 숨 쉬게 한다.
+(function () {
+  var box = document.querySelector('.hb-bars'), src = document.querySelector('[data-series]');
+  if (!box || !src) return;
+  var s = JSON.parse(src.dataset.series), max = Math.max.apply(null, s.map(function (r) { return r[4]; }));
+  var peak = null;
+  s.forEach(function (r, i) { if (!peak && i > 0 && r[4] < s[i - 1][4]) peak = s[i - 1]; });
+  s.forEach(function (r, i) {
+    var b = document.createElement('i');
+    b.style.setProperty('--h', (12 + r[4] / max * 88).toFixed(1) + '%');
+    b.style.setProperty('--d', (i * 35) + 'ms');
+    b.style.setProperty('--w', (i * 0.18).toFixed(2) + 's');
+    if (peak && r[0] > peak[0] && r[4] < peak[4]) b.className = 'dip';
+    box.appendChild(b);
+  });
+  requestAnimationFrame(function () { requestAnimationFrame(function () { box.classList.add('on'); }); });
+})();
+</script>
 </body>
 </html>

@@ -543,3 +543,27 @@ dl.kv dd { margin: 0; font-weight: 700; }
   .row .lab { grid-column: 1 / -1; }
   .band { padding: 64px 24px; }
 }
+
+/* ── 시작 화면 제목 뒤 배경: 옅은 막대 그래프가 자라고 파도처럼 숨 쉼 ── */
+.hero { position: relative; }
+.hero > :not(.hero-bg) { position: relative; z-index: 1; }
+.hero-bg {
+  position: absolute; z-index: 0; pointer-events: none; top: -40px; left: 50%; width: 100vw; height: 700px; transform: translateX(-50%);
+  -webkit-mask-image: radial-gradient(ellipse 62% 70% at 50% 46%, rgba(0,0,0,.35) 0%, #000 70%), linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  mask-image: radial-gradient(ellipse 62% 70% at 50% 46%, rgba(0,0,0,.35) 0%, #000 70%), linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  -webkit-mask-composite: source-in; mask-composite: intersect;
+}
+.hb-bars { position: absolute; left: 4%; right: 4%; bottom: 60px; top: 90px; display: flex; align-items: flex-end; gap: clamp(4px, .55vw, 12px); }
+.hb-bars i {
+  flex: 1; height: var(--h); border-radius: 10px 10px 2px 2px; transform-origin: bottom;
+  background: linear-gradient(180deg, rgba(10,92,255,.16), rgba(122,92,255,.06) 55%, rgba(122,92,255,0));
+  transform: scaleY(0); transition: transform 1.6s var(--ease) var(--d);
+}
+.hb-bars i.dip { background: linear-gradient(180deg, rgba(240,56,74,.13), rgba(240,56,74,.04) 55%, rgba(240,56,74,0)); }
+.hb-bars.on i { transform: scaleY(1); animation: breathe 5.5s ease-in-out infinite alternate; animation-delay: calc(1.8s + var(--w)); }
+@keyframes breathe { from { scale: 1 1; } to { scale: 1 .9; } }
+.hb-line { position: absolute; left: 4%; right: 4%; bottom: 60px; height: 1px; background: linear-gradient(90deg, transparent, rgba(10,92,255,.25), rgba(122,92,255,.25), transparent); }
+.hb-sweep { position: absolute; top: 90px; bottom: 60px; width: 18%; left: -20%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent); animation: sweepbg 7s ease-in-out 2.4s infinite; }
+@keyframes sweepbg { 0% { left: -20%; } 60%, 100% { left: 105%; } }
+@media (prefers-reduced-motion: reduce) { .hb-bars i { transform: scaleY(1); } .hb-sweep { display: none; } }
+@media (max-width: 640px) { .hero-bg { height: 560px; } .hb-bars { gap: 2px; } }
