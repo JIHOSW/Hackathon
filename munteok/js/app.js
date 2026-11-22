@@ -1549,6 +1549,24 @@ function countUp() {
   }
 }
 
+// PC 세로 자리: 내용과 아래 버튼을 합친 묶음이 화면보다 짧으면, 남는 높이를 위 2 : 아래 3으로 나눠 묶음을 가운데보다 조금 위에 둔다.
+// 화면이 바뀔 때(와 창 크기가 바뀔 때)만 정한다. 같은 화면에서 안내가 펼쳐지거나 접혀도 위 여백을 그대로 둬서,
+// 방금 누른 버튼이 움직이지 않고 내용만 아래로 늘어난다. 휴대폰과 시작 화면(스스로 가운데 정렬)은 하지 않는다.
+const pcQuery = window.matchMedia ? window.matchMedia('(min-width: 1024px)') : null;
+let placedKey = null;
+function placeVertically(force = false) {
+  const key = screenKey();
+  if (!force && key === placedKey) return;
+  placedKey = key;
+  app.style.marginTop = '';
+  if (!pcQuery || !pcQuery.matches || state.step === 'start') return;
+  const free = window.innerHeight - topEl.offsetHeight - app.offsetHeight - (barEl.hidden ? 0 : barEl.offsetHeight);
+  if (free > 0) app.style.marginTop = `${Math.round(free * 0.4)}px`;
+}
+let placeTimer = null;
+window.addEventListener('resize', () => { clearTimeout(placeTimer); placeTimer = setTimeout(() => placeVertically(true), 120); });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => placeVertically(true));
+
 function render(keepScroll = false) {
   const y = window.scrollY;
   const v = VIEWS[state.step]();
@@ -1560,6 +1578,7 @@ function render(keepScroll = false) {
   barEl.innerHTML = v.bottom || '';
   barEl.hidden = !v.bottom;
   app.style.paddingBottom = v.bottom ? `${barEl.offsetHeight + 24}px` : '32px';
+  placeVertically();
   renderSheet();
   window.scrollTo(0, keepScroll ? y : 0);
   animateScreen();

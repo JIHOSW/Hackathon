@@ -481,6 +481,21 @@ select { min-height: 48px; }
   .small, .step, .chip, .legend, .tagm, .lg, .bars-x span, .stamp, .better small, .quote .cap, .form .gline, .help .gline, .cal-g .dow, .meta, .kv.col2 .k small, .steps3 li::before { font-size: 14px; }
   .disc { font-size: 14px; line-height: 21px; }
 
+  /* 크기: 휴대폰 크기 그대로면 PC 화면이 허전해서 제목과 질문 화면의 답하는 칸을 키운다(결과 화면 제목은 그대로) */
+  .t2:not(.res) { font-size: 36px; line-height: 46px; letter-spacing: -1px; }
+  .why { font-size: 17px; line-height: 27px; padding: 20px 24px; border-radius: 24px; }
+  body[data-layout="c2"] .app > .step { font-size: 15px; padding: 6px 10px; }
+  body[data-layout="c2"] .cb .opt { min-height: 64px; font-size: 19px; }
+  body[data-layout="c2"] .cb .stepper { padding: 24px; }
+  body[data-layout="c2"] .cb .sv input { font-size: 44px; }
+  body[data-layout="c2"] .cb .sv span { font-size: 26px; }
+  body[data-layout="c2"] .cb .sb { width: 56px; height: 56px; }
+  body[data-layout="c2"] .cb .seg-b { min-height: 56px; font-size: 17px; }
+  body[data-layout="c2"] .cb .chips button { font-size: 17px; padding: 11px 14px; }
+  body[data-layout="c2"] .cb .lbl { font-size: 19px; }
+  body[data-layout="c2"] .cb .quote:not(.raw-full) .q { font-size: 19px; line-height: 30px; }
+  body[data-layout="c2"] .cb .calc { font-size: 17px; }
+
   /* 공고 올리기 '이런 공고도 읽어요'는 누르는 곳이 아니라서, 누르는 칩과 같은 흰 칸 대신 점 목록으로 */
   .chips span { display: inline-flex; align-items: center; gap: 8px; background: none; padding: 4px 12px 4px 4px; font-weight: 500; color: var(--ink-2); }
   .chips span::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--p); flex: none; }
@@ -505,10 +520,12 @@ select { min-height: 48px; }
   /* 그리드에서는 여백이 겹치지 않아서, 문구 상자 아래 여백(pre 기본 1em)만 남긴다. 휴대폰과 같은 간격 */
   body[data-step="message"] .app > .msg + .gline { margin-top: 0; }
 
-  /* 한 칸(c1): 가운데가 아니라 왼쪽 선에 맞추고, 왼쪽 칸 폭을 쓴다. 읽는 중 동그라미는 안내 화면의 그림과 같은 높이에 */
+  /* 한 칸(c1): 가운데가 아니라 왼쪽 선에 맞추고, 왼쪽 칸 폭을 쓴다.
+     읽는 중·안내 화면의 위 여백은 화면 세로 자리(app.js placeVertically)가 정하므로 따로 두지 않는다 */
   body[data-layout="c1"] .app > * { max-width: 456px; }
-  body[data-layout="c1"] .center-box { text-align: left; padding-top: 64px; }
+  body[data-layout="c1"] .center-box { text-align: left; padding-top: 0; }
   body[data-layout="c1"] .center-box .spin { margin: 0 0 32px; }
+  body[data-layout="c1"] .app > .big { margin-top: 16px; }
 
   /* 예시 고르기: 네 가지를 두 개씩 나란히 */
   body[data-step="samples"] .app > .rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 0; background: none; }
