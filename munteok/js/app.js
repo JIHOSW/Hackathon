@@ -20,6 +20,7 @@ const state = {
   profileQ: 0, ytdOpen: false, chosenHours: null, requestAction: null, sheet: null, returnStep: 'start', inputHint: null,
 };
 const MAX_OFFERS = 3;
+const MAX_TEXT = 4000; // AI 서버(api/extract.js)가 받는 글자 수와 같게 둔다
 
 // 단계 막대: 6칸. 시작 화면과 안내 화면에는 막대 대신 로고를 보인다.
 const STEP_GROUP = { upload: 0, input: 0, samples: 0, confirm: 1, offers: 1, profile: 2, compare: 3, result: 3, alts: 4, message: 4, basis: 5 };
@@ -132,7 +133,8 @@ function moneyBar(s, { scale = null, height = 16, legend = true, lossName = '줄
   const label = segs.map(([, v, n], i) => `${n} ${v < 10000 ? won(v) : mans[i] + '만 원'}`).join(', ');
   const bar = `<div class="tbar" style="width:${width.toFixed(1)}%;height:${height}px" role="img" aria-label="${esc(label)}">${segs.map(([c, v]) => `<i class="${c}" style="width:${((v / sum) * 100).toFixed(1)}%"></i>`).join('')}</div>`;
   if (!legend) return bar;
-  return bar + `<div class="lgv">${segs.map(([c, v, n], i) => `<div class="${c}"><span>${esc(n)}</span><b>${v < 10000 ? won(v) : mans[i].toLocaleString('ko-KR') + '만 원'}</b></div>`).join('')}</div>`;
+  // 빠지는 돈(보험료·세금, 줄어드는 지원)은 앞에 −를 붙여 남는 돈과 구분한다.
+  return bar + `<div class="lgv">${segs.map(([c, v, n], i) => `<div class="${c}"><span>${esc(n)}</span><b>${c === 'g' ? '' : '−'}${v < 10000 ? won(v) : mans[i].toLocaleString('ko-KR') + '만 원'}</b></div>`).join('')}</div>`;
 }
 
 function row({ ic = null, cls = '', title, sub = '', badge = '', action = '', attrs = '', arrow = Boolean(action) }) {
@@ -150,7 +152,7 @@ const two = (a, b) => `<div class="two">${a}${b}</div>`;
 const linkBtn = (label, action, attrs = '') => `<button type="button" class="link" data-action="${action}" ${attrs}>${label}${icon('ch')}</button>`;
 const why = (text) => `<div class="why"><b>왜 물어보나요?</b>${text}</div>`;
 const DISCLAIMER = '<p class="disc">참고용 계산이며 세무·법률 자문과 행정기관의 최종 판단을 대체하지 않습니다<br>AI가 생성한 내용이 포함되어 있습니다</p>';
-const AI_NOTICE = `<p class="gline">공고 사진과 글은 AI(Anthropic Claude)가 읽어요. 읽은 뒤 저장하지 않아요. <button type="button" class="inline" data-action="privacy">개인정보 처리 안내</button></p>`;
+const AI_NOTICE = `<p class="gline">공고 사진과 글은 AI(Anthropic Claude)가 읽어요. 문턱 서버에는 저장하지 않아요. <button type="button" class="inline" data-action="privacy">개인정보 처리 안내</button></p>`;
 
 // ---------------- 시작 ----------------
 
@@ -171,11 +173,11 @@ function viewStart() {
     </div>
     <div class="card pv tap" role="button" tabindex="0" data-action="sample" data-id="cafe" aria-label="주말 카페 알바 예시로 해 보기">
       <span class="chip">예시</span>
-      <p class="pvt">주말 카페 알바로 한 달에 <span class="num">${man(s.addedIncome)}</span>을 벌면,<br>실제로 남는 돈은 <mark class="num">${man(s.net)}</mark>이에요</p>
+      <p class="pvt">주말 카페 알바로<br>한 달에 <span class="num">${man(s.addedIncome)}</span>을 벌면,<br>실제로 남는 돈은 <mark class="num">${man(s.net)}</mark>이에요</p>
       ${moneyBar(s)}
       <span class="pv-go">이 예시로 해 보기${icon('ch')}</span>
     </div>
-    <p class="gline center">로그인 없이 바로 써요 · 입력한 내용은 저장하지 않아요</p>
+    <p class="gline center">로그인 없이 바로 써요 · 입력한 내용은 서버에 저장하지 않아요</p>
     <p class="gline center"><button type="button" class="inline" data-action="privacy">개인정보 처리 안내</button></p>`,
     bottom: `${cta(AI_OFF ? '조건 넣기' : '공고 올리기', 'go', 'data-step="upload"')}${linkBtn('예시로 먼저 해 보기', 'go', 'data-step="samples"')}`,
   };
@@ -354,15 +356,17 @@ function viewInput() {
   }
   if (state.aiError) {
     const e = state.aiError;
-    const title = e.kind === 'notPosting' ? '일자리 공고가<br>아닌 것 같아요' : e.kind === 'photo' ? '사진에서 글자를<br>읽지 못했어요' : '지금은 공고를<br>읽지 못했어요';
+    const title = e.kind === 'notPosting' ? '일자리 공고가<br>아닌 것 같아요' : e.kind === 'photo' ? '사진에서 글자를<br>읽지 못했어요' : e.kind === 'tooLong' ? '공고가<br>너무 길어요' : '지금은 공고를<br>읽지 못했어요';
     const sub = e.kind === 'notPosting' ? '시급이나 근무시간이 보이지 않아요. 다른 글을 올리거나 직접 입력해 주세요'
-      : e.kind === 'photo' ? '다시 올리거나 직접 입력해 주세요' : '잠시 뒤 다시 읽거나 직접 입력해 주세요';
+      : e.kind === 'photo' ? '다시 올리거나 직접 입력해 주세요'
+        : e.kind === 'tooLong' ? `${MAX_TEXT.toLocaleString('ko-KR')}자까지 읽을 수 있어요. 시급·근무시간·기간이 적힌 부분만 남기고 다시 붙여 주세요`
+          : '잠시 뒤 다시 읽거나 직접 입력해 주세요';
     const tips = e.kind === 'photo' ? '<div class="tips"><p class="tip">글자가 또렷하게 보이게 찍기</p><p class="tip">공고 전체가 한 장에 들어오게 찍기</p></div>' : '';
     return {
       html: `<div class="big">${icon(e.kind === 'notPosting' ? 'file' : 'noread')}</div>
         <h1 class="t2" role="alert">${title}</h1><p class="sub">${esc(sub)}</p>${tips}
         ${e.detail ? `<p class="gline">${esc(e.detail)}</p>` : ''}`,
-      bottom: two(weak('다시 읽기', 'retry'), cta('직접 입력하기', 'mode', 'data-mode="manual"')),
+      bottom: two(weak(e.kind === 'tooLong' ? '다시 붙여 넣기' : '다시 읽기', 'retry'), cta('직접 입력하기', 'mode', 'data-mode="manual"')),
     };
   }
   const hint = state.inputHint ? `<p class="gline warn" role="alert">${esc(state.inputHint)}</p>` : '';
@@ -396,7 +400,7 @@ function viewInput() {
   return {
     html: `<h1 class="t2">조건을 <mark>직접</mark><br>입력해 주세요</h1>
     <form id="manual" class="form">
-      <label for="m-wage">시급</label><div class="unit"><input id="m-wage" type="number" inputmode="numeric" min="1" required placeholder="10,320" value="${esc(m.wage)}"><span>원</span></div>
+      <label for="m-wage">시급</label><div class="unit"><input id="m-wage" type="number" inputmode="numeric" min="1" max="999999" required placeholder="10,320" value="${esc(m.wage)}"><span>원</span></div>
       <p class="lbl">어떻게 일하나요?</p>
       <div class="seg2" role="group" aria-label="일하는 방식">${seg('mHow', m.how, 'pattern', '매주 같은 요일에')}${seg('mHow', m.how, 'picked', '날짜를 골라서')}</div>
       ${m.how === 'pattern'
@@ -843,13 +847,13 @@ function resultTitle(r, job) {
   }
   const mp = manParts(s);
   // 급여를 어떻게 받는지 모르면 보험료·세금을 뺄 수 없어 "남아요"라고 하지 않는다.
-  if (job.incomeType === 'unknown') return `<h1 class="t2">${perLong(s)} <mark class="num">${mp.gross}만 원</mark>을<br>받아요</h1>`;
+  if (job.incomeType === 'unknown') return `<h1 class="t2">${perLong(s)} <mark class="num kn">${mp.gross}만 원</mark>을<br>받아요</h1>`;
   if (s.allowanceLoss > 0) {
     const ended = state.result.cards.some((c) => c.ended);
-    return `<h1 class="t2">${periodOf(s) ? `${periodOf(s)} 동안<br>` : '한 달에<br>'}<span class="num">${mp.gross}만 원</span>을 벌지만<br>실제로 남는 돈은<br><mark class="num">${mp.kept}만 원</mark>이에요</h1>
+    return `<h1 class="t2">${periodOf(s) ? `${periodOf(s)} 동안<br>` : '한 달에<br>'}<span class="num">${mp.gross}만 원</span>을 벌지만<br>실제로 남는 돈은<br><mark class="num kn">${mp.kept}만 원</mark>이에요</h1>
       <p class="cut">${mp.deduct ? '보험료와 ' : ''}${ended ? '끊기는' : '줄어드는'} 정부 지원으로 <mark class="rd"><b class="num">${mp.deduct + mp.loss}만 원</b></mark>이 빠져요</p>`;
   }
-  return `<h1 class="t2">${perLong(s)} <mark class="num">${mp.kept}만 원</mark>이<br>남아요</h1>`;
+  return `<h1 class="t2">${perLong(s)} <mark class="num kn">${mp.kept}만 원</mark>이<br>남아요</h1>`;
 }
 
 function reportText(t) {
@@ -1144,8 +1148,8 @@ function viewPrivacy() {
 function sheetEdit(key) {
   const f = state.fields[key];
   let body = '';
-  if (key === 'weeklyHours') body = stepper('e-val', f.value, '시간', 1, 52) + `<div class="chips center">${[15, 20, 24, 30].map((h) => `<button type="button" data-action="setNum" data-target="e-val" data-value="${h}">${h}시간</button>`).join('')}</div>`;
-  else if (key === 'hourlyWage') body = `<div class="form"><label for="e-val">시급</label><div class="unit"><input id="e-val" type="number" inputmode="numeric" min="0" value="${f.value ?? ''}"><span>원</span></div></div>`;
+  if (key === 'weeklyHours') body = stepper('e-val', state.sheet.draft ?? f.value, '시간', 1, 52) + `<div class="chips center">${[15, 20, 24, 30].map((h) => `<button type="button" data-action="setNum" data-target="e-val" data-value="${h}">${h}시간</button>`).join('')}</div>`;
+  else if (key === 'hourlyWage') body = `<div class="form"><label for="e-val">시급</label><div class="unit"><input id="e-val" type="number" inputmode="numeric" min="1" max="999999" value="${state.sheet.draft ?? f.value ?? ''}"><span>원</span></div></div>`;
   else if (key === 'months') {
     // 개월은 바로 고르고, 일수나 날짜는 아래에서 골라 넣는다.
     const sub = state.sheet.unit || (f.unit === 'date' ? 'date' : 'day');
@@ -1158,7 +1162,7 @@ function sheetEdit(key) {
         ? `<div class="form grid2 pair"><div><label for="e-sdate">시작일</label><input id="e-sdate" class="field" type="date" min="${year}-01-01" max="${year}-12-31" value="${f.unit === 'date' ? f.start : ''}"></div>
           <div><label for="e-edate">끝나는 날</label><input id="e-edate" class="field" type="date" min="${f.unit === 'date' ? f.start : `${year}-01-01`}" max="${year + 1}-12-31" value="${f.unit === 'date' ? f.end : ''}"></div></div>`
         : `<div class="form"><label for="e-days">한 달보다 짧은 일 (최대 ${MAX_SHORT_DAYS}일)</label>
-          <div class="unit"><input id="e-days" type="number" inputmode="numeric" min="1" max="${MAX_SHORT_DAYS}" value="${f.unit === 'day' ? f.value : ''}" placeholder="예: 5"><span>일</span></div></div>`}`;
+          <div class="unit"><input id="e-days" type="number" inputmode="numeric" min="1" max="${MAX_SHORT_DAYS}" value="${state.sheet.draft ?? (f.unit === 'day' ? f.value : '')}" placeholder="예: 5"><span>일</span></div></div>`}`;
   }
   else if (key === 'startMonth') body = `<div class="grid3">${Array.from({ length: 12 }, (_, i) => `<button type="button" class="opt c ${f.value === i + 1 ? 'on' : ''}" data-action="sheetPick" data-value="${i + 1}">${i + 1}월</button>`).join('')}</div>`;
   else if (key === 'incomeType') body = `<div class="opts">${Object.entries(PAY_LABEL).map(([v, l]) => `<button type="button" class="opt ${f.value === v ? 'on' : ''}" data-action="sheetPick" data-value="${v}">${esc(l)}<i aria-hidden="true"></i></button>`).join('')}</div>`;
@@ -1167,6 +1171,7 @@ function sheetEdit(key) {
   const dateSheet = key === 'months' && (state.sheet.unit || (f.unit === 'date' ? 'date' : 'day')) === 'date';
   const save = numeric ? cta('이 값으로 바꾸기', 'saveEdit', `data-key="${key}"`) : key === 'months' ? (dateSheet ? cta('이 날짜로 바꾸기', 'saveDates') : cta('이 일수로 바꾸기', 'saveDays')) : '';
   return `<h2 id="sheet-title">${FIELD_NAME[key]}을 고쳐 주세요</h2>${body}
+    ${state.sheet.hint ? `<p class="gline warn" role="alert">${esc(state.sheet.hint)}</p>` : ''}
     ${two(weak('닫기', 'closeSheet'), save)}`;
 }
 
@@ -1350,7 +1355,9 @@ function back() {
   else if (s === 'confirm') {
     if (state.reviewed.length && reviewQueue().length + missingFields().length < state.reviewTotal) state.reviewed.pop();
     else state.step = state.editing !== null ? 'offers' : 'upload';
-  } else if (s === 'offers') state.step = 'upload';
+  // 저장한 제안 화면에서는 첫 화면으로 간다. 공고 올리기 화면은 저장한 제안이 있으면 이 화면으로 오므로,
+  // 여기서 다시 공고 올리기로 보내면 두 화면 사이를 맴돈다. 제안을 더 넣을 때는 '제안 더하기'를 쓴다.
+  } else if (s === 'offers') state.step = 'start';
   else if (s === 'profile') { saveProfileInputs(); if (state.profileQ > 0) state.profileQ -= 1; else state.step = 'offers'; }
   else if (s === 'compare') { state.step = 'profile'; state.profileQ = profileQuestions().length - 1; }
   else if (s === 'result') { if (state.offers.length > 1) state.step = 'compare'; else { state.step = 'profile'; state.profileQ = profileQuestions().length - 1; } }
@@ -1394,6 +1401,8 @@ async function tryExtract() {
     state.rawText = '';
   } else {
     if (!state.rawText.trim()) { state.inputHint = '공고나 메시지를 붙여 넣어 주세요'; render(true); return; }
+    // AI 서버는 4,000자까지 받는다. 넘으면 보내지 않고 줄여 달라고 안내한다.
+    if (state.rawText.length > MAX_TEXT) { state.aiError = { kind: 'tooLong', detail: '' }; render(); return; }
     body.text = state.rawText;
   }
   if (!AI_AVAILABLE) { state.aiError = { kind: 'server', detail: '이 주소에서는 AI 서버가 연결되지 않았어요' }; render(); return; }
@@ -1403,7 +1412,7 @@ async function tryExtract() {
     const res = await fetch(API_BASE + 'api/extract', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const kind = res.status === 422 ? 'notPosting' : state.mode === 'photo' && res.status === 400 ? 'photo' : 'server';
+      const kind = res.status === 422 ? 'notPosting' : state.mode === 'photo' && res.status === 400 ? 'photo' : res.status === 413 && state.mode !== 'photo' ? 'tooLong' : 'server';
       throw Object.assign(new Error(data.error || ''), { kind });
     }
     state.fields = markYearEnd(withDefaults(data.fields));
@@ -1670,7 +1679,10 @@ document.addEventListener('click', (e) => {
     case 'saveEdit': {
       const key = el.dataset.key; const input = document.getElementById('e-val');
       const v = input && input.value !== '' ? Number(input.value) : null;
-      if (!v || v <= 0) { input?.focus(); return; }
+      // 잘못된 값이면 창을 닫지 않고 무엇을 넣어야 하는지 알려 준다.
+      const bad = !v || v <= 0 ? (key === 'weeklyHours' ? '일주일에 1시간 이상으로 넣어 주세요' : '시급을 넣어 주세요')
+        : key === 'hourlyWage' && v >= 1_000_000 ? '시급은 100만 원보다 적게 넣어 주세요' : null;
+      if (bad) { state.sheet.hint = bad; state.sheet.draft = input ? input.value : ''; renderSheet(); document.getElementById('e-val')?.focus(); return; }
       state.fields[key] = { value: key === 'weeklyHours' ? Math.min(52, v) : Math.round(v), status: STATUS.CONFIRMED, evidence: '직접 수정' };
       if (!state.reviewed.includes(key)) state.reviewed.push(key);
       state.sheet = null;
@@ -1680,7 +1692,7 @@ document.addEventListener('click', (e) => {
     case 'saveDays': {
       const input = document.getElementById('e-days');
       const v = input && input.value !== '' ? Math.round(Number(input.value)) : null;
-      if (!v || v < 1 || v > MAX_SHORT_DAYS) { input?.focus(); return; }
+      if (!v || v < 1 || v > MAX_SHORT_DAYS) { state.sheet.hint = `1~${MAX_SHORT_DAYS}일 사이로 넣어 주세요`; state.sheet.draft = input ? input.value : ''; renderSheet(); document.getElementById('e-days')?.focus(); return; }
       state.fields.months = { value: v, unit: 'day', status: STATUS.CONFIRMED, evidence: '직접 수정' };
       if (!state.reviewed.includes('months')) state.reviewed.push('months');
       state.sheet = null;
@@ -1702,7 +1714,7 @@ document.addEventListener('click', (e) => {
       keep();
       return;
     }
-    case 'sheetUnit': state.sheet.unit = el.dataset.value; renderSheet(); return;
+    case 'sheetUnit': state.sheet.unit = el.dataset.value; state.sheet.hint = null; state.sheet.draft = undefined; renderSheet(); return;
     case 'closeSheet': state.sheet = null; renderSheet(); return;
     case 'saveDraft': {
       const wasEditing = state.editing !== null;

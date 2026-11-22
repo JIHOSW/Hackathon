@@ -52,6 +52,8 @@ a { color: var(--g); }
 /* 제목과 글 */
 .t1 { font-size: 30px; line-height: 40px; font-weight: 800; letter-spacing: -0.8px; margin: 0; }
 .t2 { font-size: 26px; line-height: 35px; font-weight: 800; letter-spacing: -0.6px; margin: 14px 0 0; }
+/* 결과 제목의 핵심 금액은 문장보다 크게 보여 준다. */
+.t2 .kn { font-size: 40px; line-height: 46px; letter-spacing: -1px; }
 .sub { color: var(--sub); margin: 10px 0 0; }
 .pre { font-size: 15px; color: var(--sub); font-weight: 600; margin: 10px 0 0; }
 mark { background: linear-gradient(transparent 56%, var(--mark) 56%); color: inherit; padding: 0 2px; margin: 0 -2px; }
@@ -326,3 +328,9 @@ select, .ta, .name-in, .field { width: 100%; font: inherit; font-size: 17px; bor
 .grid1 .opt { margin: 0; width: 100%; }
 .kv.col2 .k { flex-direction: column; align-items: flex-start; gap: 0; color: var(--ink); }
 .kv.col2 .k small { color: var(--sub); font-size: 14px; }
+
+/* 넓은 화면(PC)에서는 시작 제목과 결과 금액을 조금 더 크게 보여 준다. 화면 구조는 같다. */
+@media (min-width: 1024px) {
+  .t1 { font-size: 40px; line-height: 50px; letter-spacing: -1px; }
+  .t2 .kn { font-size: 48px; line-height: 54px; }
+}

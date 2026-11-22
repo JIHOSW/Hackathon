@@ -59,6 +59,24 @@ evidence 규칙
 - 원문에 없으면 무엇이 없는지 적는다. 예: "급여 지급 방식이 적혀 있지 않음".
 - 이름, 전화번호, 주소 같은 개인정보는 evidence에 옮기지 않는다.`;
 
+// 같은 곳에서 짧은 시간에 너무 많이 부르면 막는다. 서버 인스턴스마다 따로 세는 간단한 제한이라
+// 완벽하지는 않지만, 반복 호출로 API 사용 한도가 바닥나는 것을 줄인다.
+const RATE = { perMinute: 10, perHour: 60 };
+const hits = new Map(); // ip -> 최근 호출 시각 목록
+function tooMany(ip) {
+  const now = Date.now();
+  const list = (hits.get(ip) || []).filter((t) => now - t < 3_600_000);
+  const lastMinute = list.filter((t) => now - t < 60_000).length;
+  if (lastMinute >= RATE.perMinute || list.length >= RATE.perHour) { hits.set(ip, list); return true; }
+  list.push(now);
+  hits.set(ip, list);
+  if (hits.size > 5000) for (const [k, v] of hits) if (!v.length || now - v[v.length - 1] > 3_600_000) hits.delete(k);
+  return false;
+}
+function clientIp(req) {
+  return String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || (req.socket && req.socket.remoteAddress) || 'unknown';
+}
+
 function corsHeaders(req) {
   const allowed = (process.env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
   const origin = req.headers.origin;
@@ -89,6 +107,7 @@ export default async function handler(req, res) {
   const cors = corsHeaders(req);
   if (req.method === 'OPTIONS') return send(res, 204, {}, cors);
   if (req.method !== 'POST') return send(res, 405, { error: 'POST만 받습니다.' }, cors);
+  if (tooMany(clientIp(req))) return send(res, 429, { error: '요청이 너무 많아요. 1분쯤 뒤에 다시 시도해 주세요.' }, cors);
   if (!process.env.ANTHROPIC_API_KEY) return send(res, 503, { error: 'AI 서버에 API 키가 설정되지 않았습니다.' }, cors);
 
   const { text, image } = req.body || {};
