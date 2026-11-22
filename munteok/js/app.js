@@ -58,7 +58,8 @@ const ICON = {
   phone: '<path d="M6 4h3l1.5 4-2 1.5a10 10 0 005 5L15 12.5l4 1.5v3a2 2 0 01-2 2A14 14 0 014 6a2 2 0 012-2z"/>',
 };
 const icon = (name) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${ICON[name]}</svg>`;
-const LOGO = '<svg class="logo-mark" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="7" fill="#0A6352"/><path d="M8 17V9.5a4 4 0 018 0V17" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/><path d="M6 17.2h12" stroke="#BDEBD6" stroke-width="2.2" stroke-linecap="round"/></svg>';
+// 로고: 초록 '한끗' 글자 로고
+const LOGO = '<span class="logo-word">한끗</span>';
 
 // ---------------- 말투 ----------------
 // 엔진과 규칙표의 문장은 "~함", "~습니다"로 끝나는 것이 있어, 화면에 보일 때 해요체로 바꾼다.
@@ -152,7 +153,7 @@ const two = (a, b) => `<div class="two">${a}${b}</div>`;
 const linkBtn = (label, action, attrs = '') => `<button type="button" class="link" data-action="${action}" ${attrs}>${label}${icon('ch')}</button>`;
 const why = (text) => `<div class="why"><b>왜 물어보나요?</b>${text}</div>`;
 const DISCLAIMER = '<p class="disc">참고용 계산이며 세무·법률 자문과 행정기관의 최종 판단을 대체하지 않습니다<br>AI가 생성한 내용이 포함되어 있습니다</p>';
-const AI_NOTICE = `<p class="gline">공고 사진과 글은 AI(Anthropic Claude)가 읽어요. 문턱 서버에는 저장하지 않아요. <button type="button" class="inline" data-action="privacy">개인정보 처리 안내</button></p>`;
+const AI_NOTICE = `<p class="gline">공고 사진과 글은 AI(Anthropic Claude)가 읽어요. 한끗 서버에는 저장하지 않아요. <button type="button" class="inline" data-action="privacy">개인정보 처리 안내</button></p>`;
 
 // ---------------- 시작 ----------------
 
@@ -1121,7 +1122,7 @@ function viewPrivacy() {
     html: `<h1 class="t2">개인정보 처리 안내</h1>
       <p class="sec">무엇을 어디로 보내나요</p>
       <div class="rows kvs">
-        ${AI_OFF ? kv('공고 사진과 글', '이 체험 주소에서는 AI 공고 읽기를 쓰지 않아 보내지 않아요') : kv('공고 사진과 글', '문턱 서버를 거쳐 Anthropic(미국)의 AI가 읽어요. 문턱 서버는 저장하지 않아요')}
+        ${AI_OFF ? kv('공고 사진과 글', '이 체험 주소에서는 AI 공고 읽기를 쓰지 않아 보내지 않아요') : kv('공고 사진과 글', '한끗 서버를 거쳐 Anthropic(미국)의 AI가 읽어요. 한끗 서버는 저장하지 않아요')}
         ${kv('내 상황 (나이, 근무 시간, 번 돈, 받는 지원)', '이 브라우저 안에서만 계산에 써요. 서버로 보내지 않아요')}
         ${CLARITY_ID
           ? kv('사용 기록 (Microsoft Clarity)', '동의한 경우에만 어느 화면에서 무엇을 눌렀는지, 스크롤과 화면 이동을 Microsoft(미국)로 보내요. 입력한 값과 계산 금액은 가려서 보내지 않아요. 이를 위해 쿠키를 써요') + kv('로그인', '쓰지 않아요')
@@ -1137,7 +1138,7 @@ function viewPrivacy() {
       <p class="gline">입력한 내용은 이 탭에만 임시로 남고, 탭을 닫으면 사라져요. 지금 바로 지우려면 아래 버튼을 눌러 주세요</p>
       ${AI_OFF ? '' : `<p class="gline">AI 회사가 받은 내용을 처리하는 방식은 <a href="${LINKS.anthropicPrivacy}" target="_blank" rel="noopener">Anthropic 개인정보 처리방침</a>을 따라요</p>`}
       <p class="sec">만든 사람 · 문의</p>
-      <p class="gline">문턱 팀 · 2026 대한민국 청년 CAREER FAIR AI 해커톤 출품작<br><a href="${LINKS.repo}" target="_blank" rel="noopener">GitHub 저장소</a>의 Issues로 문의해 주세요</p>
+      <p class="gline">한끗 팀 · 2026 대한민국 청년 CAREER FAIR AI 해커톤 출품작<br><a href="${LINKS.repo}" target="_blank" rel="noopener">GitHub 저장소</a>의 Issues로 문의해 주세요</p>
       ${DISCLAIMER}`,
     bottom: two(weak('내 입력 모두 지우기', 'restart').replace('cta weak', 'cta weak eq'), cta('돌아가기', 'back')),
   };
@@ -1251,7 +1252,7 @@ function sheetConsent() {
   // 두 버튼을 같은 모양으로 둬서 어느 쪽도 떠밀지 않는다.
   const btn = (label, value) => `<button type="button" class="cta weak eq" data-action="consent" data-value="${value}">${label}</button>`;
   return `<h2 id="sheet-title">사용 기록을 모아도 될까요?</h2>
-    <p class="gline">문턱을 더 쉽게 고치려고, 어느 화면에서 무엇을 눌렀는지와 스크롤을 Microsoft Clarity로 모아요.</p>
+    <p class="gline">한끗을 더 쉽게 고치려고, 어느 화면에서 무엇을 눌렀는지와 스크롤을 Microsoft Clarity로 모아요.</p>
     <p class="gline">입력한 값과 계산 금액은 가려서 보내지 않아요. 쿠키를 쓰고, 기록은 Microsoft(미국) 서버에 보관돼요. 동의하지 않아도 모든 기능을 똑같이 쓸 수 있어요.</p>
     <p class="gline"><button type="button" class="inline" data-action="consentPrivacy">개인정보 처리 안내</button>에서 언제든 바꿀 수 있어요.</p>
     ${two(btn('동의하지 않아요', 'no'), btn('동의해요', 'yes'))}`;
@@ -1314,7 +1315,7 @@ function openOffer(i, keepChoice = false) {
 const VIEWS = { start: viewStart, upload: viewUpload, samples: viewSamples, input: viewInput, confirm: viewConfirm, offers: viewOffers, profile: viewProfile, compare: viewCompare, result: viewResult, alts: viewAlts, message: viewMessage, basis: viewBasis, privacy: viewPrivacy };
 
 function topHtml(v) {
-  if (v.top === 'logo') return `<button type="button" class="logo" data-action="home" aria-label="문턱 처음 화면">${LOGO}<span>문턱</span></button>`;
+  if (v.top === 'logo') return `<button type="button" class="logo" data-action="home" aria-label="한끗 처음 화면">${LOGO}</button>`;
   const group = STEP_GROUP[state.step];
   const seg = group === undefined ? '' : `<div class="seg" role="progressbar" aria-label="진행 단계" aria-valuemin="1" aria-valuemax="6" aria-valuenow="${group + 1}">${Array.from({ length: 6 }, (_, i) => `<i class="${i <= group ? 'on' : ''}"></i>`).join('')}</div>`;
   return `<button type="button" class="backb" data-action="back">${icon('back')}<span>뒤로</span></button>${seg}`;
