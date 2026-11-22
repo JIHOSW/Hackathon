@@ -77,6 +77,8 @@ a { color: var(--g); }
 .pre { font-size: 15px; color: var(--sub); font-weight: 600; margin: 8px 0 0; }
 mark { background: linear-gradient(transparent 56%, var(--mark) 56%); color: inherit; padding: 0 2px; margin: 0 -2px; }
 mark.rd { background: linear-gradient(transparent 56%, var(--mark-red) 56%); }
+/* 형광펜이 화면이 바뀔 때 왼쪽에서 오른쪽으로 그어지도록 크기를 정해 둔다(아래 '움직임' 참고) */
+mark, mark.rd { background-repeat: no-repeat; background-size: 100% 100%; }
 .cut { font-size: 15px; color: var(--sub); margin: 12px 0 0; }
 .cut .tagm { margin-left: 8px; }
 .cut b { color: var(--ink); }
@@ -431,6 +433,17 @@ select { min-height: 48px; }
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
 .app.enter { animation: rise .25s var(--ease) backwards; }
 .app.stagger > :not(.split), .app.stagger .split > * > * { animation: rise .25s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 40ms); }
+/* 형광펜이 그어지고, 영수증이 위에서부터 출력되듯 드러나고, 돈 막대가 왼쪽부터 찬다. 모두 0.3초.
+   clip-path와 배경 크기만 바꿔서 글자와 버튼 자리는 움직이지 않는다 */
+@keyframes marker { from { background-size: 0% 100%; } }
+@keyframes print { from { clip-path: inset(-12px -20px 100% -20px); } to { clip-path: inset(-12px -20px -32px -20px); } }
+@keyframes fill { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+.app.enter mark { animation: marker .3s var(--ease) .15s backwards; }
+.app.enter .rcpt { animation: print .3s var(--ease) .08s backwards; }
+.app.enter .tbar { animation: fill .3s var(--ease) .2s backwards; }
+.app.stagger mark { animation: marker .3s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 40ms + 150ms); }
+.app.stagger .split > * > .rcpt { animation-name: print; animation-duration: .3s; }
+.app.stagger .tbar { animation: fill .3s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 40ms + 150ms); }
 
 /* PC(1024px 이상) */
 @media (min-width: 1024px) {
