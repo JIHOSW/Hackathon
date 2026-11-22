@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>문턱 · 결과 (시안 v6 노선도)</title>
+<link rel="stylesheet" href="style.css?v=2">
+</head>
+<body>
+<header class="wrap mast">
+  <div class="mast-main">
+    <a class="brand" href="01_시작_노선도_PC.html">문턱</a>
+    <ol class="flow" aria-label="진행 단계"><li class="done"><b>1</b>올리기·확인</li><li class="done"><b>2</b>내 상황</li><li class="on"><b>3</b>결과</li></ol>
+    <a class="btn sm" href="02_올리기_노선도_PC.html">새 계산</a>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="res" aria-label="결과 요약">
+    <div class="res-r rise">
+      <span class="kicker">결과 · 주말 카페 알바 공고</span>
+      <h1>이 일을 시작하면 한 달에<br><em>810,863원</em>이 늘어납니다.</h1>
+      <p class="lead">급여 <b>1,313,928원</b> 중 <b class="neg">503,065원(38%)</b>은 4대보험과 구직촉진수당 조정분입니다. 주 24시간은 <b>수당 조정 구간</b>을 지나고 있어요.</p>
+      <div class="chips"><span class="chip green">주휴수당·4대보험</span><span class="chip amber">수당 조정</span><span class="chip gray">소득 신고 필요</span><span class="chip gray">2026년 규칙 · 월 기준</span></div>
+      <div class="ruler">
+        <div class="sbar" aria-hidden="true"><i class="b-net" style="width:61.7%;--t:.6s"></i><i class="b-ins" style="width:9.7%;--t:.8s"></i><i class="b-loss" style="width:28.6%;--t:1s"></i></div>
+        <div class="lbl"><div style="width:61.7%">실제로 늘어나는 돈<b>810,863원</b></div><div style="width:9.7%">4대보험<b>−127,680</b></div><div class="neg" style="width:28.6%">수당 조정분<b>−375,385원</b></div></div>
+        <small>소득세·부모님 세금 변화는 넣지 않았어요.</small>
+      </div>
+    </div>
+
+    <div class="trip rise" style="--t:.2s">
+      <div class="trip-head"><span>운임표 · <b>주 24시간</b></span><span>2026년 규칙 · 한 달 기준</span></div>
+      <ul class="legs">
+        <li style="--c:#fff"><span>기본급 (주 24시간 × 10,500원)</span><b>1,094,940</b></li>
+        <li style="--c:var(--l15)"><span>주휴수당 · 주 15시간 역</span><b>+218,988</b></li>
+        <li class="sum" style="--c:#fff"><span>급여 합계</span><b>1,313,928</b></li>
+        <li class="neg" style="--c:var(--l15)"><span>4대보험 근로자 부담</span><b>−127,680</b></li>
+        <li class="neg" style="--c:var(--lsup)"><span>구직촉진수당 조정분 · 주 18시간 역부터</span><b>−375,385</b></li>
+      </ul>
+      <div class="total"><small>월 실질 소득</small><strong>+<span data-count="810863">810,863</span><small>원</small></strong></div>
+    </div>
+  </section>
+
+  <section class="sec" aria-label="제도별 변화">
+    <div class="sec-head"><span class="no">01</span><h2>어떤 역을 지나는지</h2><p>표시는 원문·공식 자료로 확인한 정도입니다. 추정은 2차 자료나 계산으로 구한 값이에요.</p></div>
+    <div class="rules">
+      <article class="rule" style="--c:var(--lsup)">
+        <div class="rule-top"><span><i class="lb lsup">수</i>구직촉진수당 · 국민취업지원제도</span><span class="chip amber">수당 조정 · 추정</span></div>
+        <h4>매달 받는 수당이<br>600,000원 → <span class="neg">224,615원</span></h4>
+        <div class="gauge" aria-label="월 소득 1,313,928원은 수당 조정 구간에 있음">
+          <div class="g-track"><span class="z-ok" style="width:52.1%"></span><span class="z-cut" style="width:33.3%"></span><span class="z-zero" style="width:14.6%"></span>
+            <div class="pin" style="left:73%"><b>내 월 소득 131만</b></div><span class="g-tick" style="left:52.1%">93.9만</span><span class="g-tick" style="left:85.4%">153.9만</span></div>
+          <div class="g-legend"><span><i class="z-ok"></i>전액 지급</span><span><i class="z-cut"></i>조정 구간</span><span><i class="z-zero"></i>지급 안 됨</span></div>
+        </div>
+        <p class="note">월 소득 938,543원까지 전액, 1,538,543원 이상이면 0원. 계산식은 고용노동부 2025년 안내 기준이에요. 소득이 생기면 고용센터에 신고해야 해요.</p>
+      </article>
+      <article class="rule" style="--c:var(--l15)">
+        <div class="rule-top"><span><i class="lb l15">15</i>주 15시간 기준 · 주휴수당·4대보험</span><span class="chip green">급여 증가 · 추정</span></div>
+        <h4>주 24시간이라<br>15시간 역을 지났어요</h4>
+        <div class="gauge" aria-label="주 24시간은 15시간 기준을 넘음">
+          <div class="g-track"><span class="z-under" style="width:37.5%"></span><span class="z-over" style="width:62.5%"></span>
+            <div class="pin" style="left:60%"><b>주 24시간</b></div><span class="g-tick" style="left:37.5%">15시간</span><span class="g-tick" style="left:96%">40시간</span></div>
+          <div class="g-legend"><span><i class="z-under"></i>주휴수당·4대보험 없음</span><span><i class="z-over"></i>둘 다 적용</span></div>
+        </div>
+        <dl class="kv"><dt>주휴수당 (월)</dt><dd class="pos">+218,988원</dd><dt>4대보험 근로자 부담 (월)</dt><dd class="neg">−127,680원</dd></dl>
+        <p class="note">약정한 소정근로시간이 기준이에요. 공고의 시급에 주휴수당이 포함되지 않은 것으로 가정했어요.</p>
+      </article>
+      <aside class="na">
+        <h3>지나지 않는 노선</h3>
+        <ul><li><i class="lb ltax">세</i><div>부모 연말정산 부양가족 공제<span>부양가족이 아니라고 답함</span></div></li><li><i class="lb lhi">건</i><div>건강보험 피부양자<span>피부양자가 아니라고 답함</span></div></li></ul>
+      </aside>
+    </div>
+  </section>
+
+  <section class="sec" aria-label="근무조건 대안">
+    <div class="sec-head"><span class="no">02</span><h2>다른 경로도 있어요</h2><p>주 1~40시간을 하나씩 계산했어요. 시급과 기간은 그대로 두었어요. 어떤 경로를 고를지는 직접 정하세요.</p></div>
+    <div class="dipnote"><span>!</span><span>주 <b>19~29시간</b>은 수당 조정 폭이 급여 증가 폭보다 커서, 실질 소득이 주 18시간(842,783원)과 비슷한 수준에 머물러요. <b>주 30시간부터</b> 다시 늘어나요.</span></div>
+    <div class="routes">
+      <button class="opt" data-h="24"><i class="radio"></i><div class="top"><span class="chip gray">받은 제안</span></div><span class="h">주 24시간</span><div class="mini"><i style="left:59%"></i></div><span class="v">810,863원</span><span class="diff">기준</span><div class="chips"><span class="chip amber">수당 조정</span></div></button>
+      <button class="opt on" data-h="17"><i class="radio"></i><div class="top"><span class="chip green">지원 그대로</span></div><span class="h">주 17시간</span><div class="mini"><i style="left:41%"></i></div><span class="v">840,260원</span><span class="diff pos">+29,397원 · 7시간 덜 일함</span><div class="chips"><span class="chip green">수당 유지</span><span class="chip ink">주휴수당</span></div></button>
+      <button class="opt" data-h="30"><i class="radio"></i><div class="top"><span class="chip line">다시 커지는 지점</span></div><span class="h">주 30시간</span><div class="mini"><i style="left:74%"></i></div><span class="v">882,810원</span><span class="diff pos">+71,947원</span><div class="chips"><span class="chip amber">수당 조정</span></div></button>
+      <button class="opt" data-h="40"><i class="radio"></i><div class="top"><span class="chip line">가장 큼</span></div><span class="h">주 40시간</span><div class="mini"><i style="left:100%"></i></div><span class="v">1,377,081원</span><span class="diff pos">+566,218원</span><div class="chips"><span class="chip amber">수당 지급 종료</span></div></button>
+    </div>
+    <div class="letter">
+      <div><span class="k">고용주에게 보낼 문구 · <b class="msg-h" style="color:var(--ink)">주 17시간</b></span><pre class="msg-text">안녕하세요. 근무시간과 관련해 여쭙고 싶습니다.
+제 사정상 주 24시간은 어려워서, 주 17시간으로 조정할 수 있을까요?
+요일과 시간대는 최대한 맞추겠습니다. 감사합니다.</pre></div>
+      <button class="btn line sm copy">문구 복사</button>
+    </div>
+  </section>
+
+  <section class="sec" aria-label="근거와 시작 전 준비">
+    <div class="sec-head"><span class="no">03</span><h2>계산의 범위</h2></div>
+    <div class="basis">
+      <div><h3>계산에 넣은 것</h3><ul><li>급여와 주휴수당</li><li>4대보험 근로자 부담분</li><li>3.3% 원천징수</li><li>구직촉진수당 조정분</li></ul></div>
+      <div><h3>넣지 않은 것</h3><ul><li>소득세</li><li>부모의 세금 변화</li><li>건강보험 지역가입자 보험료</li><li>교통비·식비 등 개인 지출</li></ul></div>
+      <div><h3>출발 전에 확인할 것</h3><ul><li>고용주에게: 주휴수당은 시급과 별도로 지급되나요?</li><li>고용센터에 소득 신고하기</li><li>2027년 최저임금은 시급 10,700원이에요. 해를 넘겨 일하면 그 이상이어야 해요.</li></ul></div>
+    </div>
+  </section>
+
+  <section class="end">
+    <div><h2>다른 제안도 받았나요?</h2><p>최대 3개까지 같은 기준으로 나란히 비교할 수 있어요.</p></div>
+    <div><a class="btn line" href="02_올리기_노선도_PC.html">조건 바꿔 다시</a><a class="btn" href="04_제안비교_노선도_PC.html">제안 비교하기 →</a></div>
+  </section>
+
+  <footer class="foot">
+    <span class="brand">문턱</span>
+    <div><p>참고용 계산이며 세무·법률 자문과 행정기관의 최종 판단을 대체하지 않습니다.</p><p>AI가 생성한 내용이 포함될 수 있습니다. 입력값은 서버에 저장하지 않습니다. 화면의 사례는 가상 예시입니다.</p></div>
+  </footer>
+</main>
+<script src="motion.js?v=1"></script>
+<script src="results.js?v=1"></script>
+</body>
+</html>

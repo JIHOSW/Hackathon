@@ -26,6 +26,10 @@
   .v5 b { font-weight: 800; }
   .v5 b em { font-style: normal; color: #d33a25; }
   .v5::after { content: ""; position: absolute; right: 22px; top: 0; width: 64px; height: 96px; background: #fffefb; border-top: 10px solid #1c1b19; box-shadow: 0 8px 18px -8px rgba(0,0,0,.3); -webkit-mask: radial-gradient(5px at 50% 100%, transparent 98%, #000) 50% 100% / 10px 100% repeat-x; mask: radial-gradient(5px at 50% 100%, transparent 98%, #000) 50% 100% / 10px 100% repeat-x; }
+  .v6 { background: #f5f4ef; color: #121212; border-bottom: 1px solid var(--line); }
+  .v6 b em { font-style: normal; background: linear-gradient(transparent 62%, rgba(242,138,0,.45) 62%); }
+  .v6::after { content: ""; position: absolute; right: 22px; top: 30px; width: 96px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #121212 0 30%, #0a9f5c 30% 55%, #f28a00 55%); }
+  .v6::before { content: ""; position: absolute; right: 54px; top: 23px; width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 5px solid #121212; box-sizing: border-box; z-index: 1; }
   .v7 { background: #e7ebe4; color: #17211c; border-bottom: 1px solid var(--line); }
   .v7 b { font-weight: 300; }
   .v7 b em { font-style: normal; font-weight: 700; }
@@ -44,7 +48,7 @@
 <body>
 <main>
   <h1>문턱 디자인 시안 고르기</h1>
-  <p class="lead">네 시안 모두 같은 화면 4장(시작 · 올리기 · 결과 · 제안 비교)과 같은 가상 숫자를 담았습니다. 분위기만 비교해서 하나를 골라 주세요.</p>
+  <p class="lead">다섯 시안 모두 같은 화면 4장(시작 · 올리기 · 결과 · 제안 비교)과 같은 가상 숫자를 담았습니다. 분위기만 비교해서 하나를 골라 주세요.</p>
   <div class="grid">
     <section class="opt">
       <div class="sw v3"><small>v3 · 기존</small><b>일을 늘리기 전,<br><em>지원이 바뀌는</em> 지점</b></div>
@@ -74,11 +78,20 @@
       </div>
     </section>
     <section class="opt">
-      <div class="sw v7"><small>v7 · 새 시안 C</small><b>일을 늘리기 전,<br><em>지원이 바뀌는 지점</em></b></div>
+      <div class="sw v6"><small>v6 · 새 시안 C</small><b>일을 늘리기 전,<br><em>지원이 바뀌는 역</em></b></div>
+      <div class="body">
+        <h2>노선도</h2>
+        <p>미색 바탕에 제도마다 노선 색 하나. 근무시간을 한 줄의 노선으로, 기준선을 "역"으로 보여 줌.</p>
+        <ul><li>첫 화면 아래에 전철 노선 안내도처럼 곧은 노선 띠(주 1~40시간)와 실질 소득 높낮이 그래프가 화면 폭 가득 깔림</li><li>오른쪽 역 이름판에 "이번 역"의 월 실질 소득이 뜨고, 노선을 끌거나 이전·다음 역을 누르면 바뀜</li><li>제도가 색으로 바로 구분되는 대신, 화면이 다소 알록달록함</li></ul>
+        <div class="links"><a href="디자인_v6/01_시작_노선도_PC.html">01 시작</a><a href="디자인_v6/02_올리기_노선도_PC.html">02 올리기</a><a href="디자인_v6/03_결과_노선도_PC.html">03 결과</a><a href="디자인_v6/04_제안비교_노선도_PC.html">04 비교</a></div>
+      </div>
+    </section>
+    <section class="opt">
+      <div class="sw v7"><small>v7 · 새 시안 D</small><b>일을 늘리기 전,<br><em>지원이 바뀌는 지점</em></b></div>
       <div class="body">
         <h2>미니멀</h2>
         <p>컨셉보다 완성도. 세이지(회녹색) 바탕에 아주 가는 큰 숫자와 가는 선, 강조색은 코발트 파랑 하나.</p>
-        <ul><li>첫 화면 가운데 큰 숫자 하나: 가는 선 위 점을 움직이면 월 실질 소득이 부드럽게 바뀜</li><li>첫 화면 뒤에 실질 소득 곡선을 설계도처럼 연하게 깔고, 기준선마다 작은 주석을 담</li><li>지원이 줄어드는 구간에서만 숫자가 파랑으로 바뀜 (우리 금융 화면에서 파랑은 줄어듦)</li><li>고급스럽고 차분한 대신, 첫인상의 개성은 v5보다 약함</li></ul>
+        <ul><li>첫 화면 가운데 큰 숫자 하나: 가는 선 위 점을 움직이면 월 실질 소득이 부드럽게 바뀜</li><li>첫 화면 뒤에 실질 소득 곡선을 설계도처럼 연하게 깔고, 기준선마다 작은 주석을 담</li><li>지원이 줄어드는 구간에서만 숫자가 파랑으로 바뀜 (우리 금융 화면에서 파랑은 줄어듦)</li><li>고급스럽고 차분한 대신, 첫인상의 개성은 v5·v6보다 약함</li></ul>
         <div class="links"><a href="디자인_v7/01_시작_미니멀_PC.html">01 시작</a><a href="디자인_v7/02_올리기_미니멀_PC.html">02 올리기</a><a href="디자인_v7/03_결과_미니멀_PC.html">03 결과</a><a href="디자인_v7/04_제안비교_미니멀_PC.html">04 비교</a></div>
       </div>
     </section>

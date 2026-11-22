@@ -24,7 +24,7 @@ body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--s
 a { color: inherit; }
 .neg { color: var(--acc) !important; }
 .pos { color: var(--ok) !important; }
-.wrap { max-width: 1240px; margin: 0 auto; padding: 0 48px; }
+.wrap { max-width: 1600px; margin: 0 auto; padding: 0 clamp(24px, 4vw, 72px); }
 .tnum, .v, .num { font-variant-numeric: tabular-nums; }
 
 /* 머리 */
@@ -335,4 +335,32 @@ a.item:hover em { color: var(--ink); }
   .alt th:nth-child(5), .alt td:nth-child(5) { display: none; }
   .row { grid-template-columns: 1fr auto; } .row .chip { display: none; }
   .lbl b { font-size: 15px; }
+}
+
+/* 넓은 화면(1600px 이상) 기준: 제목·숫자·카드를 화면 폭에 맞춰 키운다 */
+.hero h1 { font-size: clamp(44px, 5.2vw, 112px); }
+.hero .lead { font-size: clamp(17px, 1.1vw, 20px); }
+.dial { max-width: 1240px; }
+.big { font-size: clamp(64px, 8.4vw, 168px); }
+@media (min-width: 1600px) {
+  body { font-size: 17px; }
+  .hero { padding-top: 132px; }
+  .backdrop { height: 980px; }
+  .backdrop::after { width: 1200px; height: 600px; }
+  .bd-note { font-size: 13.5px; } .bd-note b { font-size: 15px; }
+  .mast-main { height: 76px; }
+  .btn { height: 54px; padding: 0 26px; font-size: 16px; }
+  .sec { padding-top: 180px; }
+  .sec-head h2 { font-size: 56px; }
+  .sec-head p { font-size: 18px; }
+  .steps .n { font-size: 72px; } .steps h3 { font-size: 24px; } .steps p { font-size: 16px; }
+  .item { padding: 32px 0; } .item b { font-size: 26px; } .item small { font-size: 16px; }
+  .split b { font-size: 26px; }
+  .page-head h1 { font-size: 68px; }
+  .res h1 { font-size: 30px; }
+  .rule { padding: 44px; } .rule h4 { font-size: 36px; }
+  .alt .h, .alt .v { font-size: 26px; }
+  .letter pre { font-size: 18px; }
+  .side .big { font-size: 104px; }
+  .cmp td { font-size: 22px; }
 }
