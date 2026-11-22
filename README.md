@@ -23,6 +23,16 @@
 
 링크는 외부 미리보기 서비스(htmlpreview.github.io)로 브랜치의 HTML 파일을 그대로 열어 줍니다. 파일은 [`개발산출물/디자인_v3/`](./개발산출물/디자인_v3)에 있고, 내려받아 브라우저로 바로 열어도 됩니다.
 
+### 새 디자인 시안 (투표용)
+
+세 시안(v3 다크, v4 라이트, v5 종이)은 같은 화면 4장과 같은 숫자를 담았습니다. 아래 "시안 고르기"에서 나란히 보고 하나를 골라 주세요.
+
+| 화면 | 바로 보기 |
+|---|---|
+| **시안 고르기** (세 시안 나란히) | [열기](https://htmlpreview.github.io/?https://github.com/JIHOSW/Hackathon/blob/ui/design-system/%EA%B0%9C%EB%B0%9C%EC%82%B0%EC%B6%9C%EB%AC%BC/%EB%94%94%EC%9E%90%EC%9D%B8_%EA%B3%A0%EB%A5%B4%EA%B8%B0.html) |
+| 새 시안 A · 라이트 블루 (v4) 시작 | [열기](https://htmlpreview.github.io/?https://github.com/JIHOSW/Hackathon/blob/ui/design-system/%EA%B0%9C%EB%B0%9C%EC%82%B0%EC%B6%9C%EB%AC%BC/%EB%94%94%EC%9E%90%EC%9D%B8_v4/01_%EC%8B%9C%EC%9E%91_%EB%9D%BC%EC%9D%B4%ED%8A%B8_PC.html) |
+| 새 시안 B · 종이 영수증 (v5) 시작 | [열기](https://htmlpreview.github.io/?https://github.com/JIHOSW/Hackathon/blob/ui/design-system/%EA%B0%9C%EB%B0%9C%EC%82%B0%EC%B6%9C%EB%AC%BC/%EB%94%94%EC%9E%90%EC%9D%B8_v5/01_%EC%8B%9C%EC%9E%91_%ED%8E%98%EC%9D%B4%ED%8D%BC_PC.html) |
+
 청년이 알바·프리랜서 일자리 제안을 받았을 때, 그 일이 **부모 연말정산 부양가족 공제**, **건강보험 피부양자 자격**, **구직촉진수당**, **주 15시간 기준(주휴수당·4대보험)** 에 어떤 영향을 주는지 한 번에 계산해 주는 서비스입니다. 단순히 기준선을 넘는지만 알려주지 않고, 지원 감소까지 반영한 **실질 순소득**으로 더 유리한 근무 조건을 함께 제안합니다.
 
 ## 왜 필요한가
