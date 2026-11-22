@@ -1,14 +1,5 @@
 // 결과 화면 공통 동작: 큰 숫자 세어 올리기, 대안 고르면 요청 문구 바꾸기, 문구 복사. 시안 v4·v5가 함께 쓴다.
 (function () {
-  var el = document.querySelector('[data-count]');
-  if (el && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    var to = Number(el.dataset.count), t0 = performance.now() + 200;
-    (function tick(now) {
-      var k = Math.min(1, Math.max(0, (now - t0) / 1200));
-      el.textContent = Math.round(to * (1 - Math.pow(1 - k, 3))).toLocaleString('ko-KR');
-      if (k < 1) requestAnimationFrame(tick);
-    })(performance.now());
-  }
   var offered = 24;
   function text(h) {
     if (h > offered) return '안녕하세요. 근무시간과 관련해 여쭙고 싶습니다.\n제안해 주신 주 ' + offered + '시간보다 더 일할 수 있는데, 주 ' + h + '시간 정도로 늘릴 수 있을까요?\n가능한 요일과 시간대를 알려 주시면 맞추겠습니다. 감사합니다.';
@@ -19,7 +10,7 @@
     b.addEventListener('click', function () {
       document.querySelectorAll('.opt').forEach(function (x) { x.classList.toggle('on', x === b); });
       document.querySelector('.msg-h').textContent = '주 ' + b.dataset.h + '시간';
-      document.querySelector('.msg-text').textContent = text(Number(b.dataset.h));
+      var m = document.querySelector('.msg-text'), t = text(Number(b.dataset.h)); if (window.typeText) window.typeText(m, t); else m.textContent = t;
     });
   });
   var copy = document.querySelector('.copy');

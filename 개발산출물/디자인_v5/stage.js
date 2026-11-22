@@ -11,7 +11,7 @@
   var won = function (v) { return Math.round(v).toLocaleString('ko-KR') + '원'; };
   var q = function (s) { return root.querySelector(s); };
 
-  // 정점: 처음으로 남는 돈이 줄어들기 직전. 그 뒤로 정점보다 덜 남는 구간이 "문턱".
+  // 정점: 처음으로 남는 돈이 줄어들기 직전. 그 뒤로 정점보다 실질 소득이 낮은 구간이 "지원 조정 구간".
   var dipAt = series.findIndex(function (r, i) { return i > 0 && r[4] < series[i - 1][4]; });
   var peak = dipAt > 0 ? series[dipAt - 1] : null;
   var isDip = series.map(function (r) { return !!peak && r[0] > peak[0] && r[4] < peak[4]; });
@@ -57,13 +57,13 @@
     range.value = h;
     range.style.setProperty('--p', ((h - 1) / (n - 1)) * 100 + '%');
     out.textContent = '주 ' + r[0] + '시간';
-    set('.r-h', '주 ' + r[0] + '시간 일하면 한 달에 남는 돈');
+    set('.r-h', '주 ' + r[0] + '시간 일할 때 월 실질 소득');
     set('.r-net', won(r[4]));
     set('.r-gross', '+' + won(r[1]));
     set('.r-cut', r[2] ? '−' + won(r[2]) : '없음').parentNode.classList.toggle('neg', r[2] > 0);
     set('.r-loss', r[3] ? '−' + won(r[3]) : '없음').parentNode.classList.toggle('neg', r[3] > 0);
     card.classList.toggle('hot', isDip[h - 1]);
-    set('.r-note', isDip[h - 1] ? '주 ' + peak[0] + '시간보다 ' + won(peak[4] - r[4]) + ' 덜 남아요' : '');
+    set('.r-note', isDip[h - 1] ? '주 ' + peak[0] + '시간 대비 ' + won(peak[4] - r[4]) + ' 낮아요 · 지원 조정 구간' : '');
   }
 
   var playing = null;
@@ -71,14 +71,22 @@
   range.addEventListener('input', function () { stop(); show(Number(range.value)); });
 
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) { stop(); show(target); return; }
-  var t0 = performance.now() + 400, dur = 2400;
   show(1);
-  (function step(now) {
-    var k = Math.min(1, Math.max(0, (now - t0) / dur));
-    var h = Math.max(1, Math.round(1 + (1 - Math.pow(1 - k, 3)) * (target - 1)));
-    bars.forEach(function (b, i) { if (i < h) b.classList.add('on'); });
-    if (svg) svg.style.clipPath = 'inset(0 ' + (100 - Math.min(100, k * 125)) + '% 0 0)';
-    show(h);
-    if (k < 1) playing = requestAnimationFrame(step); else stop();
-  })(performance.now());
+  // 그래프가 화면에 들어왔을 때 1시간부터 목표 시간까지 훑으며 막대를 세운다.
+  function play() {
+    var t0 = performance.now() + 500, dur = 2600;
+    (function step(now) {
+      var k = Math.min(1, Math.max(0, (now - t0) / dur));
+      var h = Math.max(1, Math.round(1 + (1 - Math.pow(1 - k, 3)) * (target - 1)));
+      bars.forEach(function (b, i) { if (i < h) b.classList.add('on'); });
+      if (svg) svg.style.clipPath = 'inset(0 ' + (100 - Math.min(100, k * 125)) + '% 0 0)';
+      show(h);
+      if (k < 1) playing = requestAnimationFrame(step); else stop();
+    })(performance.now());
+  }
+  if (!('IntersectionObserver' in window)) { play(); return; }
+  var io = new IntersectionObserver(function (es) {
+    if (es[0].isIntersecting) { io.disconnect(); if (!root.classList.contains('done')) play(); }
+  }, { threshold: 0.35 });
+  io.observe(root);
 })();
