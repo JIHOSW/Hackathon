@@ -1,0 +1,29 @@
+/* PC 첫 화면 배경 영상 (docs/intent/hankkeut-bg-video.md)
+   js/bgvideo.js가 1024px 이상 첫 화면에서만 .bgv를 넣고 body에 .bgv-on을 붙인다. 휴대폰에는 아무것도 없다.
+   '움직임 0.3초 이하' 규칙의 예외는 이 영상 하나뿐이다. 영상이 처음 나타날 때만 0.3초에 걸쳐 흐려졌다 선명해진다. */
+@media (min-width: 1024px) {
+  .bgv { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; opacity: 0; transition: opacity .3s linear; }
+  .bgv.on { opacity: 1; }
+  /* 영상은 화면 높이에 맞춰 가운데에 둔다. 영상 바탕이 앱 바탕(#F2F4F6)과 같아 좌우 가장자리는 보이지 않는다.
+     그래서 화면 높이가 730px 이상이면 영상의 위 띠(공고 입력 칸·로고)는 위쪽 막대와 제목 사이에,
+     아래 띠(영수증·근무시간 막대·한 줄 문구)는 첫 화면 내용 아래에 온다. */
+  .bgv > img, .bgv > video { position: absolute; top: 0; left: 50%; height: 100%; width: auto; aspect-ratio: 16 / 9; transform: translateX(-50%); display: block; }
+  /* 옅은 막: 영상을 배경으로 물러나게 해 진짜 입력 칸·버튼으로 보이지 않게 한다 */
+  .bgv::after { content: ""; position: absolute; inset: 0; background: rgba(242, 244, 246, .62); }
+
+  body.bgv-on[data-step="start"] .nav { background: transparent; }
+  body.bgv-on[data-step="start"] .app { position: relative; z-index: 1; }
+  /* 왼쪽 글 뒤의 막: 화면이 낮아 영상 띠가 글 뒤로 들어와도 글자 대비 4.5:1 이상을 지킨다.
+     바탕과 같은 색이라 뒤로 지나가는 것이 없을 때는 보이지 않는다. 시작 화면 그리드의 왼쪽 칸(1~6줄) 전체를 덮는다. */
+  body.bgv-on[data-step="start"] .app::before { content: ""; position: absolute; grid-column: 1; grid-row: 1 / -1; inset: -8px -32px -24px; background: rgba(242, 244, 246, .9); border-radius: 24px; z-index: -1; pointer-events: none; }
+
+  /* 5초 넘게 저절로 움직이므로 '움직임 멈춤' 버튼(app.js)을 첫 화면에도 보인다. 1366px 이상은 다른 화면과 같은 자리(틀 바깥 오른쪽 여백),
+     그보다 좁으면 위쪽 막대 줄의 오른쪽 끝 */
+  body.bgv-on[data-step="start"] .motion-btn { display: inline-flex; }
+}
+@media (min-width: 1024px) and (max-width: 1365.98px) {
+  body.bgv-on[data-step="start"] .motion-btn { left: auto; right: max(8px, calc((100% - 1080px) / 2 + 8px)); translate: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bgv { transition: none; }
+}
