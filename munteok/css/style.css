@@ -451,7 +451,10 @@ select { min-height: 48px; }
 
   /* 근무시간 바꿔 보기, 두 제안 비교: 비교할 것을 나란히 */
   .opc-grid, .cmp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 24px; }
-  .opc-grid > .opc, .cmp-grid > .cmp { margin-top: 0; }
+  .opc-grid > .opc, .cmp-grid > .cmp { margin-top: 0; display: flex; flex-direction: column; justify-content: flex-start; }
+  /* 나란히 놓인 카드는 글이 위에서 시작하고, 돈 막대는 아래 줄에 맞춘다 */
+  .opc-grid > .opc > .gl2 { margin-bottom: 12px; }
+  .opc-grid > .opc > .tbar { margin-top: auto; }
 }
 @media (min-width: 1024px) and (min-height: 760px) {
   .split .col-a { position: sticky; top: 72px; }

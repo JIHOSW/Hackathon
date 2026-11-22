@@ -1050,7 +1050,8 @@ function viewAlts() {
   return {
     html: `<h1 class="t2">${altsTitle(a)}</h1>
       ${a.offeredOutOfRange ? `<p class="gline warn">받은 제안(주 ${a.offered}시간)은 할 수 있는 시간을 넘어 비교에서 뺐어요</p>` : ''}
-      <div class="opc-grid" role="radiogroup" aria-label="비교할 근무시간">${opts.map((o) => `<button type="button" role="radio" aria-checked="${o.weeklyHours === chosen}" class="opc ${o.weeklyHours === chosen ? 'on' : ''}" data-action="chooseHours" data-hours="${o.weeklyHours}">
+      <p class="gline" id="alts-help">아래 시간을 눌러 고르면, 그 시간으로 사장님께 보낼 문구를 만들 수 있어요</p>
+      <div class="opc-grid" role="radiogroup" aria-label="비교할 근무시간" aria-describedby="alts-help">${opts.map((o) => `<button type="button" role="radio" aria-checked="${o.weeklyHours === chosen}" class="opc ${o.weeklyHours === chosen ? 'on' : ''}" data-action="chooseHours" data-hours="${o.weeklyHours}">
         <span class="top"><span class="nm num">주 ${o.weeklyHours}시간</span><span class="am">남는 돈 <b class="num">${exact ? won(o.net) : man(o.net)}</b></span></span>
         <span class="gl2">${esc(o.name)}</span>
         ${moneyBar(sumOf(o), { scale, height: 12, legend: false })}
