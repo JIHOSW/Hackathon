@@ -5,7 +5,7 @@
    글자 13·15·17·22·30·44px(결과 숫자만 40·48px, PC에서는 13px 글을 14px로), 여백 4·8·12·16·24·32·48·64px, 둥글기 8·14·24px.
    영역은 그림자 대신 바탕색 차이로 나눈다. 그림자는 영수증 카드에만 아주 옅게 쓴다.
    움직임은 0.3초 이하(결과 숫자만 0.5초)이고, 동작 줄이기 설정이면 모두 끈다.
-   하나만 예외: PC 화면(시작 화면 빼고) 좌우 여백의 동전·지폐는 6~13초에 걸쳐 몇 px만 계속 떠다니고, '움직임 멈춤'으로 멈춘다(아래 '떠다니는 동전·지폐'). */
+   하나만 예외: PC 화면(1366px 이상) 좌우 여백의 동전·지폐는 6~13초에 걸쳐 몇 px만 계속 떠다니고, '움직임 멈춤'으로 멈춘다(아래 '떠다니는 동전·지폐'). */
 :root {
   --bg: #F2F4F6;
   --card: #ffffff;
@@ -641,7 +641,8 @@ select { min-height: 48px; }
 @media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
   body[data-step="samples"] .app > .rows > .row:hover { background: var(--fill); }
 }
-/* 떠다니는 동전·지폐(시작 화면 빼고 PC 1366px 이상): 가운데 1080px 틀 바깥 좌우 여백의 위·아래 모서리에 하나씩, 화면에 고정한다.
+/* 떠다니는 동전·지폐(시작 화면을 포함한 모든 PC 화면, 1366px 이상): 가운데 1080px 틀 바깥 좌우 여백의 위·아래 모서리에 하나씩, 화면에 고정한다.
+   시작 화면에서는 배경 영상(css/bgvideo.css)의 두 띠가 틀 안에 있어 여백의 그림과 겹치지 않고, '움직임 멈춤' 하나로 둘 다 멈춘다.
    .coins는 #app 밖에 한 번만 있는 층이라 화면을 넘기거나 스크롤해도 자리와 움직임이 그대로다.
    그림 가운데를 여백 가운데에 두고(여백 1366px에서 143px, 1440px에서 180px), 위쪽 둘은 위쪽 막대(56px) 아래, 아래쪽 둘은 창 끝에서 떨어뜨린다.
    그래서 움직이는 동안에도 틀 안의 글·버튼·위쪽 막대·아래 버튼 줄·창 끝과 겹치지 않는다. 여백이 좁은 1366px에서는 조금 작게, 넓은 화면에서는 조금 크게(--k).
@@ -672,8 +673,8 @@ body[data-motion="off"] .coin, body[data-motion="off"] .coin > svg { animation-p
 .motion-btn { position: fixed; z-index: 7; top: 6px; left: calc(100% - (100% - 1080px) / 4); translate: -50% 0; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; border: 0; background: none; border-radius: 14px; cursor: pointer; font-size: 15px; font-weight: 600; color: var(--sub); white-space: nowrap; }
 .motion-btn .i { width: 20px; height: 20px; }
 @media (min-width: 1366px) {
-  body[data-step]:not([data-step="start"]) .coins { display: block; animation: fade-in .3s linear backwards; }
-  body[data-step]:not([data-step="start"]) .motion-btn { display: inline-flex; }
+  body[data-step] .coins { display: block; animation: fade-in .3s linear backwards; }
+  body[data-step] .motion-btn { display: inline-flex; }
 }
 @media (min-width: 1440px) { .coins { --k: 1; } }
 @media (min-width: 1680px) { .coins { --k: 1.15; } }
