@@ -89,6 +89,16 @@ export function runTests(rules) {
   eq('받은 제안이 가능한 최대와 같으면 카드 하나', altSame.options.map((o) => o.kind), ['original']);
   const altPlain = searchAlternatives({ ...jobA, weeklyHours: 10 }, { ...base }, rules, { maxHours: 20 });
   eq('수당이 없으면 변화 지점은 주 14시간(확인)과 15시간뿐, 줄어드는 구간 없음', [altPlain.changePoints.map((c) => c.weeklyHours), altPlain.dip], [[14, 15], null]);
+  // 받은 제안이 소수 시간(주 13.5시간)이면 반올림한 14시간이 아니라 13.5시간 그대로를 받은 제안으로 본다.
+  const job135 = { ...jobA, weeklyHours: 13.5 };
+  const alt135 = searchAlternatives(job135, base, rules, { maxHours: 40 });
+  const row135 = alt135.table.find((t) => t.weeklyHours === 13.5);
+  eq('소수 시간: 받은 제안은 13.5시간, 남는 돈은 결과와 같음', [alt135.offered, alt135.offeredOutOfRange, row135 && row135.net, alt135.options[0].kind + alt135.options[0].weeklyHours], [13.5, false, evaluate(job135, base, rules).summary.net, 'original13.5']);
+  eq('소수 시간: 1~40시간에 13.5시간 한 줄을 더해 41줄, 순서대로', [alt135.table.length, alt135.table.slice(12, 15).map((t) => t.weeklyHours)], [41, [13, 13.5, 14]]);
+  // 14.5시간은 15시간 미만이라 주휴수당이 없다. 반올림하면 15시간이 되어 주휴수당이 붙던 것을 막는다.
+  const alt145 = searchAlternatives({ ...jobA, weeklyHours: 14.5 }, base, rules, { maxHours: 40 });
+  eq('소수 시간: 14.5시간은 주휴수당 없음, 15시간부터 생김', [alt145.table.find((t) => t.weeklyHours === 14.5).over15, alt145.changePoints.find((c) => c.changes.some((x) => x.type === 'gain')).weeklyHours], [false, 15]);
+  eq('소수 시간: 가능한 최대보다 길면 범위 밖', searchAlternatives({ ...jobA, weeklyHours: 20.5 }, base, rules, { maxHours: 20 }).offeredOutOfRange, true);
 
   // 3-2. 요청 문구
   const qs = ['주휴수당은 시급과 별도로 지급되나요?'];

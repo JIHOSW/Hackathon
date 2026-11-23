@@ -1220,20 +1220,26 @@ function viewCompare() {
   const h = c.highlights;
   const anyDays = rows.some((r) => r.days || r.span);
   const allDays = rows.every((r) => r.days || r.span);
-  const title = rows.length > 1 && h.net !== -1 && h.netPerHour !== -1 && h.net !== h.netPerHour
+  // 달로 넣은 제안(한 달 금액)과 일수·날짜로 넣은 제안(그 기간 합계)이 섞이면 남는 금액은 단위가 달라 견주지 않는다.
+  // '남는 금액이 가장 커요'를 붙이지 않고 시간당 금액만 견주며, 카드마다 금액이 한 달인지 기간 합계인지 적고 막대도 카드마다 따로 그린다.
+  const mixed = anyDays && !allDays;
+  const netLead = mixed ? -1 : h.net;
+  const title = rows.length > 1 && netLead !== -1 && h.netPerHour !== -1 && netLead !== h.netPerHour
     ? (anyDays ? '더 남는 제안과<br><mark>시간당</mark> 더 남는 제안이 달라요' : '<mark>한 달</mark>에 더 남는 제안과<br><mark>시간당</mark> 더 남는 제안이 달라요')
-    : `제안 ${rows.length}개를<br><mark>같은 기준</mark>으로 계산했어요`;
-  const lead = (i) => (rows.length > 1 && h.net === i ? `<span class="tagm ok">${anyDays ? '남는 금액' : '한 달 금액'}이 가장 커요</span>` : '') + (rows.length > 1 && h.netPerHour === i ? '<span class="tagm ok">시간당 금액이 가장 커요</span>' : '');
+    : mixed && rows.length > 1 ? `제안 ${rows.length}개를<br><mark>시간당</mark> 남는 돈으로 견줘요`
+      : `제안 ${rows.length}개를<br><mark>같은 기준</mark>으로 계산했어요`;
+  const lead = (i) => (rows.length > 1 && netLead === i ? `<span class="tagm ok">${anyDays ? '남는 금액' : '한 달 금액'}이 가장 커요</span>` : '') + (rows.length > 1 && h.netPerHour === i ? '<span class="tagm ok">시간당 금액이 가장 커요</span>' : '');
+  const unitOf = (r) => (!mixed ? '' : r.days || r.span ? ' · 기간 합계' : ' · 한 달 금액');
   return {
     html: `<h1 class="t2">${title}</h1>
       <div class="cmp-grid">${rows.map((r, i) => `<button type="button" class="cmp" data-action="detail" data-i="${i}">
-        <span class="top"><span class="nm"><b>${esc(r.name)}</b>일주일에 ${r.job.weeklyHours}시간 · ${r.span ? (r.span.countedLabel || r.span.label) : r.days ? `${r.days}일` : `${r.workedMonths}개월`}</span><span class="amt2 num">${man(r.net)}</span></span>
-        ${moneyBar(r.result.summary, { scale, height: 12, legend: false })}
+        <span class="top"><span class="nm"><b>${esc(r.name)}</b>일주일에 ${r.job.weeklyHours}시간 · ${r.span ? (r.span.countedLabel || r.span.label) : r.days ? `${r.days}일` : `${r.workedMonths}개월`}${unitOf(r)}</span><span class="amt2 num">${man(r.net)}</span></span>
+        ${moneyBar(r.result.summary, { scale: mixed ? null : scale, height: 12, legend: false })}
         <span class="meta"><span class="num">시간당 남는 돈 ${won(r.netPerHour)}</span>${lead(i)}${r.allowanceLoss ? '<span class="tagm need">정부 지원 줄어듦</span>' : ''}${r.result.summary.pendingIds.length ? `<span class="tagm need">확인 필요 ${r.result.summary.pendingIds.length}</span>` : ''}${r.withinHours ? '' : '<span class="tagm hold">할 수 있는 시간 초과</span>'}</span>
         ${laterNote(r.result)}
       </button>`).join('')}</div>
       <div class="lg"><span>남는 돈</span><span class="o">보험료·세금</span><span class="r">줄어드는 정부 지원</span></div>
-      <p class="gline">${allDays ? '금액은 넣은 기간 동안 남는 돈이에요' : '금액은 한 달에 남는 돈이에요'}. 번 돈에서 보험료와 줄어드는 정부 지원을 뺀 돈이에요${anyDays && !allDays ? '. 일수나 날짜로 넣은 제안은 그 기간 동안 남는 돈이라 한 달 금액과 바로 비교하기 어려워요' : ''}. 고르는 건 내 몫이에요. 카드를 누르면 자세히 볼 수 있어요</p>`,
+      <p class="gline">${mixed ? '달로 넣은 제안은 한 달에, 일수나 날짜로 넣은 제안은 그 기간 동안 남는 돈이에요' : allDays ? '금액은 넣은 기간 동안 남는 돈이에요' : '금액은 한 달에 남는 돈이에요'}. 번 돈에서 보험료와 줄어드는 정부 지원을 뺀 돈이에요${mixed ? '. 단위가 달라 남는 금액은 견주지 않고 시간당 남는 돈만 견줬어요' : ''}. 고르는 건 내 몫이에요. 카드를 누르면 자세히 볼 수 있어요</p>`,
     bottom: two(weak('제안 더하기', 'addOffer', state.offers.length < MAX_OFFERS ? '' : 'disabled'), cta('내 상황 바꾸기', 'go', 'data-step="profile"')),
   };
 }

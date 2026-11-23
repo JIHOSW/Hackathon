@@ -670,21 +670,28 @@ export function evaluate(job, profile, rules) {
  */
 export function searchAlternatives(job, profile, rules, { minHours = 1, maxHours = 40 } = {}) {
   const top = Math.max(minHours, Math.min(52, Math.round(maxHours)));
-  const table = [];
-  for (let h = minHours; h <= top; h++) {
+  const rowAt = (h) => {
     const r = evaluate({ ...job, weeklyHours: h }, profile, rules);
     const allowance = r.cards.find((c) => c.id === 'jobSeekerAllowance');
-    table.push({
+    return {
       weeklyHours: h, gross: r.pay.gross, takeHome: r.pay.takeHome, allowanceLoss: r.summary.allowanceLoss, net: r.summary.net,
       confirmedNet: r.summary.confirmedNet, over15: r.pay.over15, holidayIncluded: r.pay.holidayIncluded,
       allowancePaid: allowance ? allowance.paid : null, allowanceEnded: Boolean(allowance && allowance.ended),
       insuranceBoundary: r.pay.insuranceBoundary, allowanceStatus: allowance ? allowance.status : null,
       crossedIds: r.summary.crossedIds, adverseIds: r.summary.adverseIds, pendingIds: r.summary.pendingIds, checkCount: r.checks.length,
       effects: r.cards.map((c) => ({ id: c.id, type: c.effect.type, label: c.effect.label })),
-    });
-  }
+    };
+  };
+  const table = [];
+  for (let h = minHours; h <= top; h++) table.push(rowAt(h));
+  // 받은 제안이 30분 단위처럼 소수 시간이면(예: 주 13.5시간) 그 시간을 표에 따로 넣는다. 반올림한 시간(14시간)을
+  // 받은 제안으로 보이면 남는 돈이 결과와 달라지고, 14.5시간은 15시간이 되어 주휴수당·4대보험 판정까지 달라진다.
+  // 가능한 범위 밖이거나 1시간보다 짧으면 예전처럼 반올림한 시간으로 본다.
+  const exact = Number(job.weeklyHours);
+  const fractional = Number.isFinite(exact) && !Number.isInteger(exact) && exact >= minHours && exact <= top;
+  if (fractional) { table.push(rowAt(exact)); table.sort((x, y) => x.weeklyHours - y.weeklyHours); }
   const at = (h) => table.find((t) => t.weeklyHours === h);
-  const offered = Math.round(job.weeklyHours);
+  const offered = fractional ? exact : Math.round(job.weeklyHours);
   const options = [];
   const push = (kind, label, row) => {
     if (row && !options.some((o) => o.weeklyHours === row.weeklyHours)) options.push({ kind, label, ...row });
@@ -721,9 +728,10 @@ export function searchAlternatives(job, profile, rules, { minHours = 1, maxHours
   // peak: 구간 직전의 최고치, recover: 그 최고치를 다시 넘는 최소 근무시간
   let dip = null;
   let peak = table[0];
-  for (const t of table) {
+  for (const [i, t] of table.entries()) {
     if (t.net > peak.net) {
-      if (dip && !dip.recoverHours) { dip.recoverHours = t.weeklyHours; dip.to = t.weeklyHours - 1; }
+      // 구간 끝은 바로 앞 행이다(받은 제안이 13.5시간처럼 소수면 한 시간 앞이 아닐 수 있다).
+      if (dip && !dip.recoverHours) { dip.recoverHours = t.weeklyHours; dip.to = table[i - 1].weeklyHours; }
       if (!dip) peak = t;
     } else if (t.net < peak.net && !dip) {
       dip = { peakHours: peak.weeklyHours, peakNet: peak.net, from: t.weeklyHours, to: top, recoverHours: null };
