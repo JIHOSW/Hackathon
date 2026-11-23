@@ -6,11 +6,10 @@
 //   그래서 띠가 창 끝에서 잘리거나 글·예시 영수증 뒤로 들어가지 않는다. 빈칸이 띠보다 좁은 창(높이 약 715px 미만)에는 넣지 않는다.
 // - 동작 줄이기를 켰거나 '움직임 멈춤'을 고른 사람, 데이터 절약을 켠 사람에게는 영상 없이 그림 한 장만 둔다.
 //   영상이 돌던 중에 '움직임 멈춤'을 누르면 보던 장면에서 멈춘다.
-// - AI 공고 읽기를 끈 체험 주소에서는 영상 이야기(AI가 공고를 읽음)가 맞지 않아 넣지 않는다.
+// - AI 공고 읽기를 끈 체험 주소에도 같은 영상을 넣는다(영상 속 AI 장면도 그대로. 사용자 결정, 2026-11-23).
+//   체험 주소는 munteok-open/build.sh가 media 폴더까지 복사해 만든다.
 // - 소리 없음, 반복, 화면 읽기 프로그램은 읽지 않음(aria-hidden). 막·자리는 css/bgvideo.css.
 // 영상은 개발산출물/배경영상/의 scene.html을 render.mjs로 찍어 만든다. 장면에서 띠 자리를 바꾸면 아래 FRAME·BAND도 같이 바꾼다.
-import { AI_OFF } from './config.js';
-
 const DIR = 'media/';
 const POSTER = `${DIR}start-bg.jpg`; // 영상의 첫 장면과 같은 그림
 // 장면 좌표(scene.html, 1200×1080). 띠마다 세로 끝(나타나고 사라질 때 움직이는 만큼과 영수증 톱니까지)과 가운데
@@ -83,7 +82,7 @@ function fit() {
 }
 
 function sync() {
-  const f = !AI_OFF && wide.matches && document.body.dataset.step === 'start' ? fit() : null;
+  const f = wide.matches && document.body.dataset.step === 'start' ? fit() : null;
   if (!f) {
     if (layer) { layer.remove(); layer = null; }
     document.body.classList.remove('bgv-on');

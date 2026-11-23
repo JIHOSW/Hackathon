@@ -20,7 +20,7 @@ munteok을 고친 뒤 이 폴더에서:
 npx vercel@65.11.0 deploy --prod --yes
 ```
 
-`index.html`, `css`, `js`, `data`는 build.sh가 munteok에서 복사해 만드는 파일이라 직접 고치지 않습니다.
+`index.html`, `css`, `js`, `data`, `media`(PC 첫 화면 배경 영상)는 build.sh가 munteok에서 복사해 만드는 파일이라 직접 고치지 않습니다.
 
 ## Clarity 관리 화면에서 직접 할 것
 - 마스킹(Masking)을 Strict로 바꾸기

@@ -14,9 +14,9 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 SRC="$HERE/../munteok"
 
 # 이전에 만든 파일만 지운다. .vercel(배포 연결 정보)과 이 스크립트는 그대로 둔다.
-rm -rf "$HERE/index.html" "$HERE/css" "$HERE/js" "$HERE/data"
+rm -rf "$HERE/index.html" "$HERE/css" "$HERE/js" "$HERE/data" "$HERE/media"
 cp "$SRC/index.html" "$HERE/"
-cp -R "$SRC/css" "$SRC/js" "$SRC/data" "$HERE/"
+cp -R "$SRC/css" "$SRC/js" "$SRC/data" "$SRC/media" "$HERE/"
 
 CONFIG="$HERE/js/config.js"
 perl -pi -e "s/^export const CLARITY_ID = null;/export const CLARITY_ID = '$CLARITY_ID';/" "$CONFIG"
