@@ -2433,7 +2433,9 @@ document.addEventListener('click', (e) => {
       const typed = (id) => { const x = document.getElementById(id); return x && x.value !== '' ? Number(x.value) : null; };
       const bad = cur === 'maxHours' && typed('p-max') !== null && !(typed('p-max') >= 1 && typed('p-max') <= 52) ? ['p-max', '일주일에 1~52시간 사이로 넣어 주세요']
         : cur === 'age' && typed('p-age') !== null && !(typed('p-age') >= 15 && typed('p-age') <= 99) ? ['p-age', '만 나이는 15~99세 사이로 넣어 주세요'] : null;
-      if (bad) { state.profileError = bad[1]; keep(); document.getElementById(bad[0])?.focus(); return; }
+      // 칸을 떠날 때(change) 최대 시간을 1~52로 잘라 저장했어도, 안내와 함께 보이는 값은 친 그대로 둔다.
+      // 53을 쳤는데 칸에는 52가 보이면서 '1~52시간 사이로'라고 하면 무엇이 틀렸는지 알 수 없어서다.
+      if (bad) { state.profile[bad[0] === 'p-max' ? 'maxHours' : 'age'] = typed(bad[0]); state.profileError = bad[1]; keep(); document.getElementById(bad[0])?.focus(); return; }
       saveProfileInputs();
       if (profileQuestions()[state.profileQ].q === 'maxHours' && !state.profile.maxHours) {
         state.profileError = '일할 수 있는 최대 시간을 넣어 주세요. 비교는 이 시간 안에서만 해요';
