@@ -5,7 +5,7 @@
 ---
 
 ① 활용 AI 모델·도구
-[서비스] Claude Opus 5.5 API(claude-opus-5-5, Anthropic): 알바 공고 사진·메시지에서 시급, 주당 근무시간, 시작 월, 기간, 소득 종류(근로·일용·사업소득 3.3%), 주휴수당 포함 여부를 정해진 형식(구조화 출력)으로 추출. Vercel 서버 함수로 배포해 동작 중(https://munteok-five.vercel.app).
+[서비스] Claude Opus 5.5 API(claude-opus-5-5, Anthropic): 알바 공고 사진·메시지에서 시급, 주당 근무시간, 시작 월, 기간, 소득 종류(근로·일용·사업소득 3.3%), 주휴수당 포함 여부를 정해진 형식(구조화 출력)으로 추출. Vercel 서버 함수로 배포해 동작 중(https://hankkeut-app.vercel.app).
 [개발] Claude Code(Anthropic Claude 모델): 주제 검토와 평가 기준 대조, 법령·고시 원문 조사, 계산 엔진·화면·테스트 코드 작성, 공개된 UI/UX 자료 조사와 화면 시안 제작, 소개서·README 초안. 매니패스트: 요구사항 문서, 기능명세, 유저플로우, 와이어프레임 초안.
 
 ② AI 활용 범위와 팀의 기여

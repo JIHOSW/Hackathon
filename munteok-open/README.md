@@ -1,6 +1,6 @@
 # 한끗 공개 체험 주소 (munteok-open)
 
-사용자 동향을 보려고 따로 연 체험용 주소입니다. 대회 제출 주소(https://munteok-five.vercel.app)와는 다른 Vercel 프로젝트입니다.
+사용자 동향을 보려고 따로 연 체험용 주소입니다. 대회 제출 주소(https://hankkeut-app.vercel.app)와는 다른 Vercel 프로젝트입니다.
 
 ## munteok과 다른 점
 - **Microsoft Clarity 사용 기록 (프로젝트 ID `zghjoh7fqi`)**

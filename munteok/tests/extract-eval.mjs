@@ -1,9 +1,9 @@
 // 배포된 AI 추출 서버를 가상 공고로 시험하고 기대값과 비교한다.
-// 실행: node tests/extract-eval.mjs https://munteok-five.vercel.app
+// 실행: node tests/extract-eval.mjs https://hankkeut-app.vercel.app
 // 공고는 모두 지어낸 것이다. 실제 개인정보를 넣지 않는다. 호출할 때마다 API 크레딧이 조금 쓰인다.
 import { SAMPLES } from '../js/samples.js';
 
-const base = (process.argv[2] || 'https://munteok-five.vercel.app').replace(/\/$/, '');
+const base = (process.argv[2] || 'https://hankkeut-app.vercel.app').replace(/\/$/, '');
 
 // 샘플 3건은 화면의 가상 샘플과 같은 공고와 기대값을 쓴다.
 const cases = SAMPLES.map((s) => ({

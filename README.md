@@ -121,7 +121,7 @@ GitHub Pages는 정적 파일만 올릴 수 있어서, API 키가 필요한 AI �
 
 ## AI 서버 배포하기 (Vercel)
 
-지금 배포된 AI 서버: https://munteok-five.vercel.app (`munteok/js/config.js`의 `VERCEL_URL`에 연결됨). 가상 공고 8건 시험: `node munteok/tests/extract-eval.mjs`
+지금 배포된 AI 서버: https://hankkeut-app.vercel.app (옛 주소 munteok-five.vercel.app도 같은 곳, `munteok/js/config.js`의 `VERCEL_URL`에 연결됨). 가상 공고 8건 시험: `node munteok/tests/extract-eval.mjs`
 
 GitHub Pages는 API 키를 숨길 수 없어서, AI 추출 서버(`munteok/api/extract.js`)는 Vercel에 올립니다.
 Vercel은 화면과 AI 서버를 함께 올리므로, **AI까지 동작하는 주소는 Vercel 주소**입니다. 심사 제출에도 이 주소를 씁니다.
