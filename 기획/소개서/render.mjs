@@ -1,5 +1,5 @@
 // 소개서.html → PDF. 헤드리스 Chrome을 직접 띄워 CDP로 인쇄한다(설치할 것 없음, Node 22 이상).
-// 실행: node 기획/소개서/render.mjs            → 같은 폴더에 [AXPO]_한끗_AI 해커톤_20261123.pdf
+// 실행: node 기획/소개서/render.mjs            → 같은 폴더에 [AXPO]_한끗_AI 해커톤_261123.pdf (제출일자는 대회 자료 파일명처럼 6자리)
 //       node 기획/소개서/render.mjs --check    → PDF는 만들지 않고 칸 넘침만 검사
 // 글꼴(Pretendard)은 jsDelivr에서 받으므로 인터넷이 연결돼 있어야 한다.
 import { spawn } from 'node:child_process';
@@ -10,7 +10,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const HTML = path.join(HERE, '소개서.html');
-const OUT = path.join(HERE, '[AXPO]_한끗_AI 해커톤_20261123.pdf');
+const OUT = path.join(HERE, '[AXPO]_한끗_AI 해커톤_261123.pdf');
 const CHROME = process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const PORT = Number(process.env.CDP_PORT || 9461);
 const checkOnly = process.argv.includes('--check');
