@@ -48,6 +48,7 @@ const LINKS = {
 // ---------------- 아이콘 (선 아이콘, 화면 낭독기는 읽지 않음) ----------------
 const ICON = {
   back: '<path d="M15 5l-7 7 7 7"/>',
+  home: '<path d="M4.5 11.2L12 4.8l7.5 6.4"/><path d="M6.8 9.6V19h10.4V9.6"/><path d="M10.2 19v-5h3.6v5"/>',
   ch: '<path d="M9 5l7 7-7 7"/>',
   cam: '<path d="M4 8.5h3l1.5-2h7l1.5 2h3v10H4z"/><circle cx="12" cy="13.2" r="3.1"/>',
   msg: '<path d="M5 5.5h14v9.5H10.5L6.5 18.5V15H5z"/><path d="M8.5 9h7M8.5 11.8h4"/>',
@@ -189,7 +190,7 @@ function sampleSummary(id) {
   return evaluate(job, s.profile, state.rules).summary;
 }
 
-// PC 화면(시작 화면 포함, 1366px 이상)의 틀 바깥 좌우 여백에 떠다니는 동전·지폐. 한끗 보라로 그린 그림이라 화면 읽기 프로그램은 읽지 않는다.
+// PC 화면(시작 화면 빼고, 1366px 이상)의 틀 바깥 좌우 여백에 떠다니는 동전·지폐. 한끗 보라로 그린 그림이라 화면 읽기 프로그램은 읽지 않는다.
 // 가까운 것은 보라 테두리와 숫자(지폐 숫자 밑에는 예시 영수증처럼 형광펜), 먼 것은 옅은 보라 면만 그린다.
 // 지폐 안쪽 점선 테는 영수증 줄의 점선과 같은 모양. 자리·움직임·멈춤은 style.css '떠다니는 동전·지폐', 그림 층은 '움직임' 구역에서 한 번만 만든다.
 function coinSvg(d, num) {
@@ -224,7 +225,7 @@ function viewStart() {
       <h1 class="t1">일하기 전에<br><mark>내 돈</mark>부터 확인해요</h1>
       <p class="sub">${AI_OFF ? '시급과 일하는 시간만 넣으면 3분 만에 끝나요' : '알바 공고를 올리면 AI가 조건을 읽고, 계산은 공식 기준으로 해요'}</p>
     </div>
-    <p class="who">정부 지원을 받으면서 알바를 시작하려는 청년을 위해 만들었어요</p>
+    <p class="who">정부 지원을 받으면서 일을 시작하려는 청년을 위한 서비스를 만들었어요</p>
     <ol class="steps3 pc-only"><li>${first}</li><li>조건 확인</li><li>남는 돈</li></ol>
     <div class="start-cta pc-only">${cta(first, 'go', 'data-step="upload"')}${weak('예시로 먼저 해 보기', 'go', 'data-step="samples"')}</div>
     <div class="card pv tap rcpt" role="button" tabindex="0" data-action="sample" data-id="cafe" aria-label="주말 카페 알바 예시로 해 보기">
@@ -508,8 +509,8 @@ function viewInput() {
       ${m.how === 'pattern' ? '' : hoursHtml}
       ${m.how === 'pattern' ? `<p class="lbl">언제부터 언제까지 일하나요?</p>
         <div class="grid2 pair">
-          <div><label for="m-sdate">시작일</label><input id="m-sdate" class="field" type="date" min="${year}-01-01" max="${year}-12-31" value="${m.sdate}" required></div>
-          <div><label for="m-edate">끝나는 날</label><input id="m-edate" class="field" type="date" min="${m.sdate || `${year}-01-01`}" max="${year + 1}-12-31" value="${m.edate}" required></div>
+          <div><label for="m-sdate">시작일</label><input id="m-sdate" class="field" type="date" min="${year}-01-01" max="${year}-12-31" value="${m.sdate}" aria-required="true"></div>
+          <div><label for="m-edate">끝나는 날</label><input id="m-edate" class="field" type="date" min="${m.sdate || `${year}-01-01`}" max="${year + 1}-12-31" value="${m.edate}" aria-required="true"></div>
         </div>
         <div class="chips" role="group" aria-label="시작일부터 기간 고르기">${[['1', '1개월'], ['3', '3개월'], ['6', '6개월'], ['end', '연말까지']].map(([v, l]) => `<button type="button" data-action="mPeriod" data-value="${v}">${l}</button>`).join('')}</div>` : ''}
       <p class="lbl">급여를 어떻게 받나요?</p>
@@ -664,7 +665,7 @@ function viewConfirm() {
         <div class="cb">${evidenceHtml(f[key])}</div>
         ${why(WHY[key])}
         ${conditionsCard(key)}`,
-      bottom: two(weak('고칠게요', 'editField', `data-key="${key}"`), cta('맞아요', 'reviewOk', `data-key="${key}"`)),
+      bottom: two(weak('정보 수정할게요', 'editField', `data-key="${key}"`), cta('맞아요', 'reviewOk', `data-key="${key}"`)),
     };
   }
   if (missing.length) {
@@ -853,6 +854,12 @@ function endDateCal(name, labelId) {
     note = `${pm}월 ${pd}일 ${WEEKDAY[new Date(Date.UTC(year, pm - 1, pd)).getUTCDay()]}요일까지 받아요. ${use(pm)}`;
   } else if (typeof month === 'number') note = `지금은 ${use(month)}. 끝나는 날을 누르면 그날로 바뀌어요`;
   const unknown = !picked && typeof month !== 'number';
+  // 달력은 올해만 있어 내년에 끝나는 사람은 고를 날이 없다. 계산은 올해(1~12월)만 하므로
+  // 구직촉진수당은 12월 31일을 고르면 '모르겠어요'와 같은 금액이 나오고 '확인 필요'가 붙지 않는다.
+  // 실업급여는 12월로 고르면 '그 뒤로는 줄어들 실업급여가 없음'으로 잘못 알리게 되어 '모르겠어요'를 고르게 한다.
+  const nextYear = name === 'allowanceEndMonth'
+    ? `${year + 1}년에 끝나면 <b>12월 31일</b>을 골라 주세요. ${year}년은 끝까지 받는 것으로 계산해요`
+    : `${year + 1}년에 끝나면 <b>모르겠어요</b>를 골라 주세요`;
   return `<div class="cal one" role="group" aria-labelledby="${labelId}">
     <div class="cal-h">
       <button type="button" class="cal-nav" data-action="endMove" data-name="${name}" data-value="-1" aria-label="이전 달" ${mo <= 1 ? 'disabled' : ''}>${icon('back')}</button>
@@ -861,6 +868,7 @@ function endDateCal(name, labelId) {
     </div>
     <div class="cal-g" role="group" aria-label="${mo}월 날짜">${WEEK_ORDER.map((d) => `<span class="dow ${d === 0 || d === 6 ? 'we' : ''}" aria-hidden="true">${WEEKDAY[d]}</span>`).join('')}${cells.join('')}</div>
     <p class="gline">${note}</p>
+    <p class="gline ny">${nextYear}</p>
   </div><div class="grid1"><button type="button" class="opt c ${unknown ? 'on' : ''}" data-action="choose" data-name="${name}" data-value="unknown" aria-pressed="${unknown}">모르겠어요</button></div>`;
 }
 
@@ -1062,6 +1070,35 @@ function betterOptionAll() {
   };
 }
 
+// 두 번째 추천: 구직촉진수당이 끊기지 않는 시간 중 가장 많이 남는 시간. 첫 추천(가장 많이 남는 시간)이 수당을 끊을 때만 뜻이 있어서,
+// 첫 추천·받은 제안과 같은 시간이거나 받은 제안보다 남는 돈이 적거나, 수당을 받지 않으면 두지 않는다.
+function keepAllowanceOption() {
+  const a = state.alts;
+  if (!a || a.offeredOutOfRange || !a.best || state.profile.allowance === 'no') return null;
+  const at = (h) => a.table.find((t) => t.weeklyHours === h);
+  const cur = at(a.offered);
+  if (!cur || cur.pendingIds.length) return null;
+  const ok = a.table.filter((t) => !t.allowanceEnded && !t.pendingIds.length);
+  if (!ok.length) return null;
+  const k = ok.reduce((x, y) => (y.net > x.net ? y : x));
+  if (k.weeklyHours === a.best.weeklyHours || k.weeklyHours === a.offered || k.net <= cur.net) return null;
+  const diff = k.weeklyHours - a.offered;
+  const until = allowanceUntil();
+  return {
+    hours: k.weeklyHours,
+    title: `주 ${k.weeklyHours}시간이면 ${manOrWon(k.net - cur.net)} 더 남아요`,
+    sub: `일하는 시간이 ${Math.abs(diff)}시간 ${diff > 0 ? '늘고' : '줄고'}, ${perLong(state.result && state.result.summary)} ${man(k.net)}이 남아요${until ? `(${until}월까지 기준)` : ''}. ${k.allowanceLoss > 0 ? '구직촉진수당은 줄지만 끊기지 않아요' : '구직촉진수당은 줄지 않아요'}`,
+  };
+}
+// 결과 화면의 추천 카드. 추천이 둘이면 작은 제목으로 무엇을 기준으로 골랐는지 나눈다.
+function betterCards(better, keepOpt) {
+  const card = (o, label) => `<button type="button" class="better" data-action="${o.hours ? 'altsAt' : 'go'}" ${o.hours ? `data-hours="${o.hours}"` : 'data-step="alts"'}>
+        <span class="tx"><small>${label}</small><b>${esc(o.title)}</b><span>${esc(o.sub)}</span></span>${icon('ch')}</button>`;
+  if (!better) return '';
+  if (!keepOpt) return card(better, '근무시간을 바꾸면');
+  return card(better, '가장 많이 남는 시간') + card(keepOpt, '구직촉진수당을 지키면서');
+}
+
 function resultTitle(r, job) {
   const s = r.summary;
   if (s.net <= 0 && s.addedIncome > 0) {
@@ -1131,8 +1168,8 @@ function viewResult() {
       ${pendingLine}
       <div class="card rcpt">${moneyBar(s, { height: 16, legend: false, keptName: unknownPay ? '받는 돈 (떼기 전)' : '남는 돈' })}${receiptRows(s, { keptName: unknownPay ? '받는 돈 (떼기 전)' : '남는 돈' })}<div class="rc-foot">${STAMP}</div></div>
       </div><div class="col-b">
-      ${better ? `<button type="button" class="better" data-action="${better.hours ? 'altsAt' : 'go'}" ${better.hours ? `data-hours="${better.hours}"` : 'data-step="alts"'}>
-        <span class="tx"><small>근무시간을 바꾸면</small><b>${esc(better.title)}</b><span>${esc(better.sub)}</span></span>${icon('ch')}</button>` : ''}
+      ${betterCards(better, better && better.hours ? keepAllowanceOption() : null)}
+      ${!unknownPay && state.alts ? hoursSlider(state.alts, state.chosenHours ?? (state.alts.offeredOutOfRange ? state.alts.trace.to : state.alts.offered)) : ''}
       ${shown.length || reports.length ? `<p class="sec">달라지는 것</p><div class="rows">${shown.map(rowOf).join('')}${reports.join('')}</div>` : holds.length ? '' : '<p class="gline">지금 조건에서는 지원이나 자격에 달라지는 것이 없어요</p>'}
       ${holds.length ? `<p class="sec">${unknownPay ? '아직 계산하지 못한 것' : '확인이 필요한 것'}</p><div class="rows">${holds.map(rowOf).join('')}</div>
         ${unknownPay ? `<p class="gline">급여를 어떻게 받는지 ${offer.rawText ? '공고에 없어서' : '몰라서'}예요. 4대보험을 떼는지, 3.3%를 떼는지 사장님께 물어보면 계산할 수 있어요</p>` : ''}` : ''}
@@ -1239,6 +1276,64 @@ function altOptions(a) {
 // 근무시간 표의 한 줄을 돈 막대 계산 모양으로. 보험료 칸에는 떼는 돈(gross − takeHome)을 넣는다.
 const altSum = (o) => ({ addedIncome: o.gross, insurance: o.gross - o.takeHome, withholding: 0, allowanceLoss: o.allowanceLoss });
 
+// 근무시간 막대: 끌거나 화살표 키로 주 1시간씩 바꾸며 그 시간에 남는 돈을 본다(결과 화면, 근무시간 비교 화면).
+// 이득 없는 구간(더 일해도 직전 봉우리보다 덜 남는 시간, a.dip)은 막대 아래에 빨간 줄로 표시한다.
+// 끄는 동안은 글자와 막대 색만 바꾸고, 손을 떼면(change) 고른 시간으로 화면을 다시 그린다(onHoursSlider).
+function sliderRead(a, h) {
+  const t = a.table.find((x) => x.weeklyHours === h);
+  if (!t) return '';
+  const cur = a.offeredOutOfRange ? null : a.table.find((x) => x.weeklyHours === a.offered);
+  const d = cur ? t.net - cur.net : 0;
+  const vs = !cur ? '' : h === a.offered ? '받은 제안 그대로' : d > 0 ? `받은 제안보다 ${manOrWon(d)} 더` : d < 0 ? `받은 제안보다 ${manOrWon(-d)} 덜` : '받은 제안과 같아요';
+  const inDip = a.dip && h >= a.dip.from && h <= a.dip.to;
+  return `남는 돈 <b class="num">${won(t.net)}</b>${vs ? `<span>${vs}</span>` : ''}${t.allowanceEnded ? '<span class="r">구직촉진수당이 끊겨요</span>' : ''}${inDip ? `<span class="r">주 ${a.dip.peakHours}시간보다 ${manOrWon(a.dip.peakNet - t.net)} 덜 남아요</span>` : ''}`;
+}
+function sliderText(a, h) {
+  const t = a.table.find((x) => x.weeklyHours === h);
+  const inDip = a.dip && h >= a.dip.from && h <= a.dip.to;
+  return `주 ${h}시간${t ? `, 남는 돈 ${won(t.net)}` : ''}${inDip && t ? `, 이득 없는 구간, 주 ${a.dip.peakHours}시간보다 ${manOrWon(a.dip.peakNet - t.net)} 덜 남아요` : ''}`;
+}
+function hoursSlider(a, chosen) {
+  const first = a.table[0].weeklyHours;
+  const last = a.trace.to;
+  const f = (h) => ((h - first) / Math.max(1, last - first)).toFixed(4);
+  // 구간은 시간 칸의 경계까지(앞뒤 0.5시간) 칠한다. 막대 끝을 넘지 않게 0~1로 자른다.
+  const c01 = (x) => Math.min(1, Math.max(0, Number(x))).toFixed(4);
+  const zone = a.dip ? `--d0:${c01(f(a.dip.from - 0.5))};--d1:${c01(f(a.dip.to + 0.5))};` : '';
+  const inDip = a.dip && chosen >= a.dip.from && chosen <= a.dip.to;
+  return `<div class="hs">
+    <label class="hs-l" for="hs-in">주당 근무시간</label>
+    <div class="hs-tr${a.dip ? ' zone' : ''}${inDip ? ' in-dip' : ''}" style="--f:${f(chosen)};${zone}">
+      <input id="hs-in" class="hs-in" type="range" min="${first}" max="${last}" step="1" value="${chosen}" aria-valuetext="${sliderText(a, chosen)}" aria-describedby="hs-v hs-read">
+      ${a.dip ? `<span class="hs-zone" aria-hidden="true"></span><span class="hs-zl">이득 없는 구간 주 ${a.dip.from}~${a.dip.to}시간</span>` : ''}
+    </div>
+    <output class="hs-v num" id="hs-v" for="hs-in">주 ${chosen}시간</output>
+    <p class="hs-read" id="hs-read">${sliderRead(a, chosen)}</p>
+  </div>`;
+}
+function onHoursSlider(t, commit) {
+  if (t.id !== 'hs-in' || !state.alts) return false;
+  const a = state.alts;
+  const h = Number(t.value);
+  const first = Number(t.min);
+  const last = Number(t.max);
+  const tr = t.closest('.hs-tr');
+  tr.style.setProperty('--f', ((h - first) / Math.max(1, last - first)).toFixed(4));
+  tr.classList.toggle('in-dip', Boolean(a.dip && h >= a.dip.from && h <= a.dip.to));
+  t.setAttribute('aria-valuetext', sliderText(a, h));
+  document.getElementById('hs-v').textContent = `주 ${h}시간`;
+  document.getElementById('hs-read').innerHTML = sliderRead(a, h);
+  // PC 그래프의 고른 막대도 함께 옮긴다. 아래 숫자 줄은 손을 뗀 뒤 다시 그릴 때 맞춘다.
+  document.querySelectorAll('.hc-col').forEach((c, i) => c.classList.toggle('on', a.table[i] && a.table[i].weeklyHours === h));
+  state.chosenHours = h;
+  state.requestAction = null;
+  if (commit) {
+    render(true);
+    document.getElementById('hs-in')?.focus({ preventScroll: true });
+  }
+  return true;
+}
+
 // PC 전용 그래프: 주 1시간부터 할 수 있는 최대 시간까지 한 시간마다 막대 하나. 아래부터 남는 돈·보험료·줄어드는 정부 지원을 쌓는다.
 // 고른 시간은 보라 테두리, 받은 제안 시간은 아래 글자, 달라지는 지점은 점선 눈금. 누르는 곳이 없는 보기용 그림이다.
 function hoursChart(a, chosen) {
@@ -1262,6 +1357,10 @@ function hoursChart(a, chosen) {
   const i1 = a.dip ? at(a.dip.to) : -1;
   const ref = i0 >= 0 && i1 > i0
     ? `<i class="hc-ref" style="left:calc(${i0} * (100% + 4px) / ${n});width:calc(${i1 - i0 + 1} * (100% + 4px) / ${n} - 4px);bottom:calc(${((parts[i0].kept / scale) * 100).toFixed(2)} * (100% - 8px) / 100)"></i>` : '';
+  // 이득 없는 구간: 막대 뒤에 옅은 빨간 띠를 깔고 위에 이름을 적는다.
+  const j0 = a.dip ? at(a.dip.from) : -1;
+  const dipBand = j0 >= 0 && i1 >= j0
+    ? `<i class="hc-dip" style="left:calc(${j0} * (100% + 4px) / ${n} - 2px);width:calc(${i1 - j0 + 1} * (100% + 4px) / ${n})"><b>이득 없는 구간</b></i>` : '';
   const axis = a.table.map((t) => {
     const h = t.weeklyHours;
     const show = h === first || h === a.trace.to || marks.has(h) || h === offered || h === chosen;
@@ -1269,7 +1368,7 @@ function hoursChart(a, chosen) {
   }).join('');
   return `<div class="hc hd pc-only" role="img" aria-label="${esc(label)}">
     <p class="sec" aria-hidden="true">근무시간별 남는 돈</p>
-    <div class="hc-plot" aria-hidden="true">${cols}${ref}</div>
+    <div class="hc-plot" aria-hidden="true">${dipBand}${cols}${ref}</div>
     <div class="hc-axis" aria-hidden="true">${axis}</div>
   </div>`;
 }
@@ -1300,6 +1399,7 @@ function viewAlts() {
         ${moneyBar(sumOf(o), { scale, height: 12, legend: false })}
       </button>`).join('')}</div>
       <div class="lg hd"><span>남는 돈</span><span class="o">보험료</span><span class="r">줄어드는 정부 지원</span></div>
+      <div class="hd">${hoursSlider(a, chosen)}</div>
       ${hoursChart(a, chosen)}
       ${a.changePoints.length ? `<p class="sec">달라지는 지점</p><div class="rows">${a.changePoints.map((c) => {
         const x = c.changes[0];
@@ -1544,6 +1644,22 @@ function sheetConsent() {
     ${two(btn('동의하지 않아요', 'no'), btn('동의해요', 'yes'))}`;
 }
 
+// 위 '처음 화면으로' 버튼: 지울 입력이 있으면 먼저 묻는다. 처음 화면으로 가면 입력을 모두 지운다('내 입력 모두 지우기'와 같음).
+function sheetHome() {
+  return `<h2 id="sheet-title">처음 화면으로 갈까요?</h2>
+    <p class="gline">처음 화면으로 가면 지금까지 넣은 조건과 답이 모두 지워져요.</p>
+    ${two(weak('계속하기', 'closeSheet'), cta('처음으로 가기', 'goHome'))}`;
+}
+// 지울 입력이 있는지: 받은 제안, 붙여 넣은 글·사진, 직접 입력한 값, 읽거나 넣은 조건 중 하나라도 있으면 묻는다.
+function hasWork() {
+  const f = state.fields;
+  const m = state.manual;
+  const raw = document.getElementById('raw');
+  return state.offers.length > 0 || Boolean((raw ? raw.value : state.rawText || '').trim()) || (state.photoFiles || []).length > 0
+    || Boolean(m && (m.wage || m.edate || m.dates.length))
+    || Boolean(f && ['hourlyWage', 'weeklyHours', 'startMonth', 'months'].some((k) => f[k] && f[k].value !== null && f[k].value !== undefined));
+}
+
 // 아래 창은 부드럽게 올라오고(0.25초) 내려간다(0.2초). 열려 있는 동안 내용만 바뀔 때는 다시 움직이지 않는다.
 let sheetOpen = false;
 let sheetTimer = null;
@@ -1581,7 +1697,7 @@ function renderSheet() {
     document.documentElement.classList.add('sheet-open');
   }
   sheetEl.classList.remove('closing', 'opening');
-  const body = sh.type === 'consent' ? sheetConsent() : sh.type === 'edit' ? sheetEdit(sh.key) : sh.type === 'amounts' ? sheetAmounts() : sheetCard(sh.id);
+  const body = sh.type === 'consent' ? sheetConsent() : sh.type === 'home' ? sheetHome() : sh.type === 'edit' ? sheetEdit(sh.key) : sh.type === 'amounts' ? sheetAmounts() : sheetCard(sh.id);
   sheetEl.hidden = false;
   sheetEl.innerHTML = `<div class="dim" data-action="closeSheet"></div><div class="panel" role="dialog" aria-modal="true" aria-labelledby="sheet-title" tabindex="-1"><div class="hdl" aria-hidden="true"></div>${body}</div>`;
   if (opening && !reduceMotion()) { void sheetEl.offsetWidth; sheetEl.classList.add('opening'); }
@@ -1639,8 +1755,8 @@ function topHtml(v) {
   if (v.top === 'logo') return `<button type="button" class="logo" data-action="home" aria-label="한끗 처음 화면">${LOGO}</button><span class="tagline">한 끗 차이로 달라지는 내 돈, 일하기 전에 확인해요</span>`;
   const group = STEP_GROUP[state.step];
   // 단계 이름 줄은 화면 읽기 프로그램이 두 번 읽지 않게 숨기고, 막대의 aria-valuetext로 지금 단계 이름을 알린다.
-  const seg = group === undefined ? '' : `<div class="seg-wrap"><div class="seg" role="progressbar" aria-label="진행 단계" aria-valuemin="1" aria-valuemax="6" aria-valuenow="${group + 1}" aria-valuetext="${STEP_NAMES[group]} (6단계 중 ${group + 1}단계)">${Array.from({ length: 6 }, (_, i) => `<i class="${i <= group ? 'on' : ''}"></i>`).join('')}</div><div class="seg-names" aria-hidden="true">${STEP_NAMES.map((n, i) => `<span class="${i === group ? 'on' : ''}">${n}</span>`).join('')}</div></div>`;
-  return `<button type="button" class="backb" data-action="back">${icon('back')}<span>뒤로</span></button>${seg}`;
+  const seg = group === undefined ? '' : `<div class="seg-wrap"><div class="seg" role="progressbar" aria-label="진행 단계" aria-valuemin="1" aria-valuemax="6" aria-valuenow="${group + 1}" aria-valuetext="${STEP_NAMES[group]} (6단계 중 ${group + 1}단계)">${Array.from({ length: 6 }, (_, i) => `<i class="${i < group ? 'on' : i === group ? 'now' : ''}"></i>`).join('')}</div><div class="seg-names" aria-hidden="true">${STEP_NAMES.map((n, i) => `<span class="${i === group ? 'on' : ''}">${n}</span>`).join('')}</div></div>`;
+  return `<button type="button" class="backb" data-action="back">${icon('back')}<span>뒤로</span></button><button type="button" class="backb homeb" data-action="homeAsk" aria-label="처음 화면으로">${icon('home')}</button>${seg}`;
 }
 
 // ---------------- 움직임 ----------------
@@ -1931,7 +2047,11 @@ document.addEventListener('invalid', (e) => {
   p.id = 'm-invalid'; p.className = 'gline warn'; p.setAttribute('role', 'alert'); p.textContent = msg;
   (t.closest('.unit') || t).insertAdjacentElement('afterend', p);
 }, true);
-document.addEventListener('input', (e) => { if (e.target.closest && e.target.closest('#manual')) document.getElementById('m-invalid')?.remove(); });
+document.addEventListener('input', (e) => {
+  if (!e.target.closest || !e.target.closest('#manual')) return;
+  document.getElementById('m-invalid')?.remove();
+  for (const x of document.querySelectorAll('#manual [aria-invalid]')) x.removeAttribute('aria-invalid');
+});
 
 app.addEventListener('submit', (e) => {
   if (e.target.id !== 'manual') return;
@@ -1942,6 +2062,21 @@ app.addEventListener('submit', (e) => {
   m.wage = g('m-wage').value;
   const calc = g('m-calc');
   const stop = (msg) => { calc.innerHTML = `<span class="warn">${msg}</span>`; calc.scrollIntoView({ block: 'center' }); };
+  // 날짜 칸은 브라우저 빈칸 검사에 맡기지 않는다. 브라우저는 빈 날짜 칸에 커서를 넣으며 화면을 그 칸으로 끌어 올리고,
+  // 휴대폰에서는 날짜판까지 열려 화면이 튄다. 두 칸 아래에 이유를 적고 칸에 빨간 테두리를 두며, 칸이 화면 밖일 때만 보이게 옮긴다.
+  const stopDate = (id, msg) => {
+    document.getElementById('m-invalid')?.remove();
+    const input = g(id);
+    input.setAttribute('aria-invalid', 'true');
+    const pair = input.closest('.pair');
+    const p = document.createElement('p');
+    p.id = 'm-invalid'; p.className = 'gline warn'; p.setAttribute('role', 'alert'); p.textContent = msg;
+    pair.insertAdjacentElement('afterend', p);
+    const barTop = barEl.hidden ? window.innerHeight : barEl.getBoundingClientRect().top;
+    if (pair.getBoundingClientRect().top < topEl.getBoundingClientRect().bottom || p.getBoundingClientRect().bottom > barTop) {
+      pair.scrollIntoView({ block: 'center', behavior: reduceMotion() ? 'auto' : 'smooth' });
+    }
+  };
   const daily = dailyHoursOf(m);
   if (!daily) return stop('출근·퇴근 시간을 넣어 주세요');
   const sched = { start: m.start, end: m.end, breakMin: m.breakMin };
@@ -1950,7 +2085,9 @@ app.addEventListener('submit', (e) => {
   let first;
   if (m.how === 'pattern') {
     if (!m.days.length) return stop('일하는 요일을 골라 주세요');
-    if (m.edate < m.sdate) { g('m-edate').setCustomValidity('끝나는 날이 시작일보다 앞서요'); g('m-edate').reportValidity(); return; }
+    if (!m.sdate) return stopDate('m-sdate', '시작일을 골라 주세요');
+    if (!m.edate) return stopDate('m-edate', '끝나는 날을 골라 주세요. 정해지지 않았으면 아래 \'연말까지\'를 눌러요');
+    if (m.edate < m.sdate) return stopDate('m-edate', '끝나는 날이 시작일보다 앞서요');
     weeklyHours = { ...set(Math.round(daily * m.days.length * 100) / 100), how: 'pattern', sched: { ...sched, days: [...m.days] } };
     months = { ...set(daysBetween(m.sdate, m.edate)), unit: 'date', start: m.sdate, end: m.edate };
     first = m.sdate;
@@ -2020,11 +2157,12 @@ document.addEventListener('change', (e) => {
     if (o) { o.name = t.value.trim() || o.name; persist(); }
     return;
   }
+  if (onHoursSlider(t, true)) return;
   if (onManualInput(t)) return;
   if (state.step === 'profile') { saveProfileInputs(); persist(); }
 });
 // 시간을 고르는 동안에도 계산이 바로 바뀌게 한다.
-document.addEventListener('input', (e) => { onStepperInput(e.target); onManualInput(e.target); });
+document.addEventListener('input', (e) => { onStepperInput(e.target); onManualInput(e.target); onHoursSlider(e.target, false); });
 // 숫자 입력(− 값 +): 칠 때마다 칸 폭을 자릿수에 맞추고, cap이 있으면 그보다 큰 수는 들어가지 않게 한다.
 function onStepperInput(t) {
   if (!t.matches || !t.matches('.sv input')) return;
@@ -2365,6 +2503,11 @@ document.addEventListener('click', (e) => {
     }
     case 'restart': resetAll(); break;
     case 'home': state.step = 'start'; state.sheet = null; break;
+    case 'homeAsk':
+      saveProfileInputs();
+      if (!hasWork()) { resetAll(); break; }
+      state.sheet = { type: 'home' }; renderSheet(); return;
+    case 'goHome': resetAll(); break;
     case 'motion': toggleMotion(); return;
     case 'consent': {
       const yes = el.dataset.value === 'yes';
