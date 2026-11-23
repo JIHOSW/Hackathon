@@ -951,15 +951,20 @@ function viewProfile() {
   }
   if (q === 'ytd') {
     const has = state.ytdOpen || (p.ytdIncome.wage + p.ytdIncome.business + p.ytdIncome.daily) > 0;
+    // '있어요'인데 세 칸이 모두 빈 채로 '다음'을 누르면: 안내를 고르는 버튼 바로 아래(첫 칸 위)에 두고, 세 칸에 빨간 테두리와
+    // aria-invalid를 붙이며, 칸마다 안내를 설명으로 이어 화면 읽기 프로그램이 칸에 들어갈 때도 읽게 한다.
+    const err = has && state.profileError;
+    const ytdAttrs = (id) => `aria-describedby="${id}-h${err ? ' y-err' : ''}"${err ? ' aria-invalid="true"' : ''}`;
     return {
       layout: 'c2',
       html: `${head}<h1 class="t2">올해 <mark>이미 번 돈</mark>이<br>있나요?</h1>
         <div class="cb">
         <div class="opts"><button type="button" class="opt ${has ? '' : 'on'}" data-action="ytd" data-value="no" aria-pressed="${!has}">없어요<i aria-hidden="true"></i></button><button type="button" class="opt ${has ? 'on' : ''}" data-action="ytd" data-value="yes" aria-pressed="${has}">있어요<i aria-hidden="true"></i></button></div>
+        ${err ? `<p class="gline warn" id="y-err" role="alert">${esc(state.profileError)}</p>` : ''}
         ${has ? `<div class="form">
-          <label for="y-wage">월급으로 받은 돈</label><p class="gline hint" id="y-wage-h">4대보험을 떼기 전 금액이에요. 급여명세서의 '지급 합계'를 적어요</p><div class="unit"><input id="y-wage" type="number" inputmode="numeric" min="0" value="${p.ytdIncome.wage || ''}" placeholder="0" aria-describedby="y-wage-h"><span>원</span></div>
-          <label for="y-business">3.3% 떼는 일로 받은 돈</label><p class="gline hint" id="y-business-h">3.3%를 떼기 전 금액이에요. 통장에 96만 7천 원이 들어왔다면 100만 원을 적어요</p><div class="unit"><input id="y-business" type="number" inputmode="numeric" min="0" value="${p.ytdIncome.business || ''}" placeholder="0" aria-describedby="y-business-h"><span>원</span></div>
-          <label for="y-daily">일당으로 받은 돈</label><p class="gline hint" id="y-daily-h">하루 단위로 받은 돈을 모두 더해 적어요</p><div class="unit"><input id="y-daily" type="number" inputmode="numeric" min="0" value="${p.ytdIncome.daily || ''}" placeholder="0" aria-describedby="y-daily-h"><span>원</span></div>
+          <label for="y-wage">월급으로 받은 돈</label><p class="gline hint" id="y-wage-h">4대보험을 떼기 전 금액이에요. 급여명세서의 '지급 합계'를 적어요</p><div class="unit"><input id="y-wage" type="number" inputmode="numeric" min="0" value="${p.ytdIncome.wage || ''}" placeholder="0" ${ytdAttrs('y-wage')}><span>원</span></div>
+          <label for="y-business">3.3% 떼는 일로 받은 돈</label><p class="gline hint" id="y-business-h">3.3%를 떼기 전 금액이에요. 통장에 96만 7천 원이 들어왔다면 100만 원을 적어요</p><div class="unit"><input id="y-business" type="number" inputmode="numeric" min="0" value="${p.ytdIncome.business || ''}" placeholder="0" ${ytdAttrs('y-business')}><span>원</span></div>
+          <label for="y-daily">일당으로 받은 돈</label><p class="gline hint" id="y-daily-h">하루 단위로 받은 돈을 모두 더해 적어요</p><div class="unit"><input id="y-daily" type="number" inputmode="numeric" min="0" value="${p.ytdIncome.daily || ''}" placeholder="0" ${ytdAttrs('y-daily')}><span>원</span></div>
         </div>` : ''}
         </div>
         ${why('1년 기준은 올해 번 돈을 모두 더해서 봐요.')}
@@ -2162,7 +2167,14 @@ document.addEventListener('change', (e) => {
   if (state.step === 'profile') { saveProfileInputs(); persist(); }
 });
 // 시간을 고르는 동안에도 계산이 바로 바뀌게 한다.
-document.addEventListener('input', (e) => { onStepperInput(e.target); onManualInput(e.target); onHoursSlider(e.target, false); });
+document.addEventListener('input', (e) => { onStepperInput(e.target); onManualInput(e.target); onHoursSlider(e.target, false); onYtdInput(e.target); });
+// '올해 이미 번 돈' 세 칸 중 하나에 치기 시작하면 '한 칸 이상 적어야' 안내와 빨간 테두리를 지운다. 다시 그리지 않아 커서가 그대로 남는다.
+function onYtdInput(t) {
+  if (!/^y-(wage|business|daily)$/.test(t.id) || !document.getElementById('y-err')) return;
+  state.profileError = null;
+  document.getElementById('y-err').remove();
+  for (const x of app.querySelectorAll('#y-wage, #y-business, #y-daily')) { x.removeAttribute('aria-invalid'); x.setAttribute('aria-describedby', `${x.id}-h`); }
+}
 // 숫자 입력(− 값 +): 칠 때마다 칸 폭을 자릿수에 맞추고, cap이 있으면 그보다 큰 수는 들어가지 않게 한다.
 function onStepperInput(t) {
   if (!t.matches || !t.matches('.sv input')) return;
@@ -2430,6 +2442,21 @@ document.addEventListener('click', (e) => {
         state.profileError = '일할 수 있는 최대 시간을 넣어 주세요. 비교는 이 시간 안에서만 해요';
         keep(); document.getElementById('p-max')?.focus(); return;
       }
+      // '올해 이미 번 돈'에서 '있어요'를 골랐는데(세 칸이 보이는 상태) 세 칸이 모두 비어 있으면 넘어가지 않는다.
+      // 그대로 넘기면 '없어요'와 같은 계산이 된다. 0은 빈칸과 같다(다시 그리면 빈칸으로 보인다).
+      if (cur === 'ytd' && document.getElementById('y-wage') && !Object.values(state.profile.ytdIncome).some((v) => v > 0)) {
+        state.ytdOpen = true;
+        state.profileError = '금액을 한 칸 이상 적어야 다음으로 갈 수 있어요. 번 돈이 없으면 \'없어요\'를 눌러요';
+        keep();
+        // 첫 칸에 커서를 둔다. 작은 화면에서 아래로 내린 채 누르면 안내가 위쪽 막대 뒤에 가려지므로, 그때만 안내가 보이게 옮긴다.
+        const msg = document.getElementById('y-err'); const first = document.getElementById('y-wage');
+        first.focus({ preventScroll: true });
+        const barTop = barEl.hidden ? window.innerHeight : barEl.getBoundingClientRect().top;
+        if (msg.getBoundingClientRect().top < topEl.getBoundingClientRect().bottom || first.getBoundingClientRect().bottom > barTop) {
+          msg.scrollIntoView({ block: 'center', behavior: reduceMotion() ? 'auto' : 'smooth' });
+        }
+        return;
+      }
       state.profileError = null;
       state.profileQ = Math.min(state.profileQ + 1, profileQuestions().length - 1);
       break;
@@ -2478,6 +2505,7 @@ document.addEventListener('click', (e) => {
     case 'ytd':
       state.ytdOpen = el.dataset.value === 'yes';
       if (!state.ytdOpen) state.profile.ytdIncome = { wage: 0, business: 0, daily: 0 };
+      state.profileError = null;
       keep();
       return;
     case 'calculate': {
