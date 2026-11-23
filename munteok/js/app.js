@@ -938,7 +938,9 @@ function viewProfile() {
     // '있어요'인데 세 칸이 모두 빈 채로 '다음'을 누르면: 안내를 고르는 버튼 바로 아래(첫 칸 위)에 두고, 세 칸에 빨간 테두리와
     // aria-invalid를 붙이며, 칸마다 안내를 설명으로 이어 화면 읽기 프로그램이 칸에 들어갈 때도 읽게 한다.
     const err = has && state.profileError;
-    const ytdAttrs = (id) => `aria-describedby="${id}-h${err ? ' y-err' : ''}"${err ? ' aria-invalid="true"' : ''}`;
+    // 음수 안내일 때는 음수가 든 칸만, 빈칸 안내일 때는 세 칸 모두 표시한다.
+    const neg = ['wage', 'business', 'daily'].filter((k) => p.ytdIncome[k] < 0);
+    const ytdAttrs = (id) => { const on = err && (!neg.length || neg.includes(id.slice(2))); return `aria-describedby="${id}-h${on ? ' y-err' : ''}"${on ? ' aria-invalid="true"' : ''}`; };
     return {
       layout: 'c2',
       html: `${head}<h1 class="t2">올해 <mark>이미 번 돈</mark>이<br>있나요?</h1>
@@ -2468,6 +2470,9 @@ document.addEventListener('click', (e) => {
       // 칸을 떠날 때(change) 최대 시간을 1~52로 잘라 저장했어도, 안내와 함께 보이는 값은 친 그대로 둔다.
       // 53을 쳤는데 칸에는 52가 보이면서 '1~52시간 사이로'라고 하면 무엇이 틀렸는지 알 수 없어서다.
       if (bad) { state.profile[bad[0] === 'p-max' ? 'maxHours' : 'age'] = typed(bad[0]); state.profileError = bad[1]; keep(); document.getElementById(bad[0])?.focus(); return; }
+      // '올해 이미 번 돈' 세 칸에 음수가 있으면 넘어가지 않는다. 키보드 '-'는 막지만 붙여넣기로는 들어와, 그대로 두면 번 돈을 줄여 계산한다.
+      const neg = cur === 'ytd' ? ['y-wage', 'y-business', 'y-daily'].find((id) => typed(id) < 0) : null;
+      if (neg) { saveProfileInputs(); state.ytdOpen = true; state.profileError = '금액은 0보다 큰 수로 적어 주세요. \'-\'는 넣을 수 없어요'; keep(); document.getElementById(neg)?.focus(); return; }
       saveProfileInputs();
       if (profileQuestions()[state.profileQ].q === 'maxHours' && !state.profile.maxHours) {
         state.profileError = '일할 수 있는 최대 시간을 넣어 주세요. 비교는 이 시간 안에서만 해요';
