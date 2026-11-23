@@ -526,8 +526,10 @@ const WHY = {
 
 function valueText(key, f) {
   const v = f.value;
-  if (key === 'hourlyWage') return won(v);
+  // AI가 공고에서 읽지 못해 빈 값(null)이면 '일주일에 null시간'처럼 보이지 않게 '모름'으로 쓴다(예: 근무요일 '요일협의').
+  if (key === 'hourlyWage') return v ? won(v) : '모름';
   if (key === 'weeklyHours') {
+    if (v == null && f.how !== 'picked') return '모름';
     if (f.how === 'pattern') return `${daysLabel(f.sched.days)} ${f.sched.start}~${f.sched.end} · 주 ${fmtH(v)}시간`;
     if (f.how === 'picked') return `하루 ${fmtH(f.daily)}시간 · ${f.sched.start}~${f.sched.end}`;
     return `일주일에 ${v}시간`;
