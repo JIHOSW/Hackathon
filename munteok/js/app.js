@@ -957,9 +957,9 @@ function viewProfile() {
         <div class="cb">
         <div class="opts"><button type="button" class="opt ${has ? '' : 'on'}" data-action="ytd" data-value="no" aria-pressed="${!has}">없어요<i aria-hidden="true"></i></button><button type="button" class="opt ${has ? 'on' : ''}" data-action="ytd" data-value="yes" aria-pressed="${has}">있어요<i aria-hidden="true"></i></button></div>
         ${has ? `<div class="form">
-          <label for="y-wage">월급으로 받은 돈 (4대보험 떼기 전)</label><div class="unit"><input id="y-wage" type="number" inputmode="numeric" min="0" value="${p.ytdIncome.wage || ''}" placeholder="0"><span>원</span></div>
-          <label for="y-business">3.3% 떼고 받은 돈 (떼기 전)</label><div class="unit"><input id="y-business" type="number" inputmode="numeric" min="0" value="${p.ytdIncome.business || ''}" placeholder="0"><span>원</span></div>
-          <label for="y-daily">일당으로 받은 돈</label><div class="unit"><input id="y-daily" type="number" inputmode="numeric" min="0" value="${p.ytdIncome.daily || ''}" placeholder="0"><span>원</span></div>
+          <label for="y-wage">월급으로 받은 돈</label><p class="gline hint" id="y-wage-h">4대보험을 떼기 전 금액이에요. 급여명세서의 '지급 합계'를 적어요</p><div class="unit"><input id="y-wage" type="number" inputmode="numeric" min="0" value="${p.ytdIncome.wage || ''}" placeholder="0" aria-describedby="y-wage-h"><span>원</span></div>
+          <label for="y-business">3.3% 떼는 일로 받은 돈</label><p class="gline hint" id="y-business-h">3.3%를 떼기 전 금액이에요. 통장에 96만 7천 원이 들어왔다면 100만 원을 적어요</p><div class="unit"><input id="y-business" type="number" inputmode="numeric" min="0" value="${p.ytdIncome.business || ''}" placeholder="0" aria-describedby="y-business-h"><span>원</span></div>
+          <label for="y-daily">일당으로 받은 돈</label><p class="gline hint" id="y-daily-h">하루 단위로 받은 돈을 모두 더해 적어요</p><div class="unit"><input id="y-daily" type="number" inputmode="numeric" min="0" value="${p.ytdIncome.daily || ''}" placeholder="0" aria-describedby="y-daily-h"><span>원</span></div>
         </div>` : ''}
         </div>
         ${why('1년 기준은 올해 번 돈을 모두 더해서 봐요.')}

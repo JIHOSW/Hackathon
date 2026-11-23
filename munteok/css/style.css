@@ -317,6 +317,8 @@ div.kv { cursor: default; }
 .unit-seg { margin-bottom: 8px; }
 .unit-seg .seg-b { min-height: 44px; padding: 8px 4px; font-size: 15px; }
 .form .gline { margin: 8px 4px 0; font-size: 13px; }
+/* 칸 이름 바로 아래, 어떤 금액을 적는지 한 줄 */
+.form .gline.hint { margin: -4px 4px 8px; }
 .help { background: var(--card); border-radius: 14px; padding: 16px; margin-top: 12px; }
 .help p { margin: 0 0 12px; font-size: 15px; line-height: 22.5px; color: var(--ink-2); }
 .help p b { display: block; color: var(--ink); }
