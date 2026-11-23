@@ -341,6 +341,13 @@ function dailyHoursOf(m) {
   const mins = (b > a ? b - a : b - a + 1440) - (m.breakMin || 0);
   return mins > 0 ? mins / 60 : null;
 }
+// 하루 근무 시간이 없을 때 이유: 칸이 비었는지, 출근과 퇴근이 같은지, 쉬는 시간을 빼면 남는 시간이 없는지.
+function timeProblem(m) {
+  const ok = (t) => /^\d{1,2}:\d{2}/.test(t || '');
+  if (!ok(m.start) || !ok(m.end)) return '출근·퇴근 시간을 넣어 주세요';
+  if (m.start.slice(0, 5) === m.end.slice(0, 5)) return '출근과 퇴근 시간이 같아요. 퇴근 시간을 확인해 주세요';
+  return '쉬는 시간을 빼면 일하는 시간이 없어요. 쉬는 시간을 확인해 주세요';
+}
 /** [1,2,3,4,5] → '월~금', [6,0] → '토·일', [1,3,5] → '월·수·금' */
 function daysLabel(days) {
   const order = WEEK_ORDER.filter((d) => days.includes(d));
@@ -378,7 +385,7 @@ function pickedWeekHours(dates, daily) {
 function manualCalcHtml() {
   const m = manual();
   const d = dailyHoursOf(m);
-  if (!d) return '<span class="warn">출근·퇴근 시간을 넣어 주세요</span>';
+  if (!d) return `<span class="warn">${timeProblem(m)}</span>`;
   if (m.how === 'pattern') {
     if (!m.days.length) return '<span class="warn">일하는 요일을 골라 주세요</span>';
     const w = d * m.days.length;
@@ -1048,6 +1055,8 @@ function cardLine(c) {
 
 // 근무조건 비교 결과에서 가장 뜻있는 한 가지를 한 문장으로. 추천이 아니라 비교 기준이다.
 function allowanceUntil() {
+  // 일수·날짜로 넣은 제안의 금액은 기간 전체 합계라 'N월까지 기준'을 붙이지 않는다(수당이 끝난 뒤 달도 합계에 들어 있다).
+  if (!state.result || periodOf(state.result.summary)) return null;
   const c = state.result && state.result.cards.find((x) => x.id === 'jobSeekerAllowance');
   return c && c.endMonth && !c.beforeStart && c.endMonth < state.result.timeline.end ? c.endMonth : null;
 }
@@ -2089,7 +2098,7 @@ app.addEventListener('submit', (e) => {
     }
   };
   const daily = dailyHoursOf(m);
-  if (!daily) return stop('출근·퇴근 시간을 넣어 주세요');
+  if (!daily) return stop(timeProblem(m));
   const sched = { start: m.start, end: m.end, breakMin: m.breakMin };
   let weeklyHours;
   let months;
