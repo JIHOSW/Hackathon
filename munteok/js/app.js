@@ -2182,7 +2182,15 @@ document.addEventListener('change', (e) => {
   if (state.step === 'profile') { saveProfileInputs(); persist(); }
 });
 // 시간을 고르는 동안에도 계산이 바로 바뀌게 한다.
-document.addEventListener('input', (e) => { onStepperInput(e.target); onManualInput(e.target); onHoursSlider(e.target, false); onYtdInput(e.target); });
+document.addEventListener('input', (e) => { onStepperInput(e.target); onManualInput(e.target); onHoursSlider(e.target, false); onYtdInput(e.target); onProfileDraft(e.target); });
+// 질문 1·3·5 숫자 칸에 친 값은 칸을 떠나기 전에 새로고침해도 남도록 칠 때마다 저장한다. 다시 그리지 않아 커서가 그대로 남는다.
+// 최대 시간은 치는 동안 1~52로 자르거나 반올림하지 않고 친 그대로 둔다(자르기와 검사는 지금처럼 칸을 떠날 때와 '다음'에서 한다).
+function onProfileDraft(t) {
+  if (state.step !== 'profile' || !['p-max', 'p-age', 'y-wage', 'y-business', 'y-daily'].includes(t.id)) return;
+  if (t.id === 'p-max') state.profile.maxHours = t.value !== '' ? Number(t.value) : null;
+  else saveProfileInputs();
+  persist();
+}
 // '올해 이미 번 돈' 세 칸 중 하나에 치기 시작하면 '한 칸 이상 적어야' 안내와 빨간 테두리를 지운다. 다시 그리지 않아 커서가 그대로 남는다.
 function onYtdInput(t) {
   if (!/^y-(wage|business|daily)$/.test(t.id) || !document.getElementById('y-err')) return;
