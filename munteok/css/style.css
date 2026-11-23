@@ -58,6 +58,8 @@ body {
 button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent; }
 a { color: var(--p); }
 :focus-visible { outline: 3px solid var(--p); outline-offset: 2px; border-radius: 8px; }
+/* 화면이 바뀔 때 코드가 초점을 옮기는 제목은 누르는 곳이 아니라 테두리를 그리지 않는다. */
+h1[tabindex="-1"]:focus, h1[tabindex="-1"]:focus-visible { outline: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .num { font-variant-numeric: tabular-nums; }
 .i { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }

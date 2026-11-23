@@ -1689,7 +1689,8 @@ function renderSheet() {
   sheetOpen = true;
   if (opening) {
     const a = document.activeElement;
-    const o = a && a !== document.body && !sheetEl.contains(a) ? a : lastActionEl;
+    // 화면이 바뀔 때 초점을 받은 제목(h1)은 창을 연 버튼이 아니다(Safari는 누른 버튼에 초점을 주지 않는다).
+    const o = a && a !== document.body && a.tagName !== 'H1' && !sheetEl.contains(a) ? a : lastActionEl;
     sheetOpener = o && o.dataset ? { el: o, key: openerKey(o) } : null;
     document.documentElement.classList.add('sheet-open');
   }
@@ -1905,9 +1906,18 @@ function render(keepScroll = false) {
   placeVertically();
   renderSheet();
   window.scrollTo(0, keepScroll ? y : 0);
+  const firstPaint = shownScreen === null;
+  const changed = screenKey() !== shownScreen;
   animateScreen();
+  // 화면이 바뀌면 키보드 초점을 새 화면 제목으로 옮겨 화면 읽기 프로그램이 새 화면을 알게 한다(초점이 body로 빠지지 않게).
+  // 처음 열 때와 아래 창이 열려 있을 때는 옮기지 않는다. 같은 화면을 다시 그릴 때는 각 동작이 정한 곳에 초점을 둔다.
+  if (changed && !firstPaint && !state.sheet) {
+    const h = app.querySelector('h1');
+    if (h) { h.setAttribute('tabindex', '-1'); h.focus({ preventScroll: true }); }
+  }
   persist();
   trackStep();
+  armBack();
 }
 
 // ---------------- 동작 ----------------
@@ -1941,6 +1951,21 @@ function back() {
   else if (s === 'message') state.step = 'alts';
   else state.step = 'start';
 }
+
+// 브라우저·휴대폰 뒤로가기를 앱의 '뒤로'로 쓴다. 첫 화면이 아니면 방문 기록을 하나 쌓아 두고(armBack), 뒤로가기로
+// 그 기록이 빠지면 아래 창을 닫거나 한 단계 뒤로 간다. 첫 화면에서 누르면 그대로 앱 밖(이전 페이지)으로 나간다.
+let backArmed = Boolean(history.state && history.state.hk);
+function armBack() {
+  if (state.step === 'start' || backArmed) return;
+  try { history.pushState({ hk: 1 }, ''); backArmed = true; } catch (e) { /* 기록을 쓸 수 없으면 뒤로가기는 전처럼 앱 밖으로 나간다 */ }
+}
+window.addEventListener('popstate', () => {
+  backArmed = Boolean(history.state && history.state.hk);
+  if (state.sheet) { state.sheet = null; renderSheet(); armBack(); return; }
+  if (state.step === 'start') { history.back(); return; }
+  back();
+  render();
+});
 
 function resetAll() {
   Object.assign(state, { step: 'start', sample: null, rawText: '', fields: null, profile: clone(EMPTY_PROFILE), result: null, alts: null, aiError: null, offers: [], editing: null, comparison: null, reviewed: [], reviewTotal: 0, profileQ: 0, ytdOpen: false, chosenHours: null, requestAction: null, sheet: null, photoFiles: [], manual: null, returnToConfirm: false });
