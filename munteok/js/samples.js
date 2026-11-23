@@ -15,7 +15,7 @@ export const SAMPLES = [
       incomeType: { value: 'wage', status: '확정', evidence: '4대보험 가입, 주휴수당 별도 지급' },
       holidayIncluded: { value: false, status: '확정', evidence: '주휴수당 별도 지급' },
     },
-    profile: { age: 27, maxHours: 30, allowance: 'yes', allowanceEndMonth: 6, healthDependent: 'no', taxDependent: 'no', ytdIncome: { wage: 0, daily: 0, business: 0 }, otherSupports: [] },
+    profile: { age: 27, maxHours: 30, allowance: 'yes', allowanceEndMonth: 6, allowanceEndDate: '2026-06-19', healthDependent: 'no', taxDependent: 'no', ytdIncome: { wage: 0, daily: 0, business: 0 }, otherSupports: [] },
   },
   {
     id: 'tutor',

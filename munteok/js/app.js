@@ -808,9 +808,60 @@ function segBtn(name, value, label, current) {
   return `<button type="button" class="seg-b ${on ? 'on' : ''}" data-action="choose" data-name="${name}" data-value="${value}" aria-pressed="${on}">${esc(label)}</button>`;
 }
 
-function monthGrid(name, current) {
-  const cell = (v, label) => { const on = String(current) === String(v); return `<button type="button" class="opt c ${on ? 'on' : ''}" data-action="choose" data-name="${name}" data-value="${v}" aria-pressed="${on}">${label}</button>`; };
-  return `<div class="grid4">${Array.from({ length: 12 }, (_, i) => cell(i + 1, `${i + 1}월`)).join('')}</div><div class="grid1">${cell('unknown', '모르겠어요')}</div>`;
+// 수당이 끝나는 날을 하루 고르는 달력. 직접 입력의 달력(calendarHtml)과 같은 모양이고, 올해(appliesToYear) 1~12월만 둔다.
+// 계산은 지금처럼 달 기준이다(구직촉진수당은 날수로 나누는 규정이 없다). 그래서 고른 날의 달을 ...EndMonth에 넣고,
+// 고른 날짜는 화면에 다시 보여 주려고 ...EndDate에 따로 둔다. 예전에 달만 저장한 값은 그 달을 펼쳐 두고 같은 결과로 계산한다.
+const END_DATE = { allowanceEndMonth: 'allowanceEndDate', unemploymentEndMonth: 'unemploymentEndDate' };
+function endDateOf(name) {
+  const d = state.profile[END_DATE[name]];
+  const m = state.profile[name];
+  return typeof d === 'string' && typeof m === 'number' && Number(d.slice(5, 7)) === m ? d : null;
+}
+// 달력에 펼칠 달: 넘겨 본 달 → 고른 날의 달 → 저장된 달 → 이번 달(올해가 아니면 1월)
+function endCalMonth(name) {
+  const p = state.profile;
+  const basis = `${p[name]}|${endDateOf(name) || ''}`;
+  const seen = state.endCal && state.endCal[name];
+  if (seen && seen.basis === basis) return seen.mo;
+  const d = endDateOf(name);
+  if (d) return Number(d.slice(5, 7));
+  if (typeof p[name] === 'number') return p[name];
+  const year = state.rules.appliesToYear;
+  const now = new Date();
+  return now.getFullYear() === year ? now.getMonth() + 1 : 1;
+}
+function endDateCal(name, labelId) {
+  const year = state.rules.appliesToYear;
+  const mo = endCalMonth(name);
+  const picked = endDateOf(name);
+  const month = state.profile[name];
+  const lead = (new Date(Date.UTC(year, mo - 1, 1)).getUTCDay() + 6) % 7;
+  const daysIn = new Date(Date.UTC(year, mo, 0)).getUTCDate();
+  const cells = Array.from({ length: lead }, () => '<span class="cal-e" aria-hidden="true"></span>');
+  for (let d = 1; d <= daysIn; d++) {
+    const v = isoDate(year, mo, d);
+    const on = picked === v;
+    const wd = new Date(Date.UTC(year, mo - 1, d)).getUTCDay();
+    cells.push(`<button type="button" class="cal-d ${on ? 'on' : ''} ${wd === 0 || wd === 6 ? 'we' : ''}" data-action="endDay" data-name="${name}" data-value="${v}" aria-pressed="${on}" aria-label="${mo}월 ${d}일 ${WEEKDAY[wd]}요일">${d}</button>`);
+  }
+  // 구직촉진수당은 계산에, 실업급여는 안내에만 쓴다(실업급여 금액은 계산하지 않는다).
+  const use = (m) => (name === 'allowanceEndMonth' ? `${m}월까지 받는 것으로 계산해요` : `${m}월에 끝나는 것으로 알려 드려요`);
+  let note = '끝나는 날을 눌러 고르세요';
+  if (picked) {
+    const pm = Number(picked.slice(5, 7));
+    const pd = Number(picked.slice(8, 10));
+    note = `${pm}월 ${pd}일 ${WEEKDAY[new Date(Date.UTC(year, pm - 1, pd)).getUTCDay()]}요일까지 받아요. ${use(pm)}`;
+  } else if (typeof month === 'number') note = `지금은 ${use(month)}. 끝나는 날을 누르면 그날로 바뀌어요`;
+  const unknown = !picked && typeof month !== 'number';
+  return `<div class="cal one" role="group" aria-labelledby="${labelId}">
+    <div class="cal-h">
+      <button type="button" class="cal-nav" data-action="endMove" data-name="${name}" data-value="-1" aria-label="이전 달" ${mo <= 1 ? 'disabled' : ''}>${icon('back')}</button>
+      <b aria-live="polite">${year}년 ${mo}월</b>
+      <button type="button" class="cal-nav" data-action="endMove" data-name="${name}" data-value="1" aria-label="다음 달" ${mo >= 12 ? 'disabled' : ''}>${icon('ch')}</button>
+    </div>
+    <div class="cal-g" role="group" aria-label="${mo}월 날짜">${WEEK_ORDER.map((d) => `<span class="dow ${d === 0 || d === 6 ? 'we' : ''}" aria-hidden="true">${WEEKDAY[d]}</span>`).join('')}${cells.join('')}</div>
+    <p class="gline">${note}</p>
+  </div><div class="grid1"><button type="button" class="opt c ${unknown ? 'on' : ''}" data-action="choose" data-name="${name}" data-value="unknown" aria-pressed="${unknown}">모르겠어요</button></div>`;
 }
 
 function viewProfile() {
@@ -845,10 +896,10 @@ function viewProfile() {
       html: `${head}<h1 class="t2"><mark>구직촉진수당</mark>을<br>받고 있나요?</h1>
         <div class="cb">
         <div class="opts">${optBtn('allowance', 'yes', '받고 있어요', p.allowance)}${optBtn('allowance', 'applying', '신청했어요', p.allowance)}${optBtn('allowance', 'no', '안 받아요', p.allowance)}</div>
-        ${p.allowance !== 'no' ? `<p class="lbl">몇 월까지 받나요?</p>${monthGrid('allowanceEndMonth', p.allowanceEndMonth)}
-          <p class="gline">구직촉진수당은 최대 6개월 받아요. 끝나는 달은 고용24나 고용센터(1350)에서 확인할 수 있어요</p>` : ''}
+        ${p.allowance !== 'no' ? `<p class="lbl" id="lbl-allowance-end">언제까지 받나요?</p>${endDateCal('allowanceEndMonth', 'lbl-allowance-end')}
+          <p class="gline">구직촉진수당은 최대 6개월 받아요. 끝나는 날은 고용24나 고용센터(1350)에서 확인할 수 있어요</p>` : ''}
         </div>
-        ${why('수당을 받는 동안 돈을 벌면 수당이 줄 수 있어요. 끝나는 달을 알면 그 뒤로는 줄어드는 돈 없이 계산해요.')}
+        ${why('수당을 받는 동안 돈을 벌면 수당이 줄 수 있어요. 끝나는 날을 알면 그다음 달부터는 줄어드는 돈 없이 계산해요.')}
         ${card}`,
       bottom: next,
     };
@@ -917,8 +968,8 @@ function viewProfile() {
       <div class="cb">
       <div class="grid2">${others.map(([k, v]) => { const on = (p.otherSupports || []).includes(k); return `<button type="button" class="opt c ${on ? 'on' : ''}" data-action="choose" data-name="otherSupports" data-multi="1" data-value="${k}" aria-pressed="${on}">${esc(v.title)}</button>`; }).join('')}
         <button type="button" class="opt c ${none ? 'on' : ''}" data-action="noSupports" aria-pressed="${none}">없어요</button></div>
-      ${(p.otherSupports || []).includes('unemploymentBenefit') ? `<p class="lbl">실업급여는 몇 월까지 받나요?</p>${monthGrid('unemploymentEndMonth', p.unemploymentEndMonth ?? 'unknown')}
-        <p class="gline">끝나는 달을 알면, 그 뒤로는 줄어들 실업급여가 없다는 것까지 알려 드려요</p>` : ''}
+      ${(p.otherSupports || []).includes('unemploymentBenefit') ? `<p class="lbl" id="lbl-unemployment-end">실업급여는 언제까지 받나요?</p>${endDateCal('unemploymentEndMonth', 'lbl-unemployment-end')}
+        <p class="gline">끝나는 날을 알면, 그다음 달부터는 줄어들 실업급여가 없다는 것까지 알려 드려요</p>` : ''}
       </div>
       <p class="gline">여러 개 고를 수 있어요. 이 지원들은 계산하지 않고 물어볼 곳만 알려 드려요</p>
       ${card}`,
@@ -2263,7 +2314,26 @@ document.addEventListener('click', (e) => {
         list.has(value) ? list.delete(value) : list.add(value);
         state.profile[name] = [...list];
       } else state.profile[name] = /EndMonth$/.test(name) && value !== 'unknown' ? Number(value) : value;
+      if (END_DATE[name]) state.profile[END_DATE[name]] = null;
       keep();
+      return;
+    }
+    // 끝나는 날 달력: 고른 날짜와 그 달(계산에 쓰는 값)을 함께 넣는다. 다시 그린 뒤에도 누른 버튼에 초점을 둔다.
+    case 'endDay': {
+      const name = el.dataset.name; const v = el.dataset.value;
+      state.profile[name] = Number(v.slice(5, 7));
+      state.profile[END_DATE[name]] = v;
+      keep();
+      app.querySelector(`[data-action=endDay][data-name=${name}][data-value="${v}"]`)?.focus({ preventScroll: true });
+      return;
+    }
+    case 'endMove': {
+      const name = el.dataset.name; const dir = Number(el.dataset.value);
+      const basis = `${state.profile[name]}|${endDateOf(name) || ''}`;
+      state.endCal = { ...(state.endCal || {}), [name]: { mo: Math.min(12, Math.max(1, endCalMonth(name) + dir)), basis } };
+      keep();
+      const navs = [...app.querySelectorAll(`[data-action=endMove][data-name=${name}]`)];
+      (navs.find((b) => b.dataset.value === String(dir) && !b.disabled) || navs.find((b) => !b.disabled))?.focus({ preventScroll: true });
       return;
     }
     case 'noSupports': state.profile.otherSupports = []; keep(); return;
