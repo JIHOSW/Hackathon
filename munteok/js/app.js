@@ -190,29 +190,6 @@ function sampleSummary(id) {
   return evaluate(job, s.profile, state.rules).summary;
 }
 
-// PC 화면(시작 화면 빼고, 1366px 이상)의 틀 바깥 좌우 여백에 떠다니는 동전·지폐. 한끗 보라로 그린 그림이라 화면 읽기 프로그램은 읽지 않는다.
-// 가까운 것은 보라 테두리와 숫자(지폐 숫자 밑에는 예시 영수증처럼 형광펜), 먼 것은 옅은 보라 면만 그린다.
-// 지폐 안쪽 점선 테는 영수증 줄의 점선과 같은 모양. 자리·움직임·멈춤은 style.css '떠다니는 동전·지폐', 그림 층은 '움직임' 구역에서 한 번만 만든다.
-function coinSvg(d, num) {
-  const c = d / 2;
-  const r = c - 1;
-  return `<svg viewBox="0 0 ${d} ${d}" width="${d}" height="${d}" focusable="false"><circle class="mn-face" cx="${c}" cy="${c}" r="${r}"/><circle class="mn-reed" cx="${c}" cy="${c}" r="${r - 4.5}"/><circle class="mn-ring" cx="${c}" cy="${c}" r="${r - 9}"/><circle class="mn-line" cx="${c}" cy="${c}" r="${r}"/><text class="mn-num" x="${c}" y="${c}" dy=".36em" text-anchor="middle" font-size="${Math.round(d / 4)}">${num}</text></svg>`;
-}
-function farCoinSvg(d) {
-  const c = d / 2;
-  return `<svg viewBox="0 0 ${d} ${d}" width="${d}" height="${d}" focusable="false"><circle class="mn-mark" cx="${c}" cy="${c}" r="${c}"/><circle class="mn-face" cx="${c}" cy="${c}" r="${c - 5}"/><circle class="mn-ring" cx="${c}" cy="${c}" r="${c - 10}"/></svg>`;
-}
-function billSvg(w, h, num, markW) {
-  const m = h / 2;
-  return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" focusable="false"><rect class="mn-paper" x="1" y="1" width="${w - 2}" height="${h - 2}" rx="8"/><rect class="mn-dots" x="7" y="7" width="${w - 14}" height="${h - 14}" rx="4"/><circle class="mn-face" cx="${w - 31}" cy="${m}" r="${Math.round(h * 0.23)}"/><rect class="mn-mark" x="15" y="${m - 4}" width="${markW}" height="8" rx="1"/><text class="mn-num mn-ink" x="17" y="${m + 2.5}" font-size="16">${num}</text><rect class="mn-mark" x="17" y="${m + 10}" width="26" height="3" rx="1.5"/><rect class="mn-line" x="1" y="1" width="${w - 2}" height="${h - 2}" rx="8"/></svg>`;
-}
-function farBillSvg(w, h) {
-  const m = h / 2;
-  return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" focusable="false"><rect class="mn-mark" width="${w}" height="${h}" rx="8"/><rect class="mn-dots mn-w" x="6" y="6" width="${w - 12}" height="${h - 12}" rx="4"/><circle class="mn-face" cx="${w - 28}" cy="${m}" r="${Math.round(h * 0.2)}"/><rect class="mn-face" x="15" y="${m - 6}" width="40" height="5" rx="2.5"/><rect class="mn-face" x="15" y="${m + 4}" width="24" height="3" rx="1.5"/></svg>`;
-}
-// 여백 네 모서리에 하나씩: a 왼쪽 위(가까운 동전), b 왼쪽 아래(먼 지폐), c 오른쪽 위('움직임 멈춤' 아래, 먼 동전), d 오른쪽 아래(가까운 지폐).
-// 가까운 것과 먼 것을 엇갈려 두어 양쪽 무게가 같다.
-const MONEY = [['mc-a', coinSvg(76, '500')], ['mc-b', farBillSvg(112, 60)], ['mc-c', farCoinSvg(44)], ['mc-d', billSvg(112, 60, '10,000', 54)]];
 
 function viewStart() {
   const s = sampleSummary('cafe');
@@ -1782,7 +1759,8 @@ function topHtml(v) {
 // ---------------- 움직임 ----------------
 // 화면이 바뀔 때만 움직인다. 같은 화면을 다시 그릴 때(고르기, 입력)는 움직이지 않는다. 동작 줄이기 설정이면 모두 끈다.
 const reduceMotion = () => Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-// PC 화면 좌우 여백의 떠다니는 동전·지폐는 5초 넘게 저절로 움직여서 '움직임 멈춤'으로 멈출 수 있게 한다(다시 누르면 다시 움직임).
+// PC 첫 화면의 배경 영상(js/bgvideo.js)은 5초 넘게 저절로 움직여서 '움직임 멈춤'으로 멈출 수 있게 한다(다시 누르면 다시 움직임).
+// 다른 화면 여백에 떠다니던 동전·지폐는 사용자 요청(2026-11-23, docs/intent/hankkeut-pc-wide.md)으로 지웠다.
 // 누르기 전에는 기기 설정을 따르고(동작 줄이기면 처음부터 멈춤), 누른 뒤에는 이 탭을 닫을 때까지 고른 대로 둔다.
 // body[data-motion]: auto(기기 설정대로) · on · off. 멈추면 그 자리에 선다(style.css).
 const MOTION_KEY = 'hankkeut-motion';
@@ -1792,18 +1770,14 @@ if (motionChoice !== 'on' && motionChoice !== 'off') motionChoice = null;
 document.body.dataset.motion = motionChoice || 'auto';
 const motionStopped = () => (motionChoice ? motionChoice === 'off' : reduceMotion());
 const motionLabel = () => (motionStopped() ? `${icon('play')}<span>움직임 켜기</span>` : `${icon('pause')}<span>움직임 멈춤</span>`);
-// 그림 층과 버튼은 #app 밖에 한 번만 만든다. 화면을 다시 그려도 그대로 남아서, 화면을 넘겨도 움직임이 처음부터 다시 시작하지 않는다.
-// 보이는지는 style.css가 정한다(시작 화면과 1366px 미만은 숨김). 버튼은 위쪽 막대 바로 뒤에 둬서 Tab 순서가 위쪽 막대 → 움직임 멈춤 → 내용이다.
+// 버튼은 #app 밖에 한 번만 만든다. 보이는지는 css/bgvideo.css가 정한다(배경 영상이 켜진 PC 첫 화면에서만 보임).
+// 위쪽 막대 바로 뒤에 둬서 Tab 순서가 위쪽 막대 → 움직임 멈춤 → 내용이다.
 const motionBtn = document.createElement('button');
 motionBtn.type = 'button';
 motionBtn.className = 'motion-btn';
 motionBtn.dataset.action = 'motion';
 motionBtn.innerHTML = motionLabel();
-const coinsEl = document.createElement('div');
-coinsEl.className = 'coins';
-coinsEl.setAttribute('aria-hidden', 'true');
-coinsEl.innerHTML = MONEY.map(([k, svg]) => `<span class="coin ${k}">${svg}</span>`).join('');
-topEl.after(motionBtn, coinsEl);
+topEl.after(motionBtn);
 function toggleMotion() {
   motionChoice = motionStopped() ? 'on' : 'off';
   document.body.dataset.motion = motionChoice;

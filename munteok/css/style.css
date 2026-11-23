@@ -545,20 +545,24 @@ select { min-height: 48px; }
 .app.stagger .split > * > .rcpt { animation-name: print; animation-duration: .3s; }
 .app.stagger .tbar { animation: fill .3s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 40ms + 150ms); }
 
-/* PC(1024px 이상): 모든 화면이 같은 1080px 틀과 같은 왼쪽 선을 쓴다.
-   틀 안의 자는 하나다. 왼쪽 칸 456px + 사이 48px + 오른쪽 칸(나머지, 1440px에서 544px). 결과 화면의 두 칸과 같다.
+/* PC(1024px 이상): 모든 화면이 같은 틀과 같은 왼쪽 선을 쓴다.
+   틀 폭: 첫 화면은 1080px. 다른 화면은 창 폭에서 좌우 48px씩 뺀 폭(1440px 창 1344px, 1920px 창 1824px)이고, 1176px보다 좁은 창은 첫 화면과 같은 1080px(또는 창 폭).
+   사용자 요청(2026-11-23 오후, docs/intent/hankkeut-pc-wide.md)으로 넓혔다. 첫 화면은 배경 영상(css/bgvideo.css) 자리 때문에 그대로 둔다.
+   틀 안의 자는 하나다. 왼쪽 칸 + 사이 48px + 오른쪽 칸(나머지). 왼쪽 칸은 (틀 안쪽 − 48px)의 45.6%(1080px 틀에서 456px)이고 456px보다 좁아지지 않는다.
+   그래서 두 칸이 456 : 544 비율로 함께 넓어진다. 결과 화면의 두 칸과 같다.
    위쪽 막대는 틀 폭 그대로, 아래 고정 버튼 줄은 늘 오른쪽 칸 아래에 둔다.
    휴대폰 배치와 마크업 순서는 그대로 두고, 칸은 CSS 그리드 자리 지정으로만 나눈다. */
 @media (min-width: 1024px) {
   :root { --wrap: 1080px; }
+  body:not([data-step="start"]) { --wrap: max(1080px, calc(100% - 96px)); }
   .t1 { font-size: 44px; line-height: 54px; letter-spacing: -1.2px; }
   .t2 .kn { font-size: 48px; line-height: 56px; letter-spacing: -1.4px; }
   .gline, .sub, .cut { max-width: 720px; }
 
-  /* 아래 버튼 줄: 가로 자리는 늘 오른쪽 칸(왼쪽 끝 = 틀 왼쪽 + 16 + 456 + 48, 오른쪽 끝 = 틀 오른쪽 − 16).
+  /* 아래 버튼 줄: 가로 자리는 늘 오른쪽 칸(왼쪽 끝 = 틀 왼쪽 + 16 + 왼쪽 칸 + 48, 오른쪽 끝 = 틀 오른쪽 − 16). --f는 실제 틀 폭.
      세로는 내용이 짧으면 내용 바로 아래, 내용이 화면보다 길면 화면 아래에 붙는다(sticky).
      큰 모니터에서 답과 '다음' 사이가 500px 넘게 벌어지지 않게. 화면 아래 자리를 비워 두는 여백(app.js)도 PC에서는 쓰지 않는다 */
-  .bar { position: sticky; padding-left: calc(max(0px, (100% - 1080px) / 2) + 520px); padding-right: calc(max(0px, (100% - 1080px) / 2) + 16px); }
+  .bar { --f: min(var(--wrap), 100%); position: sticky; padding-left: calc((100% - var(--f)) / 2 + 16px + max(456px, (var(--f) - 80px) * .456) + 48px); padding-right: calc((100% - var(--f)) / 2 + 16px); }
   .bar > * { max-width: none; margin-left: 0; margin-right: 0; }
   .app { padding-bottom: 16px !important; }
 
@@ -606,7 +610,7 @@ select { min-height: 48px; }
   /* 두 칸(c2): 왼쪽 칸 요소는 위에서부터 한 줄씩 쌓고, 오른쪽 칸(.cb)은 한 덩어리로 그 옆에 붙인다.
      .cb가 왼쪽보다 길면 남는 높이는 맨 끝 1fr 줄이 받아서 왼쪽 요소 사이가 벌어지지 않는다.
      .hd(제목)는 두 칸에 걸쳐서, 그 아래에서 두 칸이 같은 높이로 시작한다 */
-  body[data-layout="c2"] .app { display: grid; grid-template-columns: minmax(0, 456px) minmax(0, 1fr); grid-template-rows: repeat(12, auto) 1fr; grid-auto-flow: row dense; column-gap: 48px; align-items: start; }
+  body[data-layout="c2"] .app { display: grid; grid-template-columns: minmax(0, max(456px, (100% - 48px) * .456)) minmax(0, 1fr); grid-template-rows: repeat(12, auto) 1fr; grid-auto-flow: row dense; column-gap: 48px; align-items: start; }
   body[data-layout="c2"] .app > * { grid-column: 1; }
   body[data-layout="c2"] .app > .hd { grid-column: 1 / -1; }
   body[data-layout="c2"] .app > .cb { grid-column: 2; grid-row: span 13; margin-top: 24px; }
@@ -632,7 +636,7 @@ select { min-height: 48px; }
 
   /* 한 칸(c1): 가운데가 아니라 왼쪽 선에 맞추고, 왼쪽 칸 폭을 쓴다.
      읽는 중·안내 화면의 위 여백은 화면 세로 자리(app.js placeVertically)가 정하므로 따로 두지 않는다 */
-  body[data-layout="c1"] .app > * { max-width: 456px; }
+  body[data-layout="c1"] .app > * { max-width: max(456px, (100% - 48px) * .456); }
   body[data-layout="c1"] .center-box { text-align: left; padding-top: 0; }
   body[data-layout="c1"] .center-box .spin { margin: 0 0 32px; }
   body[data-layout="c1"] .app > .big { margin-top: 16px; }
@@ -687,7 +691,7 @@ select { min-height: 48px; }
   body[data-step="start"] .pvt { font-size: 22px; line-height: 32px; }
 
   /* 결과: 왼쪽에 결론 문장과 영수증, 오른쪽에 나머지 카드. 첫 줄 높이를 다른 화면(단계 표시·제목)과 맞춘다 */
-  .split { display: grid; grid-template-columns: minmax(0, 456px) minmax(0, 1fr); column-gap: 48px; align-items: start; margin-top: 16px; }
+  .split { display: grid; grid-template-columns: minmax(0, max(456px, (100% - 48px) * .456)) minmax(0, 1fr); column-gap: 48px; align-items: start; margin-top: 16px; }
   .split > * > :first-child { margin-top: 0; }
   .split .col-b > .better:first-child { margin-top: 0; }
   .split .col-b { padding-top: 8px; }
@@ -706,52 +710,14 @@ select { min-height: 48px; }
 @media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
   body[data-step="samples"] .app > .rows > .row:hover { background: var(--fill); }
 }
-/* 떠다니는 동전·지폐(시작 화면 빼고 PC 1366px 이상): 가운데 1080px 틀 바깥 좌우 여백의 위·아래 모서리에 하나씩, 화면에 고정한다.
-   시작 화면은 사용자 요청(2026-11-23 오후)으로 다시 뺐다. 시작 화면에는 배경 영상만 있고, '움직임 멈춤'은 영상이 켜졌을 때 css/bgvideo.css가 보인다.
-   .coins는 #app 밖에 한 번만 있는 층이라 화면을 넘기거나 스크롤해도 자리와 움직임이 그대로다.
-   그림 가운데를 여백 가운데에 두고(여백 1366px에서 143px, 1440px에서 180px), 위쪽 둘은 위쪽 막대(56px) 아래, 아래쪽 둘은 창 끝에서 떨어뜨린다.
-   그래서 움직이는 동안에도 틀 안의 글·버튼·위쪽 막대·아래 버튼 줄·창 끝과 겹치지 않는다. 여백이 좁은 1366px에서는 조금 작게, 넓은 화면에서는 조금 크게(--k).
-   아래 버튼 줄의 바탕(화면 폭 전체)보다 위, 아래에서 올라오는 창의 어두운 바탕보다 아래에 둔다.
-   움직임은 transform만: 몇 px(--dx·--dy)와 몇 도(--sw)를 서로 다른 주기로 오가서 같은 박자로 튀지 않는다.
-   가까운 것(보라 테두리)은 6~7초에 9px까지, 먼 것(옅은 면)은 8~10초에 4~5px만 움직여 거리감을 준다 */
-.coins, .motion-btn { display: none; }
-.coins { position: fixed; inset: 0; z-index: 7; pointer-events: none; --k: .86; }
-.coin { position: absolute; translate: -50% 0; scale: var(--k); animation: coin-bob var(--bd) ease-in-out var(--bl) infinite alternate; }
-.coin > svg { display: block; overflow: visible; transform: rotate(var(--rot)); animation: coin-sway var(--sd) ease-in-out var(--sl) infinite alternate; }
-body[data-motion="off"] .coin, body[data-motion="off"] .coin > svg { animation-play-state: paused; }
-.mn-face { fill: var(--p-soft); }
-.mn-paper { fill: var(--card); }
-.mn-mark { fill: var(--mark); }
-.mn-line { fill: none; stroke: var(--p); stroke-width: 1.75; }
-.mn-ring { fill: none; stroke: var(--mark); stroke-width: 2; }
-.mn-reed { fill: none; stroke: var(--mark); stroke-width: 4; stroke-dasharray: 1.2 2.8; }
-.mn-dots { fill: none; stroke: var(--mark); stroke-width: 2; stroke-linecap: round; stroke-dasharray: 0 5; }
-.mn-dots.mn-w { stroke: var(--card); }
-.mn-num { fill: var(--p); font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.5px; }
-.mn-num.mn-ink { fill: var(--p-ink); }
-/* 자리: 왼쪽 여백 가운데는 (100% − 1080px) / 4, 오른쪽 여백 가운데는 100%에서 그만큼 뺀 곳. 가까운 것과 먼 것을 엇갈려 둔다 */
-.mc-a { left: calc((100% - 1080px) / 4); top: 100px; --rot: -8deg; --sw: 5deg; --dx: 3px; --dy: 9px; --bd: 6s; --bl: -2s; --sd: 9s; --sl: -4s; }
-.mc-b { left: calc((100% - 1080px) / 4); bottom: 56px; --rot: 8deg; --sw: 3deg; --dx: 3px; --dy: 5px; --bd: 10s; --bl: -6s; --sd: 12s; --sl: -3s; }
-.mc-c { left: calc(100% - (100% - 1080px) / 4); top: 128px; --rot: 0deg; --sw: 0deg; --dx: 2px; --dy: 4px; --bd: 9s; --bl: -3s; --sd: 13s; --sl: -6s; }
-.mc-d { left: calc(100% - (100% - 1080px) / 4); bottom: 44px; --rot: -9deg; --sw: 3deg; --dx: 3px; --dy: 6px; --bd: 7s; --bl: -5s; --sd: 11s; --sl: -2s; }
-/* '움직임 멈춤': 위쪽 막대 높이(56px 줄 가운데), 오른쪽 여백 가운데. 다시 누르면 '움직임 켜기'. 그림이 보일 때만 보인다 */
-.motion-btn { position: fixed; z-index: 7; top: 6px; left: calc(100% - (100% - 1080px) / 4); translate: -50% 0; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; border: 0; background: none; border-radius: 14px; cursor: pointer; font-size: 15px; font-weight: 600; color: var(--sub); white-space: nowrap; }
+/* '움직임 멈춤': PC 첫 화면 배경 영상을 멈추는 버튼. 다시 누르면 '움직임 켜기'. 보이는 때와 자리는 css/bgvideo.css가 정한다(영상이 켜진 첫 화면에서만).
+   1366px 이상에서는 위쪽 막대 높이(56px 줄 가운데), 1080px 틀 바깥 오른쪽 여백 가운데.
+   다른 화면 여백에 떠다니던 동전·지폐는 사용자 요청(2026-11-23 오후, docs/intent/hankkeut-pc-wide.md)으로 지웠다 */
+.motion-btn { display: none; position: fixed; z-index: 7; top: 6px; left: calc(100% - (100% - 1080px) / 4); translate: -50% 0; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; border: 0; background: none; border-radius: 14px; cursor: pointer; font-size: 15px; font-weight: 600; color: var(--sub); white-space: nowrap; }
 .motion-btn .i { width: 20px; height: 20px; }
-@media (min-width: 1366px) {
-  body[data-step]:not([data-step="start"]) .coins { display: block; animation: fade-in .3s linear backwards; }
-  body[data-step]:not([data-step="start"]) .motion-btn { display: inline-flex; }
-}
-@media (min-width: 1440px) { .coins { --k: 1; } }
-@media (min-width: 1680px) { .coins { --k: 1.15; } }
-@keyframes coin-bob { from { transform: translate(calc(var(--dx) * -1), calc(var(--dy) * -1)); } to { transform: translate(var(--dx), var(--dy)); } }
-@keyframes coin-sway { from { transform: rotate(calc(var(--rot) - var(--sw))); } to { transform: rotate(calc(var(--rot) + var(--sw))); } }
 
 /* 동작 줄이기: 움직임을 모두 끈다 */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
   .cta:active, .opt:active, .seg-b:active, .chips button:active, .sb:active, .acts button:active, .add:active, .better:active, .cmp:active, .opc:active, .pv.tap:active, .cal-d:active, .cal-nav:active, .backb:active, .logo:active, .link:active, .motion-btn:active { transform: none; }
-  /* 동전·지폐는 처음부터 멈춰 있다. '움직임 켜기'를 누른 사람에게만 움직이고, 그 뒤 '움직임 멈춤'이면 그 자리에 선다 */
-  body[data-motion="on"] .coin, body[data-motion="off"] .coin { animation: coin-bob var(--bd) ease-in-out var(--bl) infinite alternate !important; }
-  body[data-motion="on"] .coin > svg, body[data-motion="off"] .coin > svg { animation: coin-sway var(--sd) ease-in-out var(--sl) infinite alternate !important; }
-  body[data-motion="off"] .coin, body[data-motion="off"] .coin > svg { animation-play-state: paused !important; }
 }
