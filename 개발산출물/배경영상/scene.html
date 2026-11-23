@@ -3,14 +3,16 @@
 <head>
 <meta charset="utf-8">
 <title>한끗 PC 첫 화면 배경 영상 장면</title>
-<!-- PC 첫 화면 뒤에서 소리 없이 반복되는 배경 영상의 장면(1920×1080, 한 바퀴 24초). render.mjs가 헤드리스 Chrome으로 setT(초)를 부르며 한 장씩 찍는다.
-     첫 화면의 글과 예시 영수증(가운데)을 피해, 이야기는 화면 위·아래 띠에서만 한다.
+<!-- PC 첫 화면 뒤에서 소리 없이 반복되는 배경 영상의 장면(1200×1080, 한 바퀴 24초). render.mjs가 헤드리스 Chrome으로 setT(초)를 부르며 한 장씩 찍는다.
+     첫 화면의 글과 예시 영수증(가운데)을 피해, 이야기는 위 띠와 아래 띠에서만 한다. 두 띠 모두 테두리까지 다 보이는 카드라 어디서도 잘리지 않는다.
        위 띠  0.9~8.3초  공고를 붙여 넣기 → 보내기 → AI가 읽으며 조건에 형광펜
-       아래 띠 8.7~19.6초 남는 돈 영수증이 올라옴 → 근무시간 막대가 주 24 → 15 → 18시간으로 움직이며 남는 돈이 바뀜
+       아래 띠 8.7~19.3초 남는 돈 영수증 → 근무시간 막대가 주 24 → 15 → 18시간으로 움직이며 남는 돈이 바뀜
        아래 띠 19.5~21.9초 "한 끗 차이로 달라지는 내 돈, 일하기 전에 확인해요"
        위 띠  21.9~24초  한끗 로고가 줄어들며 다시 입력 칸이 됨 → 처음 장면과 같아져 끊김 없이 이어짐
-     앱은 영상을 화면 높이에 맞춰(높이 1080 = 화면 높이) 가운데에 둔다. 그래서 위 띠(y 92~224)는 위쪽 막대 아래·제목 위에,
-     아래 띠(y 884 아래)는 첫 화면 내용 아래에 온다(화면 높이 730px 이상). 영상 바탕은 앱 바탕(#F2F4F6)과 같아 가장자리가 보이지 않는다.
+     띠 자리(이 장면의 좌표): 위 띠 y 24~136(가운데 80, 나갈 때 8px 올라감), 아래 띠 y 876~1016(톱니 포함 869~1023, 가운데 946).
+     앱(munteok/js/bgvideo.js)은 첫 화면의 위 빈칸(위쪽 막대 아래 ~ 제목 위)과 아래 빈칸(내용 아래 ~ 창 아래)을 재서,
+     두 띠가 각 빈칸 가운데에 오도록 영상 크기와 위치를 정한다. 그래서 띠 자리를 바꾸면 bgvideo.js의 BAND 값도 같이 바꾼다.
+     영상 바탕은 앱 바탕(#F2F4F6)과 같아 영상 가장자리가 보이지 않는다.
      숫자는 카페 예시를 계산 엔진(js/engine.js)에 넣은 값이다(nums.mjs로 다시 낼 수 있음). -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <style>
@@ -19,35 +21,36 @@
   --p: #5B3DF5; --p-press: #3D22BF; --mark: #DCD6FE; --o-bar: #E29A2B; --r-bar: #C8382A;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); }
+html, body { margin: 0; width: 1200px; height: 1080px; overflow: hidden; background: var(--bg); }
 body { position: relative; font-family: "Pretendard Variable", Pretendard, sans-serif; color: var(--ink); letter-spacing: -0.3px; -webkit-font-smoothing: antialiased; word-break: keep-all; }
 .abs { position: absolute; }
 .num { font-variant-numeric: tabular-nums; }
 
-/* 위 띠: 공고 입력 칸 (가운데 1080px 틀과 같은 폭). 테두리는 앱의 형광펜 보라 = 입력 중인 칸 */
-#bar { left: 420px; top: 92px; width: 1080px; height: 132px; background: var(--card); border: 2px solid var(--mark); border-radius: 24px; }
-#mark { left: 34px; top: 26px; font-size: 30px; font-weight: 800; letter-spacing: -1px; color: var(--p); line-height: 40px; }
-#divider { left: 116px; top: 30px; width: 2px; height: 32px; background: var(--line); }
-#ph { left: 142px; top: 26px; font-size: 28px; line-height: 40px; color: var(--muted); white-space: nowrap; }
-#text { left: 142px; top: 26px; font-size: 28px; line-height: 40px; white-space: nowrap; }
+/* 위 띠: 공고 입력 칸 (앱의 가운데 1080px 틀과 같은 폭). 테두리는 앱의 형광펜 보라 = 입력 중인 칸 */
+#bar { left: 60px; top: 24px; width: 1080px; height: 112px; background: var(--card); border: 2px solid var(--mark); border-radius: 22px; }
+#mark { left: 32px; top: 15px; font-size: 30px; font-weight: 800; letter-spacing: -1px; color: var(--p); line-height: 40px; }
+#divider { left: 112px; top: 19px; width: 2px; height: 32px; background: var(--line); }
+#ph { left: 136px; top: 16px; font-size: 28px; line-height: 38px; color: var(--muted); white-space: nowrap; }
+#text { left: 136px; top: 16px; font-size: 28px; line-height: 38px; white-space: nowrap; }
 #text .ln { display: block; }
 #text .c { visibility: hidden; }
 #text .c.on { visibility: visible; }
 /* 형광펜: 앱의 mark와 같은 모양(글자 아래 44%) */
 #text .t { background: linear-gradient(transparent 56%, var(--mark) 56%) no-repeat; background-size: 0% 100%; padding: 0 3px; margin: 0 -3px; }
-#caret { width: 3px; height: 32px; background: var(--p); border-radius: 2px; }
-#send { right: 34px; top: 36px; width: 56px; height: 56px; border-radius: 50%; background: var(--p); display: grid; place-items: center; }
+#caret { width: 3px; height: 30px; background: var(--p); border-radius: 2px; }
+#send { right: 28px; top: 26px; width: 56px; height: 56px; border-radius: 50%; background: var(--p); display: grid; place-items: center; }
 #send svg { width: 28px; height: 28px; fill: none; stroke: #fff; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
-#reading { right: 36px; top: 68px; display: flex; align-items: center; gap: 14px; font-size: 24px; line-height: 36px; font-weight: 600; color: var(--sub); white-space: nowrap; }
+#reading { right: 32px; top: 54px; display: flex; align-items: center; gap: 14px; font-size: 24px; line-height: 38px; font-weight: 600; color: var(--sub); white-space: nowrap; }
 #reading .dots { display: flex; gap: 7px; }
 #reading .dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--p); }
 
-/* 아래 띠: 영수증 종이 (톱니 끝과 옅은 그림자는 앱의 영수증 카드와 같은 모양) */
-#strip { left: 420px; top: 884px; width: 1080px; height: 320px; filter: drop-shadow(0 1px 1px rgba(27, 36, 48, .05)) drop-shadow(0 8px 16px rgba(27, 36, 48, .06)); }
+/* 아래 띠: 영수증 한 장 (위아래 톱니와 옅은 그림자는 앱의 영수증 카드와 같은 모양). 톱니까지 다 보인다 */
+#strip { left: 60px; top: 876px; width: 1080px; height: 140px; filter: drop-shadow(0 1px 1px rgba(27, 36, 48, .05)) drop-shadow(0 8px 16px rgba(27, 36, 48, .06)); }
 #paper { position: absolute; inset: 0; background: var(--card); }
-#paper::before { content: ""; position: absolute; left: 0; right: 0; top: -9px; height: 10px; background: var(--card);
-  -webkit-mask: radial-gradient(circle 7px at 50% 0, transparent 98%, #000) 50% 100% / 18px 100% repeat-x; }
-#row { left: 32px; right: 32px; top: 18px; height: 50px; display: flex; align-items: center; justify-content: space-between; }
+#paper::before, #paper::after { content: ""; position: absolute; left: 0; right: 0; height: 8px; background: var(--card); }
+#paper::before { top: -7px; -webkit-mask: radial-gradient(circle 6px at 50% 0, transparent 98%, #000) 50% 100% / 14px 100% repeat-x; }
+#paper::after { bottom: -7px; -webkit-mask: radial-gradient(circle 6px at 50% 100%, transparent 98%, #000) 50% 0 / 14px 100% repeat-x; }
+#row { left: 32px; right: 32px; top: 14px; height: 48px; display: flex; align-items: center; justify-content: space-between; }
 #eq { display: flex; align-items: center; gap: 28px; font-size: 22px; line-height: 32px; color: var(--sub); white-space: nowrap; }
 #eq .it { display: flex; align-items: center; gap: 10px; }
 #eq .it::before { content: ""; width: 12px; height: 12px; border-radius: 3px; }
@@ -57,21 +60,21 @@ body { position: relative; font-family: "Pretendard Variable", Pretendard, sans-
 #eq b { color: var(--ink); font-weight: 700; }
 #kept { display: flex; align-items: baseline; gap: 14px; color: var(--p); white-space: nowrap; }
 #kept span { font-size: 24px; font-weight: 700; }
-#kept b { font-size: 42px; font-weight: 800; letter-spacing: -0.8px; line-height: 50px; }
-/* 근무시간 막대: 막대 길이 = 버는 돈(근무시간에 비례), 조각 = 남는 돈·보험료·줄어드는 정부 지원(앱의 돈 막대와 같은 색) */
-#track { left: 32px; top: 80px; width: 1016px; height: 20px; border-radius: 10px; background: var(--fill); }
-#segs { left: 32px; top: 80px; height: 20px; display: flex; gap: 5px; }
-#segs i { display: block; height: 20px; border-radius: 10px; }
-#knob { width: 34px; height: 34px; border-radius: 50%; background: #fff; border: 4px solid var(--p); top: 73px; }
-#ticks { left: 32px; top: 110px; width: 1016px; height: 14px; }
-#ticks i { position: absolute; top: 0; width: 2px; height: 8px; border-radius: 1px; background: var(--stroke); }
-#ticks i.mj { height: 14px; }
-.hl { top: 128px; font-size: 20px; line-height: 28px; white-space: nowrap; color: var(--muted); font-weight: 500; }
+#kept b { font-size: 40px; font-weight: 800; letter-spacing: -0.8px; line-height: 48px; }
+/* 근무시간: 왼쪽 칩이 지금 시간, 막대 길이 = 버는 돈(근무시간에 비례), 조각 = 남는 돈·보험료·줄어드는 정부 지원(앱의 돈 막대와 같은 색) */
+#hrs { left: 32px; top: 70px; height: 36px; padding: 0 14px; border: 2px solid var(--mark); border-radius: 18px; background: var(--card); font-size: 22px; line-height: 32px; font-weight: 700; color: var(--p); white-space: nowrap; }
+#track { left: 172px; top: 79px; width: 876px; height: 18px; border-radius: 9px; background: var(--fill); }
+#segs { left: 172px; top: 79px; height: 18px; display: flex; gap: 4px; }
+#segs i { display: block; height: 18px; border-radius: 9px; }
+#knob { width: 32px; height: 32px; border-radius: 50%; background: #fff; border: 4px solid var(--p); top: 72px; }
+#ticks { left: 172px; top: 104px; width: 876px; height: 10px; }
+#ticks i { position: absolute; top: 0; width: 2px; height: 5px; border-radius: 1px; background: var(--stroke); }
+#ticks i.mj { height: 10px; }
 
-/* 한 줄 문구와 로고 */
-#tag { left: 0; width: 1920px; top: 930px; text-align: center; font-size: 46px; line-height: 60px; font-weight: 700; letter-spacing: -1.2px; white-space: nowrap; }
+/* 한 줄 문구(아래 띠 가운데)와 로고(위 띠 가운데) */
+#tag { left: 0; width: 1200px; top: 916px; text-align: center; font-size: 46px; line-height: 60px; font-weight: 700; letter-spacing: -1.2px; white-space: nowrap; }
 #tag .w { display: inline-block; }
-#logo { left: 0; top: 0; font-size: 104px; line-height: 1; font-weight: 800; letter-spacing: -3.5px; color: var(--p); white-space: nowrap; transform-origin: 0 0; }
+#logo { left: 0; top: 0; font-size: 88px; line-height: 1; font-weight: 800; letter-spacing: -3px; color: var(--p); white-space: nowrap; transform-origin: 0 0; }
 </style>
 </head>
 <body>
@@ -94,6 +97,7 @@ body { position: relative; font-family: "Pretendard Variable", Pretendard, sans-
     </div>
     <div id="kept"><span>남는 돈</span><b class="num"></b></div>
   </div>
+  <div id="hrs" class="abs num"></div>
   <div id="track" class="abs"></div>
   <div id="segs" class="abs"><i style="background:var(--p)"></i><i style="background:var(--o-bar)"></i><i style="background:var(--r-bar)"></i></div>
   <div id="ticks" class="abs"></div>
@@ -109,8 +113,11 @@ const H = {
   18: { gross: 985446, ins: 95760, loss: 46903, net: 842783, m: { gross: 99, ins: 10, loss: 5, net: 84 } },
   24: { gross: 1313928, ins: 127680, loss: 375385, net: 810863, m: { gross: 131, ins: 13, loss: 37, net: 81 } },
 };
-const T = 24;               // 한 바퀴(초)
-const PX_PER_H = 1016 / 30; // 막대: 주 30시간이 영수증 안쪽 폭 전체
+const T = 24;              // 한 바퀴(초)
+const CX = 600;            // 장면 가운데(가로)
+const BAR_CY = 80;         // 위 띠 가운데(세로)
+const TRACK_X = 172;       // 영수증 안 막대 시작
+const PX_PER_H = 876 / 30; // 막대: 주 30시간이 막대 자리 전체
 
 // 카페 예시 공고(js/samples.js의 cafe)를 두 줄로. 두 번째 값은 형광펜을 칠 조건 번호
 const L1 = [['카페 한끗 주말 스태프 모집 / '], ['금·토·일 10:00~19:00 (휴게 1시간)', 0]];
@@ -123,12 +130,12 @@ const SEND = 4.85;                                   // 보내기 누름(97%로 
 const READ_A = 5.3;                                  // 'AI가 공고를 읽고 있어요'
 const HL = [[5.7, 6.35], [6.5, 7.1], [7.25, 7.8]];   // 형광펜 세 번
 const BAR_OUT = [8.3, 9.3];
-const STRIP_IN = [8.7, 9.6];
-const FILL = [9.6, 10.5];
-const EQ = [10.3, 10.65, 11.0, 11.4];                // 영수증 항목이 차례로
+const STRIP_IN = [8.7, 9.3];
+const FILL = [9.4, 10.3];
+const EQ = [10.2, 10.55, 10.9, 11.3];                // 영수증 항목이 차례로
 const HOURS_IN = [12.4, 13.0];
 const MOVES = [[24, 15, 13.6, 14.8], [15, 18, 15.9, 16.9]]; // 주 24 → 15 → 18시간
-const STRIP_OUT = [18.7, 19.6];
+const STRIP_OUT = [18.8, 19.3];
 const TAG_IN = 19.5, TAG_OUT = [21.5, 21.9];
 const LOGO_IN = [21.9, 22.5], MORPH = [22.8, 23.6], UNFURL = [23.15, 23.85], PH_IN = [23.65, 23.95];
 
@@ -166,12 +173,6 @@ for (let h = 0; h <= 30; h++) {
   $('#ticks').append(i);
   tickEls.push([h, i]);
 }
-const hourLabels = {};
-for (const h of [15, 18, 24]) {
-  const e = Object.assign(document.createElement('div'), { className: 'abs hl num', textContent: `주 ${h}시간` });
-  $('#strip').append(e);
-  hourLabels[h] = e;
-}
 const words = TAG.split(' ').map((w) => Object.assign(document.createElement('span'), { className: 'w', textContent: w }));
 words.forEach((w, i) => { $('#tag').append(w); if (i < words.length - 1) $('#tag').append(' '); });
 
@@ -186,7 +187,6 @@ function measure() {
     logo: r($('#logo')),
     mark: r($('#mark')),
   };
-  for (const h of [15, 18, 24]) { const e = hourLabels[h]; e.style.left = `${32 + h * PX_PER_H - r(e).width / 2}px`; }
 }
 
 function hoursAt(t) {
@@ -202,7 +202,7 @@ function partsAt(t) {
   const A = f(from), B = f(to);
   return A.map((v, i) => lerp(v, B[i], x));
 }
-// 숫자는 세어 올라가지 않는다: 움직이기 시작하면 흐려지고, 도착하면 새 값이 나타난다
+// 숫자는 세어 올라가지 않는다: 움직이기 시작하면 흐려지고, 도착하면 새 값이 나타난다(근무시간 칩도 같이)
 function numbersAt(t) {
   let key = 24, op = 1;
   for (const [a, b, s, e] of MOVES) {
@@ -212,7 +212,7 @@ function numbersAt(t) {
       else { key = b; op = seg(t, e, e + 0.35); }
     } else if (t >= e + 0.35) { key = b; op = 1; }
   }
-  return { v: H[key].m, op };
+  return { key, v: H[key].m, op };
 }
 
 // ---------- 한 장면 그리기: t초 ----------
@@ -225,12 +225,12 @@ function setT(t) {
   const inLoop = t >= UNFURL[0]; // 로고가 다시 입력 칸이 되는 중
   if (inLoop) {
     bar.style.opacity = String(clamp(unfurl * 1.6));
-    bar.style.clipPath = `inset(0 ${(1 - unfurl) * 100}% 0 0 round 24px)`;
+    bar.style.clipPath = `inset(0 ${(1 - unfurl) * 100}% 0 0 round 22px)`;
     bar.style.transform = '';
   } else {
     bar.style.opacity = String(1 - barOut);
     bar.style.clipPath = '';
-    bar.style.transform = `translateY(${-14 * barOut}px)`;
+    bar.style.transform = `translateY(${-8 * barOut}px)`;
   }
   const typed = Math.round(chars.length * clamp((t - TYPE_A) / (TYPE_B - TYPE_A)));
   const typing = t >= TYPE_A && t < BAR_OUT[1];
@@ -256,12 +256,13 @@ function setT(t) {
   [...rd.querySelectorAll('i')].forEach((d, i) => { d.style.opacity = String(0.3 + 0.7 * (0.5 + 0.5 * Math.cos(2 * Math.PI * (t / 1.2 - i / 6)))); });
   terms.forEach((el, i) => { el.style.backgroundSize = `${t < BAR_OUT[1] ? io(seg(t, ...HL[i])) * 100 : 0}% 100%`; });
 
-  // ----- 아래 띠: 영수증과 근무시간 막대 -----
+  // ----- 아래 띠: 영수증과 근무시간 막대 (제자리에서 12px만 움직이며 나타나고 사라진다) -----
   const stripIn = out(seg(t, ...STRIP_IN));
   const stripOut = io(seg(t, ...STRIP_OUT));
   const strip = $('#strip');
-  strip.style.transform = `translateY(${(1 - stripIn) * 300 + stripOut * 300}px)`;
-  strip.style.opacity = String(t < STRIP_IN[0] || t > STRIP_OUT[1] ? 0 : 1);
+  const stripOn = t >= STRIP_IN[0] && t <= STRIP_OUT[1];
+  strip.style.transform = `translateY(${(1 - stripIn) * 12 + stripOut * 10}px)`;
+  strip.style.opacity = String(stripOn ? stripIn * (1 - stripOut) : 0);
   const fill = io(seg(t, ...FILL));
   const h = hoursAt(t);
   const len = h * PX_PER_H;
@@ -270,12 +271,12 @@ function setT(t) {
   const shown = len * fill;
   let acc = 0;
   parts.forEach((p, i) => {
-    const w = Math.max(0, Math.min(len * p, shown - acc) - (i < 2 && parts[i + 1] > 0.005 ? 5 : 0));
+    const w = Math.max(0, Math.min(len * p, shown - acc) - (i < 2 && parts[i + 1] > 0.005 ? 4 : 0));
     segEls[i].style.width = `${w}px`;
     segEls[i].style.display = w < 1 ? 'none' : 'block';
     acc += len * p;
   });
-  const { v, op } = numbersAt(t);
+  const { key, v, op } = numbersAt(t);
   const eqVals = [`${v.gross}만 원`, `−${v.ins}만 원`, v.loss ? `−${v.loss}만 원` : '0원'];
   ['#e1', '#e2', '#e3'].forEach((s, i) => {
     const e = $(s);
@@ -292,22 +293,18 @@ function setT(t) {
   k.style.transform = `translateY(${(1 - ka) * 8}px)`;
   k.querySelector('b').textContent = `${v.net}만 원`;
   k.querySelector('b').style.opacity = String(op);
+  const hrs = $('#hrs');
+  hrs.textContent = `주 ${key}시간`;
+  hrs.style.opacity = String(out(seg(t, FILL[0], FILL[0] + 0.35)) * (0.25 + 0.75 * op));
   const hin = out(seg(t, ...HOURS_IN));
   tickEls.forEach(([hh, el]) => {
     el.style.opacity = String(out(seg(t, HOURS_IN[0] + hh * 0.012, HOURS_IN[0] + hh * 0.012 + 0.3)));
     el.style.background = hh <= h + 0.001 ? 'var(--p)' : 'var(--stroke)';
   });
   const knob = $('#knob');
-  knob.style.left = `${32 + len - 17}px`;
+  knob.style.left = `${TRACK_X + len - 16}px`;
   knob.style.opacity = String(hin);
   knob.style.transform = `scale(${0.85 + 0.15 * hin})`;
-  const near = Math.abs(h - Math.round(h)) < 0.05 ? Math.round(h) : null;
-  for (const hh of [15, 18, 24]) {
-    const e = hourLabels[hh];
-    e.style.opacity = String(hin);
-    e.style.color = near === hh ? 'var(--ink)' : 'var(--muted)';
-    e.style.fontWeight = near === hh ? '700' : '500';
-  }
 
   // ----- 한 줄 문구: 낱말이 차례로 -----
   const tagOut = io(seg(t, ...TAG_OUT));
@@ -321,8 +318,8 @@ function setT(t) {
   const logo = $('#logo');
   const li = out(seg(t, ...LOGO_IN));
   const m = io(seg(t, ...MORPH));
-  const s1 = 30 / 104; // 큰 로고 104px → 입력 칸 로고 30px
-  const cx0 = 960 - geo.logo.width / 2, cy0 = 158 - geo.logo.height / 2;
+  const s1 = 30 / 88; // 큰 로고 88px → 입력 칸 로고 30px
+  const cx0 = CX - geo.logo.width / 2, cy0 = BAR_CY - geo.logo.height / 2;
   const sc = lerp(1, s1, m) * (0.96 + 0.04 * li);
   logo.style.transform = `translate(${lerp(cx0, geo.mark.left, m)}px, ${lerp(cy0, geo.mark.top + 5, m)}px) scale(${sc})`;
   logo.style.opacity = String(t >= LOGO_IN[0] && t < UNFURL[1] ? li * (1 - seg(t, UNFURL[1] - 0.15, UNFURL[1])) : 0);
@@ -331,7 +328,7 @@ function setT(t) {
 
 window.ready = (async () => {
   await document.fonts.ready;
-  const all = document.body.innerText + chars.map((c) => c.textContent).join('') + '0123456789만원−';
+  const all = document.body.innerText + chars.map((c) => c.textContent).join('') + '0123456789만원−주시간';
   for (const w of [500, 600, 700, 800]) await document.fonts.load(`${w} 28px "Pretendard Variable"`, all);
   await document.fonts.ready;
   measure();

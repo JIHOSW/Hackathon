@@ -12,16 +12,19 @@ const FPS = Number(process.argv[3] && !AT ? process.argv[3] : 30);
 const START = Number(!AT && process.argv[4] ? process.argv[4] : 0);
 const T = 24;
 const COUNT = Number(!AT && process.argv[5] ? process.argv[5] : T * FPS);
+// 장면 1200×1080을 1.25배(1500×1350)로 찍는다. 앱에서는 보통 0.65~1배로 줄여 보여서, 레티나 화면에서도 글자가 덜 흐리다.
+// 1500×1350·30장/초는 H.264 level 4.0 안이라 거의 모든 PC 브라우저가 튼다.
+const W = 1200, HT = 1080, DPR = 1.25;
 fs.mkdirSync(OUT, { recursive: true });
 
 const page = await open();
-await page.send('Emulation.setDeviceMetricsOverride', { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false });
+await page.send('Emulation.setDeviceMetricsOverride', { width: W, height: HT, deviceScaleFactor: DPR, mobile: false });
 await page.goto('file://' + path.resolve(new URL('./scene.html', import.meta.url).pathname));
 const fonts = await page.eval(`return await window.ready;`);
 console.log('글꼴 조각', fonts);
 const shot = async (t, file) => {
   await page.eval(`setT(${t}); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));`);
-  const r = await page.send('Page.captureScreenshot', { format: 'png', clip: { x: 0, y: 0, width: 1920, height: 1080, scale: 1 } });
+  const r = await page.send('Page.captureScreenshot', { format: 'png', clip: { x: 0, y: 0, width: W, height: HT, scale: 1 } });
   fs.writeFileSync(file, Buffer.from(r.data, 'base64'));
 };
 if (AT) {
