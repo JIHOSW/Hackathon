@@ -2185,7 +2185,8 @@ function onStepperInput(t) {
 }
 // 숫자 입력에는 숫자만 친다(브라우저 숫자 칸은 e, +, -, . 도 받는다).
 document.addEventListener('keydown', (e) => {
-  if (e.target.matches && e.target.matches('.sv input') && e.key.length === 1 && !/[0-9]/.test(e.key) && !e.ctrlKey && !e.metaKey) e.preventDefault();
+  // 시급·일수·올해 번 돈처럼 다른 숫자 칸도 같다. 'e'(1e5 = 100,000)나 '.'이 쳐지면 값이 말없이 바뀐다.
+  if (e.target.matches && e.target.matches('.sv input, input[type="number"]') && e.key.length === 1 && !/[0-9]/.test(e.key) && !e.ctrlKey && !e.metaKey) e.preventDefault();
 });
 
 // 직접 입력 화면의 글자 칸과, 기간 고치기 창의 날짜. 다시 그리지 않아 커서가 그대로 남는다.
@@ -2368,8 +2369,12 @@ document.addEventListener('click', (e) => {
       const key = el.dataset.key; const input = document.getElementById('e-val');
       const v = input && input.value !== '' ? Number(input.value) : null;
       // 잘못된 값이면 창을 닫지 않고 무엇을 넣어야 하는지 알려 준다.
+      // 범위를 벗어나거나 소수인 시급은 말없이 바꾸지 않는다(예전에는 0.5시간을 그대로, 53시간은 52로, 10.5원은 11원으로 바꿨다).
       const bad = !v || v <= 0 ? (key === 'weeklyHours' ? '일주일에 1시간 이상으로 넣어 주세요' : '시급을 넣어 주세요')
-        : key === 'hourlyWage' && v >= 1_000_000 ? '시급은 100만 원보다 적게 넣어 주세요' : null;
+        : key === 'weeklyHours' && v < 1 ? '일주일에 1시간 이상으로 넣어 주세요'
+          : key === 'weeklyHours' && v > 52 ? '일주일에 52시간까지 넣을 수 있어요'
+            : key === 'hourlyWage' && v >= 1_000_000 ? '시급은 100만 원보다 적게 넣어 주세요'
+              : key === 'hourlyWage' && !Number.isInteger(v) ? '시급은 1원 단위로 넣어 주세요' : null;
       if (bad) { state.sheet.hint = bad; state.sheet.draft = input ? input.value : ''; renderSheet(); document.getElementById('e-val')?.focus(); return; }
       state.fields[key] = { value: key === 'weeklyHours' ? Math.min(52, v) : Math.round(v), status: STATUS.CONFIRMED, evidence: '직접 수정' };
       if (!state.reviewed.includes(key)) state.reviewed.push(key);
@@ -2432,6 +2437,8 @@ document.addEventListener('click', (e) => {
       const cur = profileQuestions()[state.profileQ].q;
       const typed = (id) => { const x = document.getElementById(id); return x && x.value !== '' ? Number(x.value) : null; };
       const bad = cur === 'maxHours' && typed('p-max') !== null && !(typed('p-max') >= 1 && typed('p-max') <= 52) ? ['p-max', '일주일에 1~52시간 사이로 넣어 주세요']
+        // 붙여 넣은 소수(10.5)는 예전에는 말없이 11로 반올림했다.
+        : cur === 'maxHours' && typed('p-max') !== null && !Number.isInteger(typed('p-max')) ? ['p-max', '최대 시간은 1시간 단위로 넣어 주세요']
         : cur === 'age' && typed('p-age') !== null && !(typed('p-age') >= 15 && typed('p-age') <= 99) ? ['p-age', '만 나이는 15~99세 사이로 넣어 주세요'] : null;
       // 칸을 떠날 때(change) 최대 시간을 1~52로 잘라 저장했어도, 안내와 함께 보이는 값은 친 그대로 둔다.
       // 53을 쳤는데 칸에는 52가 보이면서 '1~52시간 사이로'라고 하면 무엇이 틀렸는지 알 수 없어서다.
