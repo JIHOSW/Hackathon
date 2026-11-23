@@ -477,18 +477,7 @@ function viewInput() {
   const m = manual();
   const year = state.rules.appliesToYear;
   const seg = (action, cur, v, label) => `<button type="button" class="seg-b ${cur === v ? 'on' : ''}" data-action="${action}" data-value="${v}" aria-pressed="${cur === v}">${label}</button>`;
-  return {
-    layout: 'c1',
-    html: `<h1 class="t2">조건을 <mark>직접</mark><br>입력해 주세요</h1>
-    <form id="manual" class="form">
-      <label for="m-wage">시급</label><div class="unit"><input id="m-wage" type="number" inputmode="numeric" min="1" max="999999" required placeholder="10,320" value="${esc(m.wage)}"><span>원</span></div>
-      <p class="lbl">어떻게 일하나요?</p>
-      <div class="seg2" role="group" aria-label="일하는 방식">${seg('mHow', m.how, 'pattern', '매주 같은 요일에')}${seg('mHow', m.how, 'picked', '날짜를 골라서')}</div>
-      ${m.how === 'pattern'
-        ? `<p class="lbl">일하는 요일</p>
-          <div class="days" role="group" aria-label="일하는 요일">${WEEK_ORDER.map((d) => `<button type="button" class="seg-b ${m.days.includes(d) ? 'on' : ''}" data-action="mDay" data-value="${d}" aria-pressed="${m.days.includes(d)}">${WEEKDAY[d]}</button>`).join('')}</div>`
-        : `<p class="lbl">일하는 날</p>${calendarHtml(m)}`}
-      <p class="lbl">하루 근무 시간</p>
+  const hoursHtml = `<p class="lbl">하루 근무 시간</p>
       <div class="grid2 pair">
         <div><label for="m-tstart">출근</label><input id="m-tstart" class="field" type="time" value="${m.start}" required></div>
         <div><label for="m-tend">퇴근</label><input id="m-tend" class="field" type="time" value="${m.end}" required></div>
@@ -497,7 +486,26 @@ function viewInput() {
         ? `<label for="m-break">쉬는 시간</label>
           <select id="m-break">${BREAKS.map(([v, l]) => `<option value="${v}" ${m.breakMin === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`
         : `<p class="fold">쉬는 시간 <b>${breakLabel(m.breakMin)}</b>으로 계산해요<button type="button" class="inline" data-action="mOpen" data-value="break" aria-label="쉬는 시간 바꾸기">바꾸기</button></p>`}
-      <div class="calc" id="m-calc" aria-live="polite">${manualCalcHtml()}</div>
+      <div class="calc" id="m-calc" aria-live="polite">${manualCalcHtml()}</div>`;
+  // PC에서는 두 칸: 왼쪽(.m-l)에 시급·일하는 방식·요일(날짜), 오른쪽(.m-r)에 기간·급여 받는 방식.
+  // 하루 근무 시간은 요일 아래(왼쪽)에 두고, 날짜를 고를 때만 달력이 왼쪽을 채우므로 오른쪽 맨 위로 옮긴다.
+  // 어느 쪽이든 순서는 같아서 휴대폰은 그대로 한 줄로 이어진다.
+  return {
+    layout: 'c2',
+    html: `<h1 class="t2 hd">조건을 <mark>직접</mark><br>입력해 주세요</h1>
+    <form id="manual" class="form">
+      <div class="m-l">
+      <label for="m-wage">시급</label><div class="unit"><input id="m-wage" type="number" inputmode="numeric" min="1" max="999999" required placeholder="10,320" value="${esc(m.wage)}"><span>원</span></div>
+      <p class="lbl">어떻게 일하나요?</p>
+      <div class="seg2" role="group" aria-label="일하는 방식">${seg('mHow', m.how, 'pattern', '매주 같은 요일에')}${seg('mHow', m.how, 'picked', '날짜를 골라서')}</div>
+      ${m.how === 'pattern'
+        ? `<p class="lbl">일하는 요일</p>
+          <div class="days" role="group" aria-label="일하는 요일">${WEEK_ORDER.map((d) => `<button type="button" class="seg-b ${m.days.includes(d) ? 'on' : ''}" data-action="mDay" data-value="${d}" aria-pressed="${m.days.includes(d)}">${WEEKDAY[d]}</button>`).join('')}</div>`
+        : `<p class="lbl">일하는 날</p>${calendarHtml(m)}`}
+      ${m.how === 'pattern' ? hoursHtml : ''}
+      </div>
+      <div class="m-r">
+      ${m.how === 'pattern' ? '' : hoursHtml}
       ${m.how === 'pattern' ? `<p class="lbl">언제부터 언제까지 일하나요?</p>
         <div class="grid2 pair">
           <div><label for="m-sdate">시작일</label><input id="m-sdate" class="field" type="date" min="${year}-01-01" max="${year}-12-31" value="${m.sdate}" required></div>
@@ -511,6 +519,7 @@ function viewInput() {
           <div class="seg2">${seg('mHoliday', String(m.holiday), 'false', '시급과 따로 받아요')}${seg('mHoliday', String(m.holiday), 'true', '시급에 포함돼 있어요')}</div>
           <p class="gline">일주일에 15시간 이상 일하면 받는 수당이에요. 모르면 '따로 받아요'로 계산해요</p>`
         : `<p class="fold">주휴수당은 <b>${m.holiday ? '시급에 포함된' : '시급과 따로 받는'}</b> 것으로 계산해요<button type="button" class="inline" data-action="mOpen" data-value="holiday" aria-label="주휴수당 받는 방식 바꾸기">바꾸기</button></p>`}
+      </div>
     </form>
     <p class="gline">${year}년 최저임금은 시급 ${won(state.rules.minimumWage.hourly)}이에요</p>`,
     bottom: `<button type="submit" form="manual" class="cta">조건 확인하기</button>`,

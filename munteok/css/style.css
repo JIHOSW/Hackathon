@@ -553,6 +553,13 @@ select { min-height: 48px; }
   body[data-layout="c2"] .app > .step { justify-self: start; }
   body[data-layout="c2"] .app > .step ~ .cb { margin-top: 16px; }
   body[data-layout="c2"] .cb > .opts:first-child > .opt:first-child, body[data-layout="c2"] .cb > .tips:first-child > .tip:first-child { margin-top: 0; }
+  /* 직접 입력: 폼 상자를 그리드에서 빼고(display: contents, 제출은 그대로) 왼쪽 묶음(.m-l)과 오른쪽 묶음(.m-r)을 두 칸에 바로 둔다.
+     왼쪽은 시급부터 요일(과 하루 근무 시간), 오른쪽은 (날짜를 고를 때 하루 근무 시간과) 기간·급여 받는 방식. 오른쪽은 .cb처럼 맨 끝 1fr 줄까지 걸쳐서
+     왼쪽 칸 아래 최저임금 안내가 벌어지지 않고, 맨 위는 왼쪽 '시급'과 같은 높이 */
+  body[data-layout="c2"] #manual { display: contents; }
+  body[data-layout="c2"] #manual > .m-l { grid-column: 1; }
+  body[data-layout="c2"] #manual > .m-r { grid-column: 2; grid-row: span 13; }
+  body[data-layout="c2"] #manual > .m-r > :first-child { margin-top: 16px; }
   /* 문구 만들기: 왼쪽에 문구 상자, 오른쪽에 요청 종류와 '다른 시간으로 바꾸기'. 문구 상자가 1fr 줄까지 걸쳐서 오른쪽 둘이 붙어 쌓인다 */
   body[data-step="message"] .app > .chips, body[data-step="message"] .app > .link { grid-column: 2; }
   body[data-step="message"] .app > .chips { margin-top: 16px; }
